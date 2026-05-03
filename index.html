@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Gastos</title>
+<script src="react.development.js"></script>
+<script src="react-dom.development.js"></script>
+<script src="babel.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  background: #f0ede8;
+  font-family: -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ── Layout responsivo ─────────────────────────────────── */
+
+/* Mobile: full screen */
+.app-shell {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  background: #fafaf8;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Desktop: simula el teléfono centrado */
+@media (min-width: 600px) {
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .app-shell {
+    width: 390px;
+    height: 820px;
+    border-radius: 44px;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+}
+
+/* ── Screen layout ─────────────────────────────────────── */
+.screen {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── Scroll area ────────────────────────────────────────── */
+.scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
+.scroll::-webkit-scrollbar { display: none; }
+
+/* ── Bottom nav ─────────────────────────────────────────── */
+.nav {
+  height: 64px;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 8px;
+  border-top: 1px solid #e8e4de;
+  background: #fafaf8;
+  flex-shrink: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  padding: 2px 0;
+  font-size: 10px;
+  color: #aaa;
+  transition: color .15s;
+}
+.nav-item.active { color: #1a1a1a; }
+.nav-icon { font-size: 19px; line-height: 1; }
+
+/* ── Cards ──────────────────────────────────────────────── */
+.card {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e8e4de;
+}
+
+/* ── Pill buttons ───────────────────────────────────────── */
+.btn-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f0ede8;
+  border: none;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: #555;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s;
+  white-space: nowrap;
+}
+.btn-pill:hover { background: #e4e0da; }
+.btn-pill.active { background: #1a1a1a; color: #fff; }
+
+/* ── Transaction rows ───────────────────────────────────── */
+.tx-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background .1s;
+}
+.tx-row:active { background: #f5f2ec; }
+@media (hover: hover) { .tx-row:hover { background: #f5f2ec; } }
+
+.tx-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.tx-info { flex: 1; min-width: 0; }
+.tx-desc { font-size: 14px; font-weight: 500; color: #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-meta { font-size: 12px; color: #888; margin-top: 1px; }
+.tx-amt { font-size: 14px; font-weight: 600; white-space: nowrap; font-family: -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+.tx-amt.pos { color: #2d7a52; }
+.tx-amt.neg { color: #c04030; }
+
+/* ── Date group header ──────────────────────────────────── */
+.date-header {
+  padding: 12px 16px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+/* ── Header base ────────────────────────────────────────── */
+.screen-header {
+  flex-shrink: 0;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-root"></div>
+
+<script type="text/babel">
+
+const { useState, useMemo, useCallback, useEffect } = React;
+
+// ── Data ──────────────────────────────────────────────────────────────────
+
+const CAT_COLORS = {
+  'Comida': '#e8b86d',
+  'Compras': '#7eb8d4',
+  'Combustible': '#d4876b',
+  'Ocio': '#a78bda',
+  'Salud': '#6bbf8e',
+  'Suscripciones': '#e88ba0',
+  'Ropa': '#f0c060',
+  'Viajes': '#60b4b4',
+  'Inversiones': '#5a9cd4',
+  'Inversión': '#5a9cd4',
+  'Gimnasio': '#88c070',
+  'Regalo': '#d490c0',
+  'Donación': '#a0c890',
+  'Art. Higiene': '#80c8c0',
+  'Impuestos': '#c8a080',
+  'Suplementos': '#98d0a0',
+  'Peluquería': '#d0a8d0',
+  'Otros': '#b0aaaa',
+  'Ingresos': '#2d7a52',
+  'Fábrica': '#2d7a52'
+};
+
+const MONTHS = [
+  { id: '0326', label: 'Marzo 2026', short: 'Mar', saldoInicial: 4495051, cuotas: 0 },
+  { id: '0226', label: 'Febrero 2026', short: 'Feb', saldoInicial: 4100000, cuotas: 50000 },
+  { id: '0126', label: 'Enero 2026', short: 'Ene', saldoInicial: 3800000, cuotas: 30000 },
+  { id: '1225', label: 'Diciembre 2025', short: 'Dic', saldoInicial: 3200000, cuotas: 80000 },
+  { id: '1025', label: 'Octubre 2025', short: 'Oct', saldoInicial: 2900000, cuotas: 0 },
+  { id: '0925', label: 'Sep 2025', short: 'Sep', saldoInicial: 2700000, cuotas: 20000 },
+  { id: '0825', label: 'Ago 2025', short: 'Ago', saldoInicial: 2500000, cuotas: 0 },
+  { id: '0725', label: 'Jul 2025', short: 'Jul', saldoInicial: 2300000, cuotas: 60000 },
+  { id: '0624', label: 'Jun 2024', short: 'Jun', saldoInicial: 900000, cuotas: 0 },
+  { id: '0524', label: 'May 2024', short: 'May', saldoInicial: 800000, cuotas: 0 },
+  { id: '0424', label: 'Abr 2024', short: 'Abr', saldoInicial: 700000, cuotas: 0 }
+];
+
+const ALL_TX = [
+  // Marzo 2026
+  { id: 1, month: '0326', date: '2026-03-31', desc: 'Sueldo Fábrica', cat: 'Ingresos', medio: 'MP', amt: 749000, type: 'i' },
+  { id: 2, month: '0326', date: '2026-03-31', desc: 'Combustible', cat: 'Combustible', medio: 'Efectivo', amt: -13000, type: 'g' },
+  { id: 3, month: '0326', date: '2026-03-30', desc: 'MP Crédito', cat: 'Compras', medio: 'Naranja X', amt: -311438, type: 'g' },
+  { id: 4, month: '0326', date: '2026-03-28', desc: 'Art. Higiene', cat: 'Art. Higiene', medio: 'Efectivo', amt: -18500, type: 'g' },
+  { id: 5, month: '0326', date: '2026-03-27', desc: 'Spotify', cat: 'Suscripciones', medio: 'Ualá Crédito', amt: -7000, type: 'g' },
+  { id: 6, month: '0326', date: '2026-03-25', desc: 'Asado', cat: 'Comida', medio: 'Efectivo', amt: -24000, type: 'g' },
+  { id: 7, month: '0326', date: '2026-03-22', desc: 'Nafta', cat: 'Combustible', medio: 'Efectivo', amt: -30000, type: 'g' },
+  { id: 8, month: '0326', date: '2026-03-20', desc: 'Hamburguesa Bulliban', cat: 'Comida', medio: 'MP Crédito', amt: -19500, type: 'g' },
+  { id: 9, month: '0326', date: '2026-03-18', desc: 'Gimnasio', cat: 'Gimnasio', medio: 'MP Crédito', amt: -25000, type: 'g' },
+  { id: 10, month: '0326', date: '2026-03-15', desc: 'Sueldo extra', cat: 'Ingresos', medio: 'MP', amt: 500000, type: 'i' },
+  { id: 11, month: '0326', date: '2026-03-14', desc: 'Monotributo', cat: 'Impuestos', medio: 'MP Crédito', amt: -45000, type: 'g' },
+  { id: 12, month: '0326', date: '2026-03-12', desc: 'Empanadas', cat: 'Comida', medio: 'Efectivo', amt: -8000, type: 'g' },
+  { id: 13, month: '0326', date: '2026-03-10', desc: 'Peluquería', cat: 'Peluquería', medio: 'Efectivo', amt: -10000, type: 'g' },
+  { id: 14, month: '0326', date: '2026-03-08', desc: 'Google One', cat: 'Suscripciones', medio: 'Ualá Crédito', amt: -5500, type: 'g' },
+  { id: 15, month: '0326', date: '2026-03-05', desc: 'Compras Temu', cat: 'Compras', medio: 'Astropay', amt: -24163, type: 'g' },
+  // Febrero 2026
+  { id: 20, month: '0226', date: '2026-02-28', desc: 'Sueldo Fábrica', cat: 'Ingresos', medio: 'MP', amt: 749000, type: 'i' },
+  { id: 21, month: '0226', date: '2026-02-27', desc: 'Tokyo', cat: 'Ocio', medio: 'Naranja X', amt: -35000, type: 'g' },
+  { id: 22, month: '0226', date: '2026-02-24', desc: 'Combustible', cat: 'Combustible', medio: 'Efectivo', amt: -40000, type: 'g' },
+  { id: 23, month: '0226', date: '2026-02-20', desc: 'Ropa invierno', cat: 'Ropa', medio: 'Naranja X', amt: -95000, type: 'g' },
+  { id: 24, month: '0226', date: '2026-02-15', desc: 'Sueldo extra', cat: 'Ingresos', medio: 'MP', amt: 500000, type: 'i' },
+  { id: 25, month: '0226', date: '2026-02-12', desc: 'Hamburguesa Bulliban', cat: 'Comida', medio: 'Efectivo', amt: -19500, type: 'g' },
+  { id: 26, month: '0226', date: '2026-02-08', desc: 'Gimnasio', cat: 'Gimnasio', medio: 'MP Crédito', amt: -25000, type: 'g' },
+  { id: 27, month: '0226', date: '2026-02-05', desc: 'Spotify', cat: 'Suscripciones', medio: 'Ualá', amt: -7000, type: 'g' },
+  // Enero 2026
+  { id: 30, month: '0126', date: '2026-01-31', desc: 'Sueldo Fábrica', cat: 'Ingresos', medio: 'MP', amt: 749000, type: 'i' },
+  { id: 31, month: '0126', date: '2026-01-28', desc: 'Brasil viaje', cat: 'Viajes', medio: 'Naranja X', amt: -280000, type: 'g' },
+  { id: 32, month: '0126', date: '2026-01-20', desc: 'Regalo Ori Navidad', cat: 'Regalo', medio: 'Efectivo', amt: -45000, type: 'g' },
+  { id: 33, month: '0126', date: '2026-01-15', desc: 'Sueldo extra', cat: 'Ingresos', medio: 'MP', amt: 500000, type: 'i' },
+  // Diciembre 2025
+  { id: 40, month: '1225', date: '2025-12-31', desc: 'Aguinaldo', cat: 'Ingresos', medio: 'MP', amt: 749000, type: 'i' },
+  { id: 41, month: '1225', date: '2025-12-30', desc: 'Sueldo Diciembre', cat: 'Ingresos', medio: 'MP', amt: 749000, type: 'i' },
+  { id: 42, month: '1225', date: '2025-12-28', desc: 'Monitor Samsung OLED', cat: 'Compras', medio: 'Naranja X', amt: -520000, type: 'g' },
+  { id: 43, month: '1225', date: '2025-12-24', desc: 'Bulliban Cumple Tomi', cat: 'Comida', medio: 'Efectivo', amt: -38000, type: 'g' },
+  { id: 44, month: '1225', date: '2025-12-20', desc: 'Suplementos', cat: 'Suplementos', medio: 'MP Crédito', amt: -55000, type: 'g' },
+  // Oct 2025
+  { id: 50, month: '1025', date: '2025-10-31', desc: 'Sueldo', cat: 'Ingresos', medio: 'MP', amt: 620000, type: 'i' },
+  { id: 51, month: '1025', date: '2025-10-25', desc: 'Paleta Padel', cat: 'Ocio', medio: 'Naranja X', amt: -85000, type: 'g' },
+  { id: 52, month: '1025', date: '2025-10-18', desc: 'Combustible', cat: 'Combustible', medio: 'Efectivo', amt: -35000, type: 'g' },
+  { id: 53, month: '1025', date: '2025-10-10', desc: 'Keycaps', cat: 'Compras', medio: 'Astropay', amt: -65000, type: 'g' },
+  // Jul 2025
+  { id: 60, month: '0725', date: '2025-07-31', desc: 'Sueldo', cat: 'Ingresos', medio: 'MP', amt: 580000, type: 'i' },
+  { id: 61, month: '0725', date: '2025-07-28', desc: 'Chromecast', cat: 'Compras', medio: 'Naranja X', amt: -48000, type: 'g' },
+  { id: 62, month: '0725', date: '2025-07-20', desc: 'Figura Goku', cat: 'Compras', medio: 'Astropay', amt: -72000, type: 'g' },
+  { id: 63, month: '0725', date: '2025-07-15', desc: 'Fballshirt', cat: 'Ropa', medio: 'Astropay', amt: -45000, type: 'g' }
+];
+
+// ── Helpers ──────────────────────────────────────────────
+
+function fmt(n, showSign = false) {
+  const abs = Math.abs(n);
+  const s = abs >= 1000000
+    ? `$ ${(abs / 1000000).toFixed(2).replace('.', ',')}M`
+    : abs >= 1000
+    ? `$ ${Math.round(abs / 1000).toLocaleString('es-AR')}k`
+    : `$ ${abs.toLocaleString('es-AR')}`;
+  if (!showSign) return s;
+  return (n >= 0 ? '+' : '−') + ' ' + s;
+}
+
+function fmtFull(n) {
+  return `$ ${Math.abs(n).toLocaleString('es-AR')}`;
+}
+
+function catColor(cat) { return CAT_COLORS[cat] || '#b0aaaa'; }
+
+function groupByDate(txs) {
+  const groups = {};
+  txs.forEach(tx => {
+    if (!groups[tx.date]) groups[tx.date] = [];
+    groups[tx.date].push(tx);
+  });
+  return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
+}
+
+function fmtDate(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+function monthIdToLabelFull(id) {
+  const mm = parseInt(id.slice(0, 2), 10) - 1, yy = id.slice(2);
+  return `${MONTH_NAMES[mm]} 20${yy}`;
+}
+function monthIdToShort(id) {
+  const mm = parseInt(id.slice(0, 2), 10) - 1;
+  return ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][mm];
+}
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+function dateToMonthId(dateStr) {
+  const [y, m] = dateStr.split('-');
+  return m + y.slice(2);
+}
+
+// ── Donut Chart ───────────────────────────────────────────
+
+function DonutChart({ data, size = 160, onSliceClick }) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  const cx = size / 2, cy = size / 2, r = size * 0.38, inner = size * 0.24;
+  if (data.length === 1) {
+    return (
+      <svg width={size} height={size} style={{ cursor: 'pointer' }} onClick={() => onSliceClick && onSliceClick()}>
+        <circle cx={cx} cy={cy} r={(r + inner) / 2} fill="none" stroke={data[0].color} strokeWidth={r - inner} />
+      </svg>
+    );
+  }
+  let angle = -Math.PI / 2;
+  const slices = data.map(d => {
+    const sweep = d.value / total * Math.PI * 2;
+    const a1 = angle, a2 = angle + sweep;
+    angle = a2;
+    const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
+    const x2 = cx + r * Math.cos(a2), y2 = cy + r * Math.sin(a2);
+    const xi1 = cx + inner * Math.cos(a1), yi1 = cy + inner * Math.sin(a1);
+    const xi2 = cx + inner * Math.cos(a2), yi2 = cy + inner * Math.sin(a2);
+    const lg = sweep > Math.PI ? 1 : 0;
+    const path = `M${xi1},${yi1} L${x1},${y1} A${r},${r} 0 ${lg},1 ${x2},${y2} L${xi2},${yi2} A${inner},${inner} 0 ${lg},0 ${xi1},${yi1} Z`;
+    return { ...d, path };
+  });
+  return (
+    <svg width={size} height={size} style={{ cursor: 'pointer' }} onClick={() => onSliceClick && onSliceClick()}>
+      {slices.map((s, i) => (
+        <path key={i} d={s.path} fill={s.color} stroke="#fafaf8" strokeWidth="2"
+          style={{ transition: 'opacity .15s' }}
+          onMouseEnter={e => e.target.style.opacity = '.75'}
+          onMouseLeave={e => e.target.style.opacity = '1'} />
+      ))}
+    </svg>
+  );
+}
+
+// ── BottomNav ─────────────────────────────────────────────
+
+const NAV_ITEMS = [
+  { id: 'dashboard', icon: '⌂', label: 'Inicio' },
+  { id: 'movimientos', icon: '↕', label: 'Movimientos' },
+  { id: 'categorias', icon: '◎', label: 'Categorías' },
+  { id: 'anual', icon: '▦', label: 'Anual' },
+  { id: 'ajustes', icon: '⚙', label: 'Ajustes' }
+];
+
+function BottomNav({ screen, onNav }) {
+  return (
+    <div className="nav">
+      {NAV_ITEMS.map(n => (
+        <div key={n.id} className={`nav-item ${screen === n.id ? 'active' : ''}`} onClick={() => onNav(n.id)}>
+          <span className="nav-icon">{n.icon}</span>
+          <span>{n.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Modal: Nuevo movimiento ──────────────────────────────
+
+const MEDIOS = ['Efectivo', 'Naranja X', 'MP Crédito', 'Ualá Crédito', 'Astropay', 'Personal Pay'];
+const CATS_GASTO = Object.keys(CAT_COLORS).filter(c => c !== 'Ingresos' && c !== 'Fábrica');
+
+function NewExpenseModal({ onClose, onSave, initialValues, catList, medioList }) {
+  const isEdit = !!initialValues;
+  const gastoCats = catList ? catList.filter(c => c.key !== 'Ingresos' && c.key !== 'Fábrica').map(c => c.name) : CATS_GASTO;
+  const ingresoCats = catList ? catList.filter(c => c.key === 'Ingresos' || c.key === 'Fábrica' || c.color === '#2d7a52').map(c => c.name) : ['Ingresos', 'Fábrica'];
+  const availableMedios = medioList ? medioList.map(m => m.name) : MEDIOS;
+  const [desc, setDesc] = useState(initialValues?.desc || '');
+  const [amt, setAmt] = useState(initialValues ? Math.abs(initialValues.amt).toString() : '');
+  const [cat, setCat] = useState(initialValues?.cat || (catList ? catList.filter(c => c.key !== 'Ingresos' && c.key !== 'Fábrica')[0]?.name : CATS_GASTO[0]) || '');
+  const [medio, setMedio] = useState(initialValues?.medio || (medioList ? medioList[0]?.name : MEDIOS[0]));
+  const [type, setType] = useState(initialValues?.type || 'g');
+  const [date, setDate] = useState(initialValues?.date || todayStr());
+  const inp = { width: '100%', padding: '8px 10px', border: '1px solid #e8e4de', borderRadius: 8, fontFamily: 'inherit', fontSize: 14, marginTop: 4, outline: 'none', background: '#fff' };
+
+  const handleSave = () => {
+    if (!desc.trim() || !amt || isNaN(Number(amt))) return;
+    onSave({ id: Date.now(), month: dateToMonthId(date), date, desc: desc.trim(), cat: type === 'i' ? 'Ingresos' : cat, medio, amt: type === 'i' ? Math.abs(Number(amt)) : -Math.abs(Number(amt)), type });
+    onClose();
+  };
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }} onClick={onClose}>
+      <div style={{ width: '100%', background: '#fafaf8', borderRadius: '24px 24px 0 0', padding: '20px 20px 32px' }} onClick={e => e.stopPropagation()}>
+        <div style={{ width: 40, height: 4, background: '#e0ddd8', borderRadius: 2, margin: '0 auto 20px' }} />
+        <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 16 }}>{isEdit ? 'Editar movimiento' : 'Nuevo movimiento'}</div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          {[['g', 'Gasto'], ['i', 'Ingreso']].map(([v, l]) => (
+            <button key={v} onClick={() => setType(v)} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: 8, background: type === v ? '#1a1a1a' : '#f0ede8', color: type === v ? '#fff' : '#555', fontFamily: 'inherit', fontSize: 14, cursor: 'pointer' }}>{l}</button>
+          ))}
+        </div>
+        <label style={{ fontSize: 12, color: '#888', display: 'block' }}>Descripción
+          <input style={inp} value={desc} onChange={e => setDesc(e.target.value)} placeholder="ej. Asado" />
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+          <label style={{ fontSize: 12, color: '#888', display: 'block' }}>Importe
+            <input style={inp} value={amt} onChange={e => setAmt(e.target.value)} placeholder="0" type="number" />
+          </label>
+          <label style={{ fontSize: 12, color: '#888', display: 'block' }}>Fecha
+            <input style={inp} value={date} onChange={e => setDate(e.target.value)} type="date" />
+          </label>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+          {type === 'g' && (
+            <label style={{ fontSize: 12, color: '#888', display: 'block' }}>Categoría
+              <select style={{ ...inp }} value={cat} onChange={e => setCat(e.target.value)}>
+                {gastoCats.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </label>
+          )}
+          <label style={{ fontSize: 12, color: '#888', display: 'block', gridColumn: type === 'i' ? '1 / -1' : 'auto' }}>Medio
+            <select style={{ ...inp }} value={medio} onChange={e => setMedio(e.target.value)}>
+              {availableMedios.map(m => <option key={m}>{m}</option>)}
+            </select>
+          </label>
+        </div>
+        <button onClick={handleSave} style={{ width: '100%', marginTop: 16, padding: '12px', background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 12, fontFamily: 'inherit', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>{isEdit ? 'Actualizar' : 'Guardar'}</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Modal: Nueva categoría ────────────────────────────────
+
+function NewCategoryModal({ onClose, onSave, initialValues }) {
+  const isEdit = !!initialValues;
+  const [name, setName] = useState(initialValues?.name || '');
+  const [color, setColor] = useState(initialValues?.color || '#88c070');
+  const inp = { width: '100%', padding: '8px 10px', border: '1px solid #e8e4de', borderRadius: 8, fontFamily: 'inherit', fontSize: 14, marginTop: 4, outline: 'none' };
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }} onClick={onClose}>
+      <div style={{ width: '100%', background: '#fafaf8', borderRadius: '24px 24px 0 0', padding: '20px 20px 32px' }} onClick={e => e.stopPropagation()}>
+        <div style={{ width: 40, height: 4, background: '#e0ddd8', borderRadius: 2, margin: '0 auto 20px' }} />
+        <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 16 }}>{isEdit ? 'Editar categoría' : 'Nueva categoría'}</div>
+        <label style={{ fontSize: 12, color: '#888' }}>Nombre
+          <input style={inp} value={name} onChange={e => setName(e.target.value)} placeholder="ej. Mascota" />
+        </label>
+        <label style={{ fontSize: 12, color: '#888', display: 'block', marginTop: 12 }}>Color
+          <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+            {['#e8b86d','#7eb8d4','#d4876b','#a78bda','#6bbf8e','#e88ba0','#f0c060','#60b4b4','#88c070','#d490c0'].map(c => (
+              <div key={c} onClick={() => setColor(c)} style={{ width: 28, height: 28, borderRadius: 14, background: c, cursor: 'pointer', boxShadow: color === c ? '0 0 0 3px #1a1a1a' : '' }} />
+            ))}
+          </div>
+        </label>
+        <button onClick={() => { if (name.trim()) { onSave && onSave({ oldName: initialValues?.name, name: name.trim(), color }); } onClose(); }} style={{ width: '100%', marginTop: 20, padding: '12px', background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 12, fontFamily: 'inherit', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>{isEdit ? 'Actualizar' : 'Crear categoría'}</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Header minimalista ────────────────────────────────────
+// Selector de mes limpio: "‹ Marzo 2026 ›" con fondo sutil
+
+function MonthSelector({ month, allMonths, onMonthChange, light = false }) {
+  const monthIdx = allMonths.findIndex(m => m.id === month.id);
+  const canPrev = monthIdx < allMonths.length - 1;
+  const canNext = monthIdx > 0;
+  const btnStyle = (active, lighter) => ({
+    background: 'none', border: 'none', cursor: active ? 'pointer' : 'default',
+    color: active ? (lighter ? '#4a8a5a' : '#1a1a1a') : (lighter ? '#b8d4be' : '#ccc'),
+    fontSize: 20, lineHeight: 1, padding: '0 6px', fontFamily: 'inherit'
+  });
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <button onClick={() => canPrev && onMonthChange(1)} style={btnStyle(canPrev, light)}>‹</button>
+      <span style={{ fontSize: 13, fontWeight: 600, color: light ? '#4a8a5a' : '#555', letterSpacing: '.01em', minWidth: 100, textAlign: 'center' }}>{month.label}</span>
+      <button onClick={() => canNext && onMonthChange(-1)} style={btnStyle(canNext, light)}>›</button>
+    </div>
+  );
+}
+
+// ── Screen: Dashboard ─────────────────────────────────────
+
+function Dashboard({ month, txs, allMonths, onNav, onMonthChange, onAddTx, onEditTx, catOverrides = {}, catList = [], medioList = [] }) {
+  const [showModal, setShowModal] = useState(false);
+  const [editingTx, setEditingTx] = useState(null);
+  const ingresos = txs.filter(t => t.type === 'i').reduce((s, t) => s + t.amt, 0);
+  const gastos = Math.abs(txs.filter(t => t.type === 'g').reduce((s, t) => s + t.amt, 0));
+  const neto = ingresos - gastos;
+  const saldoFinal = month.saldoInicial + neto;
+  const recent = [...txs].slice(0, 5);
+
+  const resolvedCatColor = cat => {
+    if (catOverrides[cat]) return catOverrides[cat].color;
+    const found = catList.find(c => c.key === cat || c.name === cat);
+    return found ? found.color : catColor(cat);
+  };
+
+  const catMap = {};
+  txs.filter(t => t.type === 'g').forEach(t => { catMap[t.cat] = (catMap[t.cat] || 0) + Math.abs(t.amt); });
+  const donutData = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([cat, value]) => ({ cat, value, color: resolvedCatColor(cat) }));
+
+  return (
+    <div className="screen">
+      {/* Cabecera minimalista */}
+      <div className="screen-header" style={{ background: '#e8f2ec', flexShrink: 0 }}>
+        {/* Fila top: selector mes */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 0' }}>
+          <MonthSelector month={month} allMonths={allMonths} onMonthChange={onMonthChange} light />
+          <div style={{ width: 8, height: 8, borderRadius: 4, background: '#6bbf8e', opacity: .6 }} />
+        </div>
+
+        {/* Saldo */}
+        <div style={{ padding: '10px 20px 16px' }}>
+          <div style={{
+            fontSize: 36, fontWeight: 700, letterSpacing: '-1.5px',
+            color: '#1a1a1a',
+            fontFamily: '-apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif',
+            lineHeight: 1.1
+          }}>
+            {fmtFull(saldoFinal)}
+          </div>
+          <div style={{
+            fontSize: 11, color: '#6a9a72', marginTop: 2,
+            fontWeight: 500, letterSpacing: '.04em', textTransform: 'uppercase',
+            fontFamily: '-apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif'
+          }}>saldo final</div>
+
+          {/* Pills ingresos / gastos / neto */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+            <span style={{ background: '#c8e8d0', color: '#2a6a3a', fontSize: 12, padding: '4px 10px', borderRadius: 20, fontWeight: 500 }}>+ {fmt(ingresos)}</span>
+            <span style={{ background: '#f0d8d4', color: '#8a3028', fontSize: 12, padding: '4px 10px', borderRadius: 20, fontWeight: 500 }}>− {fmt(gastos)}</span>
+            <span style={{ background: '#e8f0ec', color: '#3a6a48', fontSize: 12, padding: '4px 10px', borderRadius: 20, fontWeight: 500 }}>≈ {fmt(neto, true)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="scroll">
+        {/* Donut + leyenda */}
+        <div style={{ padding: '20px 20px 0', display: 'flex', gap: 16, alignItems: 'center' }}>
+          <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => onNav('categorias')}>
+            <DonutChart data={donutData.length ? donutData : [{ cat: 'Sin datos', value: 1, color: '#e8e4de' }]} size={140} onSliceClick={() => onNav('categorias')} />
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+              <div style={{ fontSize: 11, color: '#888' }}>Gastos</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a1a' }}>{fmt(gastos)}</div>
+            </div>
+            <div style={{ position: 'absolute', bottom: -8, left: 0, right: 0, textAlign: 'center' }}>
+              <span style={{ fontSize: 10, color: '#aaa', background: '#fafaf8', padding: '0 4px' }}>toca para ver →</span>
+            </div>
+          </div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {donutData.slice(0, 5).map(d => (
+              <div key={d.cat} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 10, height: 10, borderRadius: 3, background: d.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, color: '#1a1a1a', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.cat}</span>
+                <span style={{ fontSize: 12, color: '#888' }}>{fmt(d.value)}</span>
+              </div>
+            ))}
+            {donutData.length > 5 && <div style={{ fontSize: 11, color: '#aaa' }}>+ {donutData.length - 5} más</div>}
+          </div>
+        </div>
+
+        {/* Cuotas */}
+        {month.cuotas > 0 && (
+          <div style={{ margin: '16px 16px 0' }}>
+            <div className="card" style={{ padding: '12px 16px', background: '#fffbee', borderColor: '#e8d898', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#8a6a00' }}>Cuotas mes que viene</div>
+                <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>próximo mes</div>
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#8a6a00' }}>− {fmtFull(month.cuotas)}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Últimos movimientos */}
+        <div style={{ padding: '20px 20px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1a1a' }}>Últimos movimientos</span>
+          <span style={{ fontSize: 12, color: '#888', cursor: 'pointer' }} onClick={() => onNav('movimientos')}>ver todos →</span>
+        </div>
+        <div className="card" style={{ margin: '0 16px 24px' }}>
+          {recent.length === 0 && <div style={{ padding: '20px', textAlign: 'center', color: '#aaa', fontSize: 13 }}>Sin movimientos</div>}
+          {recent.map((tx, i) => (
+            <div key={tx.id}>
+              {i > 0 && <div style={{ height: 1, background: '#f0ede8', margin: '0 16px' }} />}
+              <div className="tx-row" style={{ cursor: 'pointer' }} onClick={() => setEditingTx(tx)}>
+                <div className="tx-dot" style={{ background: resolvedCatColor(tx.cat) + '33', borderRadius: 12 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 5, background: resolvedCatColor(tx.cat) }} />
+                </div>
+                <div className="tx-info">
+                  <div className="tx-desc">{tx.desc}</div>
+                  <div className="tx-meta">{tx.cat} · {tx.medio}</div>
+                </div>
+                <div className={`tx-amt ${tx.type === 'i' ? 'pos' : 'neg'}`}>
+                  {tx.type === 'i' ? '+' : '-'}{fmtFull(tx.amt)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* FAB */}
+      <div onClick={() => setShowModal(true)} style={{ position: 'absolute', bottom: 80, right: 20, width: 52, height: 52, borderRadius: 26, background: '#3a7a50', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 16px rgba(58,122,80,0.35)', fontSize: 28, color: '#fff', userSelect: 'none', zIndex: 10 }}>+</div>
+      {showModal && <NewExpenseModal onClose={() => setShowModal(false)} onSave={onAddTx} catList={catList} medioList={medioList} />}
+      {editingTx && <NewExpenseModal initialValues={editingTx} onClose={() => setEditingTx(null)} onSave={tx => { onEditTx({ ...editingTx, ...tx, id: editingTx.id }); setEditingTx(null); }} catList={catList} medioList={medioList} />}
+      <BottomNav screen="dashboard" onNav={onNav} />
+    </div>
+  );
+}
+
+// ── Screen: Movimientos ──────────────────────────────────
+
+function Movimientos({ month, txs, allMonths, onNav, onMonthChange, onAddTx, onEditTx, catOverrides = {}, catList = [], medioList = [] }) {
+  const [filter, setFilter] = useState('todos');
+  const [showModal, setShowModal] = useState(false);
+  const [editingTx, setEditingTx] = useState(null);
+  const cats = [...new Set(txs.map(t => t.cat))];
+
+  const resolvedCatColor = cat => {
+    if (catOverrides[cat]) return catOverrides[cat].color;
+    const found = catList.find(c => c.key === cat || c.name === cat);
+    return found ? found.color : catColor(cat);
+  };
+
+  const filtered = filter === 'todos' ? txs
+    : filter === 'ingresos' ? txs.filter(t => t.type === 'i')
+    : filter === 'gastos' ? txs.filter(t => t.type === 'g')
+    : txs.filter(t => t.cat === filter);
+
+  const groups = groupByDate(filtered);
+
+  return (
+    <div className="screen">
+      <div className="screen-header" style={{ background: '#fafaf8', borderBottom: '1px solid #e8e4de' }}>
+        <div style={{ padding: '14px 20px 0' }}>
+          <MonthSelector month={month} allMonths={allMonths} onMonthChange={onMonthChange} />
+        </div>
+        <div style={{ display: 'flex', gap: 6, padding: '10px 16px 12px', overflowX: 'auto' }}>
+          <style>{`.filter-scroll::-webkit-scrollbar{display:none}`}</style>
+          {['todos', 'ingresos', 'gastos', ...cats].map(f => (
+            <button key={f} className={`btn-pill ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)} style={{ flexShrink: 0 }}>
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="scroll">
+        {groups.length === 0 && <div style={{ padding: 40, textAlign: 'center', color: '#aaa', fontSize: 14 }}>Sin movimientos</div>}
+        {groups.map(([date, items]) => (
+          <div key={date}>
+            <div className="date-header">{fmtDate(date)}</div>
+            <div className="card" style={{ margin: '4px 16px 12px' }}>
+              {items.map((tx, i) => (
+                <div key={tx.id}>
+                  {i > 0 && <div style={{ height: 1, background: '#f0ede8', margin: '0 16px' }} />}
+                  <div className="tx-row">
+                    <div className="tx-dot" style={{ background: resolvedCatColor(tx.cat) + '33', borderRadius: 12 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: 5, background: resolvedCatColor(tx.cat) }} />
+                    </div>
+                    <div className="tx-info">
+                      <div className="tx-desc">{tx.desc}</div>
+                      <div className="tx-meta">{tx.cat} · {tx.medio}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div className={`tx-amt ${tx.type === 'i' ? 'pos' : 'neg'}`}>
+                        {tx.type === 'i' ? '+' : '-'}{fmtFull(tx.amt)}
+                      </div>
+                      <div style={{ fontSize: 15, color: '#ccc', cursor: 'pointer', padding: '4px 2px', flexShrink: 0 }} onClick={e => { e.stopPropagation(); setEditingTx(tx); }}>✎</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        <div style={{ height: 16 }} />
+      </div>
+      <div onClick={() => setShowModal(true)} style={{ position: 'absolute', bottom: 80, right: 20, width: 52, height: 52, borderRadius: 26, background: '#3a7a50', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 16px rgba(58,122,80,0.35)', fontSize: 28, color: '#fff', userSelect: 'none', zIndex: 10 }}>+</div>
+      {showModal && <NewExpenseModal onClose={() => setShowModal(false)} onSave={onAddTx} catList={catList} medioList={medioList} />}
+      {editingTx && <NewExpenseModal initialValues={editingTx} onClose={() => setEditingTx(null)} onSave={tx => { onEditTx({ ...editingTx, ...tx, id: editingTx.id }); setEditingTx(null); }} catList={catList} medioList={medioList} />}
+      <BottomNav screen="movimientos" onNav={onNav} />
+    </div>
+  );
+}
+
+// ── Screen: Categorías ────────────────────────────────────
+
+function Categorias({ month, txs, onNav, catOverrides = {}, onEditCat }) {
+  const [activeCat, setActiveCat] = useState(null);
+  const [editingCat, setEditingCat] = useState(null);
+  const [showCatModal, setShowCatModal] = useState(false);
+
+  const resolvedCatColor = cat => { const ov = catOverrides[cat]; return ov ? ov.color : catColor(cat); };
+  const resolvedCatName = cat => { const ov = catOverrides[cat]; return ov ? ov.name : cat; };
+
+  const gastos = txs.filter(t => t.type === 'g');
+  const totalGastos = gastos.reduce((s, t) => s + Math.abs(t.amt), 0);
+  const catMap = {};
+  gastos.forEach(t => { catMap[t.cat] = (catMap[t.cat] || 0) + Math.abs(t.amt); });
+  const cats = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+  const maxCat = cats[0]?.[1] || 1;
+
+  return (
+    <div className="screen">
+      <div className="screen-header" style={{ background: '#e8f2ec' }}>
+        <div style={{ padding: '14px 20px 14px' }}>
+          <div style={{ fontSize: 11, color: '#6a9a72', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>{month.label}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#1a1a1a' }}>Categorías</div>
+            <div style={{ fontSize: 13, color: '#5a9a6a' }}>{fmtFull(totalGastos)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="scroll">
+        <div style={{ padding: '16px 16px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {cats.map(([cat, val]) => {
+            const catTxs = txs.filter(t => t.cat === cat);
+            const isOpen = activeCat === cat;
+            return (
+              <div key={cat}>
+                <div className="card" style={{ cursor: 'pointer', outline: isOpen ? `2px solid ${resolvedCatColor(cat)}` : 'none', overflow: 'hidden' }} onClick={() => setActiveCat(isOpen ? null : cat)}>
+                  <div style={{ padding: '12px 16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 12, height: 12, borderRadius: 4, background: resolvedCatColor(cat) }} />
+                        <span style={{ fontSize: 14, fontWeight: 500 }}>{resolvedCatName(cat)}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: 14, fontWeight: 700 }}>{fmtFull(val)}</span>
+                          <span style={{ fontSize: 11, color: '#aaa', marginLeft: 6 }}>{Math.round(val / totalGastos * 100)}%</span>
+                        </div>
+                        <div style={{ fontSize: 15, color: '#bbb', cursor: 'pointer', padding: '4px' }} onClick={e => { e.stopPropagation(); setEditingCat({ name: resolvedCatName(cat), color: resolvedCatColor(cat), originalKey: cat }); }}>✎</div>
+                        <span style={{ fontSize: 12, color: '#aaa', transition: 'transform .2s', display: 'inline-block', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+                      </div>
+                    </div>
+                    <div style={{ height: 6, borderRadius: 3, background: '#f0ede8', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', borderRadius: 3, background: resolvedCatColor(cat), width: `${val / maxCat * 100}%`, transition: 'width .4s' }} />
+                    </div>
+                    <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>
+                      {catTxs.length} movimiento{catTxs.length !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                  {isOpen && (
+                    <div style={{ borderTop: `1px solid ${resolvedCatColor(cat)}33` }}>
+                      {catTxs.map((tx, i) => (
+                        <div key={tx.id}>
+                          {i > 0 && <div style={{ height: 1, background: '#f0ede8', margin: '0 16px' }} />}
+                          <div className="tx-row" style={{ background: '#fafaf8' }}>
+                            <div className="tx-info">
+                              <div className="tx-desc">{tx.desc}</div>
+                              <div className="tx-meta">{new Date(tx.date + 'T12:00:00').toLocaleDateString('es-AR')} · {tx.medio}</div>
+                            </div>
+                            <div className={`tx-amt ${tx.type === 'i' ? 'pos' : 'neg'}`}>
+                              {tx.type === 'i' ? '+' : '-'}{fmtFull(tx.amt)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div onClick={() => setShowCatModal(true)} style={{ position: 'absolute', bottom: 80, right: 20, width: 52, height: 52, borderRadius: 26, background: '#3a7a50', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 16px rgba(58,122,80,0.35)', fontSize: 28, color: '#fff', userSelect: 'none', zIndex: 10 }}>+</div>
+      {showCatModal && <NewCategoryModal onClose={() => setShowCatModal(false)} onSave={onEditCat} />}
+      {editingCat && <NewCategoryModal initialValues={editingCat} onClose={() => setEditingCat(null)} onSave={({ oldName, name, color }) => { onEditCat({ oldName: editingCat.originalKey, name, color }); setEditingCat(null); }} />}
+      <BottomNav screen="categorias" onNav={onNav} />
+    </div>
+  );
+}
+
+// ── Screen: Anual ─────────────────────────────────────────
+
+function Anual({ currentMonthId, allMonths, allTx, onNav, onSelectMonth }) {
+  const [hovered, setHovered] = useState(null);
+  const [viewMode, setViewMode] = useState('monto');
+
+  const monthStats = allMonths.map(m => {
+    const txs = allTx.filter(t => t.month === m.id);
+    const ingresos = txs.filter(t => t.type === 'i').reduce((s, t) => s + t.amt, 0);
+    const gastos = Math.abs(txs.filter(t => t.type === 'g').reduce((s, t) => s + t.amt, 0));
+    return { ...m, ingresos, gastos, neto: ingresos - gastos };
+  });
+
+  const maxAbs = Math.max(...monthStats.map(m => Math.abs(m.neto)), 1);
+  const totalNeto = monthStats.reduce((s, m) => s + m.neto, 0);
+  const activeMths = monthStats.filter(m => m.ingresos > 0 || m.gastos > 0).length;
+  const promedioNeto = activeMths ? totalNeto / activeMths : 0;
+
+  const byYear = {};
+  monthStats.forEach(m => {
+    const yr = '20' + m.id.slice(2);
+    if (!byYear[yr]) byYear[yr] = [];
+    byYear[yr].unshift(m);
+  });
+
+  const netoLabel = m => {
+    if (viewMode === 'pct') {
+      if (!m.ingresos) return '—';
+      return Math.round(m.neto / m.ingresos * 100) + '%';
+    }
+    return (m.neto >= 0 ? '+' : '') + fmt(m.neto);
+  };
+
+  return (
+    <div className="screen">
+      <div className="screen-header" style={{ background: '#fafaf8', borderBottom: '1px solid #e8e4de' }}>
+        <div style={{ padding: '14px 20px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#1a1a1a' }}>Vista Anual</div>
+            <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+              Neto: {fmtFull(totalNeto)} · Prom: {fmt(promedioNeto)}/mes
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+            {['monto', 'pct'].map(mode => (
+              <button key={mode} onClick={() => setViewMode(mode)} style={{
+                padding: '5px 12px', borderRadius: 16, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                background: viewMode === mode ? '#1a1a1a' : '#e8e4de',
+                color: viewMode === mode ? '#fff' : '#888', transition: 'all .15s'
+              }}>{mode === 'monto' ? '$' : '%'}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="scroll">
+        {Object.entries(byYear).sort((a, b) => b[0].localeCompare(a[0])).map(([year, months]) => (
+          <div key={year} style={{ padding: '16px 16px 0' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#aaa', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>{year}</div>
+            {/* Gráfico bidireccional neto */}
+            <div style={{ position: 'relative', height: 90, marginBottom: 4, padding: '0 4px' }}>
+              {/* Línea base central */}
+              <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, background: '#e0dcd8' }} />
+              <div style={{ display: 'flex', gap: 4, alignItems: 'stretch', height: '100%' }}>
+                {months.map(m => {
+                  const barH = Math.max(3, Math.abs(m.neto) / maxAbs * 42);
+                  const isPos = m.neto >= 0;
+                  const isActive = m.id === currentMonthId;
+                  const isHov = hovered === m.id;
+                  const barColor = isActive ? '#1a1a1a' : isPos ? '#4a9a6a' : '#c04030';
+                  const barColorHov = isActive ? '#333' : isPos ? '#2d7a52' : '#a03020';
+                  return (
+                    <div key={m.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative' }}
+                      onClick={() => { onSelectMonth(m.id); onNav('dashboard'); }}
+                      onMouseEnter={() => setHovered(m.id)} onMouseLeave={() => setHovered(null)}>
+                      {/* Tooltip hover */}
+                      {isHov && (
+                        <div style={{ position: 'absolute', top: isPos ? (45 - barH - 20) : (45 + barH - 4), left: '50%', transform: 'translateX(-50%)', background: '#1a1a1a', color: '#fff', fontSize: 9, padding: '2px 5px', borderRadius: 4, whiteSpace: 'nowrap', zIndex: 5 }}>
+                          {netoLabel(m)}
+                        </div>
+                      )}
+                      {/* Mitad superior (positivo) */}
+                      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', width: '100%', paddingBottom: 0.5 }}>
+                        {isPos && <div style={{ width: '100%', height: barH, borderRadius: '3px 3px 0 0', background: isHov ? barColorHov : barColor, transition: 'all .15s' }} />}
+                      </div>
+                      {/* Mitad inferior (negativo) */}
+                      <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', width: '100%', paddingTop: 0.5 }}>
+                        {!isPos && <div style={{ width: '100%', height: barH, borderRadius: '0 0 3px 3px', background: isHov ? barColorHov : barColor, transition: 'all .15s' }} />}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            {/* Labels de meses */}
+            <div style={{ display: 'flex', gap: 4, padding: '0 4px', marginBottom: 12 }}>
+              {months.map(m => {
+                const isActive = m.id === currentMonthId;
+                return (
+                  <div key={m.id} style={{ flex: 1, textAlign: 'center', cursor: 'pointer' }} onClick={() => { onSelectMonth(m.id); onNav('dashboard'); }}>
+                    <span style={{ fontSize: 9, color: isActive ? '#1a1a1a' : '#aaa', fontWeight: isActive ? 700 : 400 }}>{m.short}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="card" style={{ marginBottom: 16 }}>
+              {months.map((m, i) => {
+                const isActive = m.id === currentMonthId;
+                return (
+                  <div key={m.id}>
+                    {i > 0 && <div style={{ height: 1, background: '#f0ede8', margin: '0 16px' }} />}
+                    <div className="tx-row" style={{ background: isActive ? '#f5f2ec' : 'transparent' }}
+                      onClick={() => { onSelectMonth(m.id); onNav('dashboard'); }}>
+                      <div style={{ width: 4, height: 32, borderRadius: 2, background: isActive ? '#1a1a1a' : 'transparent', flexShrink: 0 }} />
+                      <div className="tx-info">
+                        <div className="tx-desc">{m.label}</div>
+                        <div className="tx-meta">+{fmt(m.ingresos)} / −{fmt(m.gastos)}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: m.neto >= 0 ? '#2d7a52' : '#c04030' }}>
+                          {netoLabel(m)}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#aaa' }}>{viewMode === 'pct' ? 'ahorro' : 'neto'}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        <div style={{ height: 16 }} />
+      </div>
+      <BottomNav screen="anual" onNav={onNav} />
+    </div>
+  );
+}
+
+// ── Screen: Ajustes ──────────────────────────────────────
+
+const COLOR_PALETTE = [
+  '#e8b86d','#7eb8d4','#d4876b','#a78bda','#6bbf8e','#e88ba0',
+  '#f0c060','#60b4b4','#88c070','#d490c0','#b0aaaa','#5a9cd4',
+  '#98d0a0','#d0a8d0','#c8a080','#ff6b6b','#ffd93d','#6bcb77',
+  '#4d96ff','#845ec2','#ff9671','#00c9a7','#f9c74f','#43aa8b',
+  '#e76f51','#2ec4b6','#cbf3f0','#ffbf69','#9b5de5','#f15bb5'
+];
+
+function DraggableList({ items, onReorder, onEdit, onDelete, hasColor, addLabel, onAdd }) {
+  const [editingIdx, setEditingIdx] = useState(null);
+  const [editVal, setEditVal] = useState({});
+  const [showColorIdx, setShowColorIdx] = useState(null);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
+
+  const startEdit = i => { setEditingIdx(i); setEditVal({ name: items[i].name, color: items[i].color || '' }); setShowColorIdx(null); };
+  const saveEdit = i => { if (editVal.name?.trim()) onEdit(i, editVal); setEditingIdx(null); setShowColorIdx(null); };
+
+  const handleDragStart = (e, i) => { setDragIdx(i); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', i); };
+  const handleDragOver = (e, i) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverIdx(i); };
+  const handleDrop = (e, i) => { e.preventDefault(); if (dragIdx !== null && dragIdx !== i) { const a = [...items]; const [r] = a.splice(dragIdx, 1); a.splice(i, 0, r); onReorder(a); } setDragIdx(null); setDragOverIdx(null); };
+  const handleDragEnd = () => { setDragIdx(null); setDragOverIdx(null); };
+
+  const inp = { flex: 1, padding: '6px 8px', border: '1px solid #e8e4de', borderRadius: 8, fontFamily: 'inherit', fontSize: 14, outline: 'none', background: '#fafaf8' };
+
+  return (
+    <div>
+      <div className="card" style={{ margin: '0 16px' }}>
+        {items.map((item, i) => (
+          <div key={item.key || item.name} draggable={editingIdx !== i}
+            onDragStart={e => handleDragStart(e, i)} onDragOver={e => handleDragOver(e, i)}
+            onDrop={e => handleDrop(e, i)} onDragEnd={handleDragEnd}
+            style={{ opacity: dragIdx === i ? 0.4 : 1, background: dragOverIdx === i && dragIdx !== i ? '#e4f2e8' : 'transparent', transition: 'background .1s' }}>
+            {i > 0 && <div style={{ height: 1, background: '#f0ede8', margin: '0 16px' }} />}
+            {editingIdx === i ? (
+              <div style={{ padding: '10px 16px', display: 'flex', gap: 8, alignItems: 'center', position: 'relative' }}>
+                {hasColor && (
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <div onClick={() => setShowColorIdx(showColorIdx === i ? null : i)} style={{ width: 28, height: 28, borderRadius: 14, background: editVal.color, border: '2px solid #e8e4de', cursor: 'pointer' }} />
+                    {showColorIdx === i && (
+                      <div style={{ position: 'absolute', top: 34, left: 0, zIndex: 20, background: '#fff', padding: 8, borderRadius: 10, border: '1px solid #e8e4de', display: 'flex', flexWrap: 'wrap', gap: 5, width: 168, boxShadow: '0 4px 16px rgba(0,0,0,.12)' }}>
+                        {COLOR_PALETTE.map(c => (
+                          <div key={c} onClick={() => { setEditVal(v => ({ ...v, color: c })); setShowColorIdx(null); }} style={{ width: 24, height: 24, borderRadius: 12, background: c, cursor: 'pointer', boxShadow: editVal.color === c ? '0 0 0 2px #1a1a1a' : '' }} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <input style={inp} value={editVal.name} onChange={e => setEditVal(v => ({ ...v, name: e.target.value }))} autoFocus onKeyDown={e => e.key === 'Enter' && saveEdit(i)} />
+                <button onClick={() => saveEdit(i)} style={{ padding: '6px 12px', background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, cursor: 'pointer' }}>OK</button>
+                <button onClick={() => setEditingIdx(null)} style={{ padding: '6px 10px', background: '#f0ede8', color: '#555', border: 'none', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, cursor: 'pointer' }}>✕</button>
+              </div>
+            ) : (
+              <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18, color: '#ccc', cursor: 'grab', userSelect: 'none', flexShrink: 0, lineHeight: 1 }}>⠿</span>
+                {hasColor && <div style={{ width: 14, height: 14, borderRadius: 7, background: item.color, flexShrink: 0 }} />}
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{item.name}</span>
+                <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                  <button onClick={() => startEdit(i)} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#bbb', padding: '2px 6px' }}>✎</button>
+                  <button onClick={() => onDelete(i)} style={{ background: 'none', border: 'none', fontSize: 15, cursor: 'pointer', color: '#e09090', padding: '2px 4px' }}>✕</button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <button onClick={onAdd} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 16px 0', padding: '10px 16px', background: '#f5f2ec', border: 'none', borderRadius: 10, fontFamily: 'inherit', fontSize: 14, color: '#555', cursor: 'pointer', width: 'calc(100% - 32px)' }}>
+        <span style={{ fontSize: 18, color: '#3a7a50', fontWeight: 700, lineHeight: 1 }}>+</span> {addLabel}
+      </button>
+    </div>
+  );
+}
+
+function Ajustes({ catGastoList, catIngresoList, medioList, onUpdateCatGasto, onUpdateCatIngreso, onUpdateMedios, onNav }) {
+  return (
+    <div className="screen">
+      <div className="screen-header" style={{ background: '#e8f2ec', borderBottom: '1px solid #c8dcc8' }}>
+        <div style={{ padding: '14px 20px 14px' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#1a1a1a' }}>Ajustes</div>
+          <div style={{ fontSize: 12, color: '#4a8a58', marginTop: 2 }}>Arrastrá para reordenar</div>
+        </div>
+      </div>
+      <div className="scroll" style={{ paddingTop: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, padding: '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>Categorías de gastos</span>
+          <button onClick={() => onUpdateCatGasto([...catGastoList].sort((a, b) => a.name.localeCompare(b.name, 'es')))} style={{ background: 'none', border: '1px solid #ccc', borderRadius: 6, padding: '2px 8px', fontSize: 11, color: '#888', cursor: 'pointer', fontFamily: 'inherit' }}>A–Z</button>
+        </div>
+        <DraggableList items={catGastoList} hasColor onReorder={onUpdateCatGasto}
+          onEdit={(i, val) => { const a = [...catGastoList]; a[i] = { ...a[i], ...val }; onUpdateCatGasto(a); }}
+          onDelete={i => { const a = [...catGastoList]; a.splice(i, 1); onUpdateCatGasto(a); }}
+          onAdd={() => onUpdateCatGasto([...catGastoList, { key: 'cg_' + Date.now(), name: 'Nueva categoría', color: '#b0aaaa' }])}
+          addLabel="Agregar categoría de gasto" />
+
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, padding: '20px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>Categorías de ingresos</span>
+          <button onClick={() => onUpdateCatIngreso([...catIngresoList].sort((a, b) => a.name.localeCompare(b.name, 'es')))} style={{ background: 'none', border: '1px solid #ccc', borderRadius: 6, padding: '2px 8px', fontSize: 11, color: '#888', cursor: 'pointer', fontFamily: 'inherit' }}>A–Z</button>
+        </div>
+        <DraggableList items={catIngresoList} hasColor onReorder={onUpdateCatIngreso}
+          onEdit={(i, val) => { const a = [...catIngresoList]; a[i] = { ...a[i], ...val }; onUpdateCatIngreso(a); }}
+          onDelete={i => { const a = [...catIngresoList]; a.splice(i, 1); onUpdateCatIngreso(a); }}
+          onAdd={() => onUpdateCatIngreso([...catIngresoList, { key: 'ci_' + Date.now(), name: 'Nueva categoría', color: '#6bbf8e' }])}
+          addLabel="Agregar categoría de ingreso" />
+
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10, padding: '20px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>Medios de pago</span>
+          <button onClick={() => onUpdateMedios([...medioList].sort((a, b) => a.name.localeCompare(b.name, 'es')))} style={{ background: 'none', border: '1px solid #ccc', borderRadius: 6, padding: '2px 8px', fontSize: 11, color: '#888', cursor: 'pointer', fontFamily: 'inherit' }}>A–Z</button>
+        </div>
+        <DraggableList items={medioList} hasColor={false} onReorder={onUpdateMedios}
+          onEdit={(i, val) => { const a = [...medioList]; a[i] = { ...a[i], name: val.name }; onUpdateMedios(a); }}
+          onDelete={i => { const a = [...medioList]; a.splice(i, 1); onUpdateMedios(a); }}
+          onAdd={() => onUpdateMedios([...medioList, { key: 'mp_' + Date.now(), name: 'Nuevo medio' }])}
+          addLabel="Agregar medio de pago" />
+
+        <div style={{ height: 24 }} />
+      </div>
+      <BottomNav screen="ajustes" onNav={onNav} />
+    </div>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────
+
+function App() {
+  const saved = (() => { try { return JSON.parse(localStorage.getItem('gastos-state') || '{}'); } catch { return {}; } })();
+
+  const [screen, setScreen] = useState(saved.screen || 'dashboard');
+  const [monthId, setMonthId] = useState(saved.monthId || '0326');
+  const [extraTx, setExtraTx] = useState(saved.extraTx || []);
+  const [txOverrides, setTxOverrides] = useState(saved.txOverrides || {});
+  const [catOverrides, setCatOverrides] = useState(saved.catOverrides || {});
+
+  const [catGastoList, setCatGastoList] = useState(() =>
+    saved.catGastoList || Object.entries(CAT_COLORS).filter(([k]) => k !== 'Ingresos' && k !== 'Fábrica').map(([key, color]) => ({ key, name: key, color }))
+  );
+  const [catIngresoList, setCatIngresoList] = useState(() =>
+    saved.catIngresoList || [
+      { key: 'Ingresos', name: 'Ingresos', color: '#2d7a52' },
+      { key: 'Fábrica', name: 'Fábrica', color: '#2d7a52' }
+    ]
+  );
+  const [medioList, setMedioList] = useState(() => saved.medioList || MEDIOS.map(m => ({ key: m, name: m })));
+
+  const catColor2 = useCallback(key => {
+    const found = [...catGastoList, ...catIngresoList].find(c => c.key === key);
+    return found ? found.color : '#b0aaaa';
+  }, [catGastoList, catIngresoList]);
+
+  const addTx = useCallback(tx => { setExtraTx(prev => [tx, ...prev]); setMonthId(tx.month); }, []);
+  const updateTx = useCallback(tx => { setTxOverrides(prev => ({ ...prev, [tx.id]: tx })); setMonthId(tx.month); }, []);
+  const updateCat = useCallback(({ oldName, name, color }) => { setCatOverrides(prev => ({ ...prev, [oldName || name]: { name, color } })); }, []);
+
+  const nav = useCallback(s => { setScreen(s); }, []);
+  const selectMonth = useCallback(id => { setMonthId(id); }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('gastos-state', JSON.stringify({
+        screen, monthId, extraTx, txOverrides, catOverrides, catGastoList, catIngresoList, medioList
+      }));
+    } catch(e) {}
+  }, [screen, monthId, extraTx, txOverrides, catOverrides, catGastoList, catIngresoList, medioList]);
+
+  const allTx = useMemo(() => {
+    return [...extraTx, ...ALL_TX].map(t => txOverrides[t.id] ? { ...t, ...txOverrides[t.id] } : t);
+  }, [extraTx, txOverrides]);
+
+  const allMonths = useMemo(() => {
+    const known = new Map(MONTHS.map(m => [m.id, m]));
+    allTx.forEach(t => {
+      if (!known.has(t.month)) {
+        known.set(t.month, { id: t.month, label: monthIdToLabelFull(t.month), short: monthIdToShort(t.month), saldoInicial: 0, cuotas: 0 });
+      }
+    });
+    return [...known.values()].sort((a, b) => {
+      const toSort = id => id.slice(2) + id.slice(0, 2);
+      return toSort(b.id).localeCompare(toSort(a.id));
+    });
+  }, [allTx]);
+
+  const changeMonth = useCallback(dir => {
+    const idx = allMonths.findIndex(m => m.id === monthId);
+    const next = allMonths[idx + dir];
+    if (next) { setMonthId(next.id); }
+  }, [monthId, screen, allMonths]);
+
+  const txs = allTx.filter(t => t.month === monthId);
+  const month = allMonths.find(m => m.id === monthId) || allMonths[0];
+
+  const catList = [...catGastoList, ...catIngresoList];
+
+  const screens = {
+    dashboard: <Dashboard month={month} txs={txs} allMonths={allMonths} onNav={nav} onMonthChange={changeMonth} onAddTx={addTx} onEditTx={updateTx} catOverrides={catOverrides} catList={catList} medioList={medioList} />,
+    movimientos: <Movimientos month={month} txs={txs} allMonths={allMonths} onNav={nav} onMonthChange={changeMonth} onAddTx={addTx} onEditTx={updateTx} catOverrides={catOverrides} catList={catList} medioList={medioList} />,
+    categorias: <Categorias month={month} txs={txs} onNav={nav} catOverrides={catOverrides} onEditCat={updateCat} />,
+    anual: <Anual currentMonthId={monthId} allMonths={allMonths} allTx={allTx} onNav={nav} onSelectMonth={selectMonth} />,
+    ajustes: <Ajustes catGastoList={catGastoList} catIngresoList={catIngresoList} medioList={medioList} onUpdateCatGasto={setCatGastoList} onUpdateCatIngreso={setCatIngresoList} onUpdateMedios={setMedioList} onNav={nav} />
+  };
+
+  return screens[screen] || screens.dashboard;
+}
+
+ReactDOM.createRoot(document.getElementById('app-root')).render(<App />);
+</script>
+</body>
+</html>
