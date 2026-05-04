@@ -1,7 +1,6 @@
-from datetime import date
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from . import models, schemas
@@ -14,7 +13,9 @@ def _next_position(db: Session, model) -> int:
 
 
 def _get_or_create_category(db: Session, name: str, kind: str = "gasto") -> models.Category:
-    cat = db.query(models.Category).filter(models.Category.name == name).first()
+    cat = db.query(models.Category).filter(
+        models.Category.name == name, models.Category.kind == kind
+    ).first()
     if not cat:
         cat = models.Category(name=name, color="#b0aaaa", kind=kind, position=_next_position(db, models.Category))
         db.add(cat)
@@ -41,6 +42,10 @@ def serialize_tx(tx: models.Transaction) -> dict:
         "medio": tx.medium.name if tx.medium else "",
         "amt": tx.amt,
         "type": tx.type,
+        "currency": tx.currency or "ARS",
+        "cuota_num": tx.cuota_num,
+        "cuota_total": tx.cuota_total,
+        "tarjeta_id": tx.tarjeta_id,
         "source": tx.source,
     }
 
@@ -55,7 +60,13 @@ def create_category(db: Session, payload: schemas.CategoryCreate) -> models.Cate
         name=payload.name, color=payload.color, kind=payload.kind,
         position=_next_position(db, models.Category)
     )
-    db.add(cat); db.commit(); db.refresh(cat)
+    db.add(cat)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise
+    db.refresh(cat)
     return cat
 
 
@@ -66,7 +77,12 @@ def update_category(db: Session, cat_id: int, payload: schemas.CategoryUpdate) -
     data = payload.model_dump(exclude_unset=True)
     for k, v in data.items():
         setattr(cat, k, v)
-    db.commit(); db.refresh(cat)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise
+    db.refresh(cat)
     return cat
 
 
@@ -124,6 +140,51 @@ def reorder_mediums(db: Session, ids: list[int]) -> None:
     db.commit()
 
 
+# ── Tarjetas ─────────────────────────────────────────────────
+def list_tarjetas(db: Session) -> list[models.Tarjeta]:
+    return db.query(models.Tarjeta).order_by(models.Tarjeta.position.asc(), models.Tarjeta.id.asc()).all()
+
+
+def create_tarjeta(db: Session, payload: schemas.TarjetaCreate) -> models.Tarjeta:
+    t = models.Tarjeta(
+        nombre=payload.nombre, banco=payload.banco, ultimos4=payload.ultimos4,
+        cierre=payload.cierre, vence=payload.vence, color_idx=payload.color_idx,
+        position=_next_position(db, models.Tarjeta),
+    )
+    db.add(t); db.flush()
+    # auto-crear medium con el mismo nombre si no existe (matching diseño v2)
+    _get_or_create_medium(db, payload.nombre)
+    db.commit(); db.refresh(t)
+    return t
+
+
+def update_tarjeta(db: Session, tid: int, payload: schemas.TarjetaUpdate) -> Optional[models.Tarjeta]:
+    t = db.get(models.Tarjeta, tid)
+    if not t:
+        return None
+    data = payload.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(t, k, v)
+    db.commit(); db.refresh(t)
+    return t
+
+
+def delete_tarjeta(db: Session, tid: int) -> bool:
+    t = db.get(models.Tarjeta, tid)
+    if not t:
+        return False
+    db.delete(t); db.commit()
+    return True
+
+
+def reorder_tarjetas(db: Session, ids: list[int]) -> None:
+    for pos, tid in enumerate(ids):
+        t = db.get(models.Tarjeta, tid)
+        if t:
+            t.position = pos
+    db.commit()
+
+
 # ── Months ───────────────────────────────────────────────────
 def list_months(db: Session) -> list[models.Month]:
     return db.query(models.Month).all()
@@ -145,6 +206,10 @@ def create_transaction(db: Session, payload: schemas.TransactionCreate, source: 
         month=payload.month, date=payload.date, desc=payload.desc,
         cat_id=cat.id, medio_id=medio.id,
         amt=payload.amt, type=payload.type, source=source,
+        currency=payload.currency or "ARS",
+        cuota_num=payload.cuota_num,
+        cuota_total=payload.cuota_total,
+        tarjeta_id=payload.tarjeta_id,
     )
     db.add(tx); db.commit(); db.refresh(tx)
     return tx

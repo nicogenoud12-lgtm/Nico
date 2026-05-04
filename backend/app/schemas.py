@@ -50,6 +50,37 @@ class MediumRead(MediumBase):
         from_attributes = True
 
 
+# ── Tarjeta ──────────────────────────────────────────────────
+class TarjetaBase(BaseModel):
+    nombre: str
+    banco: str = ""
+    ultimos4: str = ""
+    cierre: str = ""
+    vence: str = ""
+    color_idx: int = 0
+
+
+class TarjetaCreate(TarjetaBase):
+    pass
+
+
+class TarjetaUpdate(BaseModel):
+    nombre: Optional[str] = None
+    banco: Optional[str] = None
+    ultimos4: Optional[str] = None
+    cierre: Optional[str] = None
+    vence: Optional[str] = None
+    color_idx: Optional[int] = None
+
+
+class TarjetaRead(TarjetaBase):
+    id: int
+    position: int
+
+    class Config:
+        from_attributes = True
+
+
 # ── Month ────────────────────────────────────────────────────
 class MonthRead(BaseModel):
     id: str
@@ -72,6 +103,10 @@ class TransactionBase(BaseModel):
     medio: str
     amt: float
     type: Literal["g", "i"]
+    currency: Literal["ARS", "USD"] = "ARS"
+    cuota_num: Optional[int] = None
+    cuota_total: Optional[int] = None
+    tarjeta_id: Optional[int] = None
 
 
 class TransactionCreate(TransactionBase):
@@ -86,6 +121,10 @@ class TransactionUpdate(BaseModel):
     medio: Optional[str] = None
     amt: Optional[float] = None
     type: Optional[Literal["g", "i"]] = None
+    currency: Optional[Literal["ARS", "USD"]] = None
+    cuota_num: Optional[int] = None
+    cuota_total: Optional[int] = None
+    tarjeta_id: Optional[int] = None
 
 
 class TransactionRead(BaseModel):
@@ -97,9 +136,24 @@ class TransactionRead(BaseModel):
     medio: str
     amt: float
     type: Literal["g", "i"]
+    currency: str = "ARS"
+    cuota_num: Optional[int] = None
+    cuota_total: Optional[int] = None
+    tarjeta_id: Optional[int] = None
     source: str
 
 
 # ── Reorder ──────────────────────────────────────────────────
 class ReorderPayload(BaseModel):
     ids: list[int]
+
+
+# ── Backup ───────────────────────────────────────────────────
+class BackupPayload(BaseModel):
+    version: int = 1
+    exported_at: Optional[str] = None
+    categories: list[dict] = []
+    mediums: list[dict] = []
+    tarjetas: list[dict] = []
+    months: list[dict] = []
+    transactions: list[dict] = []

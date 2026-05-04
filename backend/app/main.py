@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .database import Base, SessionLocal, engine
 from .models import Category, Medium, Month
-from .routers import categories, mediums, months, telegram, transactions
+from .routers import backup, categories, mediums, months, tarjetas, telegram, transactions
 
 
 # ── Datos iniciales ──────────────────────────────────────────
@@ -30,8 +30,60 @@ DEFAULT_MONTHS = [
 ]
 
 
+def _migrate(conn) -> None:
+    """Aplica migraciones idempotentes para SQLite sobre bases existentes."""
+    # 1. Agregar columnas faltantes en transactions
+    cols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(transactions)").fetchall()}
+    new_tx_cols = [
+        ("currency", "TEXT NOT NULL DEFAULT 'ARS'"),
+        ("cuota_num", "INTEGER"),
+        ("cuota_total", "INTEGER"),
+        ("tarjeta_id", "INTEGER"),
+    ]
+    for name, decl in new_tx_cols:
+        if name not in cols:
+            conn.exec_driver_sql(f"ALTER TABLE transactions ADD COLUMN {name} {decl}")
+
+    # 2. Reconstruir tabla `categories` si todavía tiene UNIQUE global sobre name
+    # Detectamos buscando un índice auto-creado sobre la columna name
+    idx_rows = conn.exec_driver_sql("PRAGMA index_list('categories')").fetchall()
+    needs_rebuild = False
+    for row in idx_rows:
+        # row: (seq, name, unique, origin, partial)
+        idx_name = row[1]
+        is_unique = bool(row[2])
+        if not is_unique:
+            continue
+        cols_in_idx = [r[2] for r in conn.exec_driver_sql(f"PRAGMA index_info('{idx_name}')").fetchall()]
+        # Constraint vieja: UNIQUE solo sobre (name)
+        if cols_in_idx == ["name"]:
+            needs_rebuild = True
+            break
+    if needs_rebuild:
+        conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        conn.exec_driver_sql("""
+            CREATE TABLE categories_new (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                color TEXT NOT NULL DEFAULT '#b0aaaa',
+                kind TEXT NOT NULL DEFAULT 'gasto',
+                position INTEGER NOT NULL DEFAULT 0,
+                CONSTRAINT uq_categories_name_kind UNIQUE (name, kind)
+            )
+        """)
+        conn.exec_driver_sql(
+            "INSERT INTO categories_new (id, name, color, kind, position) "
+            "SELECT id, name, color, kind, position FROM categories"
+        )
+        conn.exec_driver_sql("DROP TABLE categories")
+        conn.exec_driver_sql("ALTER TABLE categories_new RENAME TO categories")
+        conn.exec_driver_sql("PRAGMA foreign_keys=ON")
+
+
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        _migrate(conn)
     db = SessionLocal()
     try:
         if not db.query(Category).first():
@@ -56,7 +108,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Gastos API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Gastos API", version="0.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -69,7 +121,9 @@ app.add_middleware(
 app.include_router(transactions.router)
 app.include_router(categories.router)
 app.include_router(mediums.router)
+app.include_router(tarjetas.router)
 app.include_router(months.router)
+app.include_router(backup.router)
 app.include_router(telegram.router)
 
 

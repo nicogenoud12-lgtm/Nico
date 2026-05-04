@@ -1,43 +1,44 @@
-export default function DonutChart({ data, size = 160, onSliceClick }) {
-  const total = data.reduce((s, d) => s + d.value, 0);
-  const cx = size / 2, cy = size / 2, r = size * 0.38, inner = size * 0.24;
+import React from 'react';
+import { C } from '../theme.js';
 
-  if (data.length === 1) {
-    return (
-      <svg width={size} height={size} style={{ cursor: 'pointer' }} onClick={() => onSliceClick && onSliceClick()}>
-        <circle cx={cx} cy={cy} r={(r + inner) / 2} fill="none" stroke={data[0].color} strokeWidth={r - inner} />
-      </svg>
-    );
-  }
+export default function DonutChart({ data, size = 160, thickness = 28, center }) {
+  const r = (size - thickness) / 2;
+  const circ = 2 * Math.PI * r;
+  const total = data.reduce((s, d) => s + d.value, 0) || 1;
 
-  let angle = -Math.PI / 2;
+  let offset = 0;
   const slices = data.map(d => {
-    const sweep = d.value / total * Math.PI * 2;
-    const a1 = angle, a2 = angle + sweep;
-    angle = a2;
-    const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
-    const x2 = cx + r * Math.cos(a2), y2 = cy + r * Math.sin(a2);
-    const xi1 = cx + inner * Math.cos(a1), yi1 = cy + inner * Math.sin(a1);
-    const xi2 = cx + inner * Math.cos(a2), yi2 = cy + inner * Math.sin(a2);
-    const lg = sweep > Math.PI ? 1 : 0;
-    const path = `M${xi1},${yi1} L${x1},${y1} A${r},${r} 0 ${lg},1 ${x2},${y2} L${xi2},${yi2} A${inner},${inner} 0 ${lg},0 ${xi1},${yi1} Z`;
-    return { ...d, path };
+    const pct = d.value / total;
+    const len = pct * circ;
+    const slice = { ...d, offset, len };
+    offset += len;
+    return slice;
   });
 
+  const cx = size / 2;
+  const cy = size / 2;
+
   return (
-    <svg width={size} height={size} style={{ cursor: 'pointer' }} onClick={() => onSliceClick && onSliceClick()}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block' }}>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.surface2} strokeWidth={thickness} />
       {slices.map((s, i) => (
-        <path
+        <circle
           key={i}
-          d={s.path}
-          fill={s.color}
-          stroke="#fafaf8"
-          strokeWidth="2"
-          style={{ transition: 'opacity .15s' }}
-          onMouseEnter={e => (e.target.style.opacity = '.75')}
-          onMouseLeave={e => (e.target.style.opacity = '1')}
+          cx={cx} cy={cy} r={r}
+          fill="none"
+          stroke={s.color}
+          strokeWidth={thickness}
+          strokeDasharray={`${s.len} ${circ - s.len}`}
+          strokeDashoffset={-s.offset}
+          transform={`rotate(-90 ${cx} ${cy})`}
+          style={{ transition: 'stroke-dasharray .4s' }}
         />
       ))}
+      {center && (
+        <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fill={C.text} fontSize={12} fontWeight={600} fontFamily="Inter, sans-serif">
+          {center}
+        </text>
+      )}
     </svg>
   );
 }
