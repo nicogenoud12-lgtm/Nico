@@ -375,15 +375,16 @@ function NewExpenseModal({ onClose, onSave, initialValues, catList, medioList })
   const availableMedios = medioList ? medioList.map(m => m.name) : MEDIOS;
   const [desc, setDesc] = useState(initialValues?.desc || '');
   const [amt, setAmt] = useState(initialValues ? Math.abs(initialValues.amt).toString() : '');
-  const [cat, setCat] = useState(initialValues?.cat || (catList ? catList.filter(c => c.key !== 'Ingresos' && c.key !== 'Fábrica')[0]?.name : CATS_GASTO[0]) || '');
-  const [medio, setMedio] = useState(initialValues?.medio || (medioList ? medioList[0]?.name : MEDIOS[0]));
   const [type, setType] = useState(initialValues?.type || 'g');
+  const [medio, setMedio] = useState(initialValues?.medio || (medioList ? medioList[0]?.name : MEDIOS[0]));
   const [date, setDate] = useState(initialValues?.date || todayStr());
+  const defaultCat = type === 'i' ? (ingresoCats[0] || 'Ingresos') : (catList ? catList.filter(c => c.key !== 'Ingresos' && c.key !== 'Fábrica')[0]?.name : CATS_GASTO[0]);
+  const [cat, setCat] = useState(initialValues?.cat || defaultCat || '');
   const inp = { width: '100%', padding: '8px 10px', border: '1px solid #e8e4de', borderRadius: 8, fontFamily: 'inherit', fontSize: 14, marginTop: 4, outline: 'none', background: '#fff' };
 
   const handleSave = () => {
     if (!desc.trim() || !amt || isNaN(Number(amt))) return;
-    onSave({ id: Date.now(), month: dateToMonthId(date), date, desc: desc.trim(), cat: type === 'i' ? 'Ingresos' : cat, medio, amt: type === 'i' ? Math.abs(Number(amt)) : -Math.abs(Number(amt)), type });
+    onSave({ id: Date.now(), month: dateToMonthId(date), date, desc: desc.trim(), cat, medio, amt: type === 'i' ? Math.abs(Number(amt)) : -Math.abs(Number(amt)), type });
     onClose();
   };
 
@@ -409,14 +410,12 @@ function NewExpenseModal({ onClose, onSave, initialValues, catList, medioList })
           </label>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
-          {type === 'g' && (
-            <label style={{ fontSize: 12, color: '#888', display: 'block' }}>Categoría
-              <select style={{ ...inp }} value={cat} onChange={e => setCat(e.target.value)}>
-                {gastoCats.map(c => <option key={c}>{c}</option>)}
-              </select>
-            </label>
-          )}
-          <label style={{ fontSize: 12, color: '#888', display: 'block', gridColumn: type === 'i' ? '1 / -1' : 'auto' }}>Medio
+          <label style={{ fontSize: 12, color: '#888', display: 'block' }}>Categoría
+            <select style={{ ...inp }} value={cat} onChange={e => setCat(e.target.value)}>
+              {(type === 'g' ? gastoCats : ingresoCats).map(c => <option key={c}>{c}</option>)}
+            </select>
+          </label>
+          <label style={{ fontSize: 12, color: '#888', display: 'block' }}>Medio
             <select style={{ ...inp }} value={medio} onChange={e => setMedio(e.target.value)}>
               {availableMedios.map(m => <option key={m}>{m}</option>)}
             </select>
