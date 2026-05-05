@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { C, s } from '../theme.js';
 import { todayStr } from '../utils/format.js';
 
@@ -10,14 +10,14 @@ export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
   const [medio, setMedio] = useState(initial?.medio || '');
   const [desc, setDesc] = useState(initial?.desc || '');
   const [date, setDate] = useState(initial?.date || todayStr());
-  const [cuotas, setCuotas] = useState(1);
+  const [cuotas, setCuotas] = useState(initial?.cuota_total || 1);
   const [saving, setSaving] = useState(false);
 
-  const availCats = type === 'i' ? cats.ingresos : cats.gastos;
+  const availCats = useMemo(() => type === 'i' ? cats.ingresos : cats.gastos, [type, cats]);
 
   useEffect(() => {
     if (cat && !availCats.find(c => c.name === cat)) setCat('');
-  }, [type]);
+  }, [type, availCats, cat]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
