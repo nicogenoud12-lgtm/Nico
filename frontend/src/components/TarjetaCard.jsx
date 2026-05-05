@@ -1,20 +1,30 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CARD_COLORS } from '../theme.js';
 import TarjetaBankLogo from './TarjetaBankLogo.jsx';
 
 export default function TarjetaCard({ tarjeta, onClick }) {
+  const [hovered, setHovered] = useState(false);
   const [c1, c2] = CARD_COLORS[tarjeta.color_idx % CARD_COLORS.length];
 
   return (
     <div
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         background: `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`,
-        borderRadius: 16, padding: '20px 24px',
+        borderRadius: 18,
+        padding: '22px 26px',
         cursor: onClick ? 'pointer' : 'default',
-        userSelect: 'none', flexShrink: 0,
-        minWidth: 280, maxWidth: 320,
-        boxShadow: `0 8px 32px ${c1}40`,
+        userSelect: 'none',
+        flexShrink: 0,
+        minWidth: 280,
+        maxWidth: 340,
+        transform: hovered ? 'translateY(-6px) scale(1.01)' : 'translateY(0) scale(1)',
+        boxShadow: hovered
+          ? `0 20px 48px ${c1}60, 0 8px 20px rgba(0,0,0,.4)`
+          : `0 6px 24px ${c1}40, 0 2px 8px rgba(0,0,0,.25)`,
+        transition: 'transform .2s ease, box-shadow .2s ease',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>

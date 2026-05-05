@@ -20,6 +20,11 @@ export default function DraggableList({ items, onReorder, onEdit, onDelete, hasC
     setShowColorIdx(null);
   };
 
+  const handleSortAZ = () => {
+    const sorted = [...items].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    onReorder(sorted);
+  };
+
   const handleDragStart = (e, i) => {
     setDragIdx(i);
     e.dataTransfer.effectAllowed = 'move';
@@ -48,6 +53,23 @@ export default function DraggableList({ items, onReorder, onEdit, onDelete, hasC
 
   return (
     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
+      {items.length > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '6px 10px', borderBottom: `1px solid ${C.border}` }}>
+          <button
+            onClick={handleSortAZ}
+            title="Ordenar A→Z"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '3px 10px', borderRadius: 6, border: `1px solid ${C.border}`,
+              background: 'transparent', color: C.text3,
+              fontFamily: 'inherit', fontSize: 11, fontWeight: 600, cursor: 'pointer',
+              letterSpacing: '.04em',
+            }}
+          >
+            A→Z
+          </button>
+        </div>
+      )}
       {items.map((item, i) => (
         <div
           key={item.id}
