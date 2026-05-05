@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { C, s } from '../theme.js';
 import { todayStr } from '../utils/format.js';
 
 export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
   const [type, setType] = useState(initial?.type || 'g');
-  const [amount, setAmount] = useState(initial?.amount ? String(Math.abs(initial.amount)) : '');
+  const [amount, setAmount] = useState(initial?.amount != null ? String(Math.abs(initial.amount)) : '');
   const [currency, setCurrency] = useState(initial?.currency || 'ARS');
   const [cat, setCat] = useState(initial?.cat || '');
   const [medio, setMedio] = useState(initial?.medio || '');
@@ -12,20 +12,30 @@ export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
   const [date, setDate] = useState(initial?.date || todayStr());
   const [cuotas, setCuotas] = useState(initial?.cuota_total || 1);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const availCats = useMemo(() => type === 'i' ? cats.ingresos : cats.gastos, [type, cats]);
 
-  useEffect(() => {
-    if (cat && !availCats.find(c => c.name === cat)) setCat('');
-  }, [type, availCats, cat]);
+  const handleTypeChange = (newType) => {
+    setType(newType);
+    // solo limpiar cat si no existe en la nueva lista
+    const newList = newType === 'i' ? cats.ingresos : cats.gastos;
+    if (cat && !newList.find(c => c.name === cat)) setCat('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const n = Math.abs(parseFloat(amount));
-    if (!n || !cat || !date) return;
+    if (!n) { setError('El importe debe ser mayor a 0'); return; }
+    if (!cat) { setError('Seleccioná una categoría'); return; }
+    if (!date) { setError('Seleccioná una fecha'); return; }
+    setError('');
     setSaving(true);
     try {
       await onSave({ type, amount: n, currency, cat, medio, desc, date }, cuotas);
+    } catch (err) {
+      const msg = err?.response?.data?.detail || err?.message || 'Error al guardar';
+      setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
     } finally {
       setSaving(false);
     }
@@ -41,7 +51,7 @@ export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
         {[['g', 'Gasto'], ['i', 'Ingreso']].map(([v, l]) => (
           <button
             key={v} type="button"
-            onClick={() => setType(v)}
+            onClick={() => handleTypeChange(v)}
             style={{
               flex: 1, padding: '7px 0', borderRadius: 6, border: 'none',
               background: type === v ? (v === 'g' ? C.red : C.green) : 'transparent',
@@ -65,7 +75,6 @@ export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
             placeholder="0"
             value={amount}
             onChange={e => setAmount(e.target.value)}
-            required
             autoFocus
           />
           <select
@@ -82,7 +91,7 @@ export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
       {/* category */}
       <div style={row}>
         <span style={label}>Categoría</span>
-        <select style={s.select} value={cat} onChange={e => setCat(e.target.value)} required>
+        <select style={s.select} value={cat} onChange={e => setCat(e.target.value)}>
           <option value="">Seleccionar…</option>
           {availCats.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
         </select>
@@ -100,7 +109,7 @@ export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
       {/* date */}
       <div style={row}>
         <span style={label}>Fecha</span>
-        <input style={s.input} type="date" value={date} onChange={e => setDate(e.target.value)} required />
+        <input style={s.input} type="date" value={date} onChange={e => setDate(e.target.value)} />
       </div>
 
       {/* desc */}
@@ -109,13 +118,19 @@ export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
         <input style={s.input} type="text" placeholder="Nota" value={desc} onChange={e => setDesc(e.target.value)} />
       </div>
 
-      {/* cuotas (only for gastos, not ingreso) */}
-      {type === 'g' && (
+      {/* cuotas (only for gastos, not editing) */}
+      {type === 'g' && !initial && (
         <div style={row}>
           <span style={label}>Cuotas</span>
           <select style={s.select} value={cuotas} onChange={e => setCuotas(Number(e.target.value))}>
             {[1,2,3,4,5,6,9,12,18,24].map(n => <option key={n} value={n}>{n === 1 ? 'Sin cuotas' : `${n} cuotas`}</option>)}
           </select>
+        </div>
+      )}
+
+      {error && (
+        <div style={{ fontSize: 12, color: C.red, background: C.red + '18', borderRadius: 8, padding: '8px 12px' }}>
+          {error}
         </div>
       )}
 
