@@ -1,10 +1,133 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { C, s } from '../theme.js';
 import TarjetaCard from '../components/TarjetaCard.jsx';
 import TarjetaDetail from '../components/TarjetaDetail.jsx';
 import TarjetaForm from '../components/TarjetaForm.jsx';
 import Modal from '../components/Modal.jsx';
+import { fmtMoney, fmtDate, todayStr } from '../utils/format.js';
 import { createTarjeta, updateTarjeta, deleteTarjeta } from '../api/tarjetas.js';
+
+function PanelHeader({ title }) {
+  return (
+    <div style={{
+      fontSize: 10, fontWeight: 600, color: C.text3,
+      textTransform: 'uppercase', letterSpacing: '.06em',
+      padding: '10px 14px 6px',
+    }}>
+      {title}
+    </div>
+  );
+}
+
+function HoverRow({ children, last }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        padding: '8px 14px',
+        borderBottom: last ? 'none' : `1px solid ${C.border}`,
+        background: hov ? C.surface2 : 'transparent',
+        transition: 'background .15s',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function LastMovementsBox({ txs, tarjeta }) {
+  const cardTxs = useMemo(() =>
+    txs
+      .filter(t => t.tarjeta_id === tarjeta.id || t.medio === tarjeta.nombre)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 5),
+    [txs, tarjeta]
+  );
+
+  return (
+    <div style={{
+      flex: 1, minWidth: 240,
+      background: C.surface, border: `1px solid ${C.border}`,
+      borderRadius: 12, overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <PanelHeader title="Últimos movimientos" />
+      {cardTxs.length === 0 ? (
+        <div style={{ padding: '20px 14px', textAlign: 'center', color: C.text3, fontSize: 12 }}>
+          Sin movimientos
+        </div>
+      ) : (
+        cardTxs.map((tx, i) => (
+          <HoverRow key={tx.id} last={i === cardTxs.length - 1}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {tx.desc || tx.cat}
+                </div>
+                <div style={{ fontSize: 11, color: C.text3 }}>{fmtDate(tx.date)}</div>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: tx.type === 'i' ? C.green : C.text }}>
+                {fmtMoney(tx.amount, tx.currency || 'ARS')}
+              </div>
+            </div>
+          </HoverRow>
+        ))
+      )}
+    </div>
+  );
+}
+
+function CuotasPendientesBox({ txs, tarjeta }) {
+  const today = todayStr();
+
+  const pending = useMemo(() => {
+    return txs
+      .filter(t =>
+        (t.tarjeta_id === tarjeta.id || t.medio === tarjeta.nombre)
+        && t.cuota_total && t.cuota_total > 1
+        && t.date >= today
+      )
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [txs, tarjeta, today]);
+
+  const totalRest = pending.reduce((s, t) => s + Math.abs(t.amount), 0);
+
+  return (
+    <div style={{
+      flex: 1, minWidth: 240,
+      background: C.surface, border: `1px solid ${C.border}`,
+      borderRadius: 12, overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <PanelHeader title={`Cuotas pendientes${pending.length ? ` · ${fmtMoney(totalRest)}` : ''}`} />
+      {pending.length === 0 ? (
+        <div style={{ padding: '20px 14px', textAlign: 'center', color: C.text3, fontSize: 12 }}>
+          Sin cuotas pendientes
+        </div>
+      ) : (
+        pending.map((tx, i) => (
+          <HoverRow key={tx.id} last={i === pending.length - 1}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {tx.desc || tx.cat}
+                </div>
+                <div style={{ fontSize: 11, color: C.text3 }}>
+                  {fmtDate(tx.date)} · cuota {tx.cuota_num}/{tx.cuota_total}
+                </div>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>
+                {fmtMoney(tx.amount, tx.currency || 'ARS')}
+              </div>
+            </div>
+          </HoverRow>
+        ))
+      )}
+    </div>
+  );
+}
 
 export default function ScreenTarjetas({ tarjetas, txs, allMonthIds, onTarjetasChange }) {
   const [selected, setSelected] = useState(null);
@@ -38,9 +161,20 @@ export default function ScreenTarjetas({ tarjetas, txs, allMonthIds, onTarjetasC
           <div>No hay tarjetas registradas</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginBottom: 20 }}>
           {tarjetas.map(t => (
-            <TarjetaCard key={t.id} tarjeta={t} onClick={() => setSelected(t)} />
+            <div
+              key={t.id}
+              style={{
+                display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'stretch',
+              }}
+            >
+              <div style={{ flexShrink: 0 }}>
+                <TarjetaCard tarjeta={t} onClick={() => setSelected(t)} />
+              </div>
+              <LastMovementsBox txs={txs} tarjeta={t} />
+              <CuotasPendientesBox txs={txs} tarjeta={t} />
+            </div>
           ))}
         </div>
       )}

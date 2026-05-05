@@ -7,6 +7,7 @@ export default function DraggableList({ items, onReorder, onEdit, onDelete, hasC
   const [showColorIdx, setShowColorIdx] = useState(null);
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
+  const [hoveredIdx, setHoveredIdx] = useState(null);
 
   const startEdit = i => {
     setEditingIdx(i);
@@ -78,11 +79,13 @@ export default function DraggableList({ items, onReorder, onEdit, onDelete, hasC
           onDragOver={e => handleDragOver(e, i)}
           onDrop={e => handleDrop(e, i)}
           onDragEnd={handleDragEnd}
+          onMouseEnter={() => setHoveredIdx(i)}
+          onMouseLeave={() => setHoveredIdx(null)}
           style={{
             opacity: dragIdx === i ? 0.4 : 1,
-            background: dragOverIdx === i && dragIdx !== i ? C.surface2 : 'transparent',
+            background: (dragOverIdx === i && dragIdx !== i) || (hoveredIdx === i && editingIdx !== i) ? C.surface2 : 'transparent',
             borderBottom: i < items.length - 1 ? `1px solid ${C.border}` : 'none',
-            transition: 'background .1s',
+            transition: 'background .15s',
           }}
         >
           {editingIdx === i ? (

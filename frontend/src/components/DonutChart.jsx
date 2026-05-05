@@ -3,7 +3,9 @@ import { C } from '../theme.js';
 
 export default function DonutChart({ data, size = 160, thickness = 28, center }) {
   const [hoveredIdx, setHoveredIdx] = useState(null);
-  const r = (size - thickness) / 2;
+  const pad = 6;
+  const inner = size - pad * 2;
+  const r = (inner - thickness) / 2;
   const circ = 2 * Math.PI * r;
   const total = data.reduce((s, d) => s + d.value, 0) || 1;
 
@@ -20,7 +22,7 @@ export default function DonutChart({ data, size = 160, thickness = 28, center })
   const cy = size / 2;
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block' }}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', overflow: 'visible' }}>
       <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.surface2} strokeWidth={thickness} />
       {slices.map((s, i) => {
         const isHovered = hoveredIdx === i;
