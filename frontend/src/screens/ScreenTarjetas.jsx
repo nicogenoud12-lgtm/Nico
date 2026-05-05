@@ -1,11 +1,32 @@
 import React, { useState, useMemo } from 'react';
-import { C, s } from '../theme.js';
+import { C, s, CARD_COLORS } from '../theme.js';
 import TarjetaCard from '../components/TarjetaCard.jsx';
 import TarjetaDetail from '../components/TarjetaDetail.jsx';
 import TarjetaForm from '../components/TarjetaForm.jsx';
 import Modal from '../components/Modal.jsx';
 import { fmtMoney, fmtDate, todayStr } from '../utils/format.js';
 import { createTarjeta, updateTarjeta, deleteTarjeta } from '../api/tarjetas.js';
+
+const BANK_INITIALS = {
+  galicia: 'G', santander: 'S', macro: 'M', bbva: 'B', icbc: 'I',
+  brubank: 'BR', naranja: 'N', personal: 'P', uala: 'U', mercadopago: 'MP',
+};
+
+function MiniCardBadge({ tarjeta }) {
+  const [c1, c2] = CARD_COLORS[tarjeta.color_idx % CARD_COLORS.length];
+  const key = tarjeta.banco?.toLowerCase() || '';
+  const initials = BANK_INITIALS[key] || (tarjeta.banco ? tarjeta.banco.slice(0, 2).toUpperCase() : '?');
+  return (
+    <div style={{
+      width: 38, height: 26, borderRadius: 5, flexShrink: 0,
+      background: `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 9, fontWeight: 700, color: '#fff', letterSpacing: '-0.3px',
+    }}>
+      {initials}
+    </div>
+  );
+}
 
 function PanelHeader({ title }) {
   return (
@@ -61,12 +82,15 @@ function LastMovementsBox({ txs, tarjeta }) {
       ) : (
         cardTxs.map((tx, i) => (
           <HoverRow key={tx.id} last={i === cardTxs.length - 1}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <MiniCardBadge tarjeta={tarjeta} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {tx.desc || tx.cat}
                 </div>
-                <div style={{ fontSize: 11, color: C.text3 }}>{fmtDate(tx.date)}</div>
+                <div style={{ fontSize: 11, color: C.text3 }}>
+                  {fmtDate(tx.date)}{tx.cuota_total > 1 ? ` · cuota ${tx.cuota_num}/${tx.cuota_total}` : ''}
+                </div>
               </div>
               <div style={{ fontSize: 13, fontWeight: 600, color: tx.type === 'i' ? C.green : C.text }}>
                 {fmtMoney(tx.amount, tx.currency || 'ARS')}
@@ -109,7 +133,8 @@ function CuotasPendientesBox({ txs, tarjeta }) {
       ) : (
         pending.map((tx, i) => (
           <HoverRow key={tx.id} last={i === pending.length - 1}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <MiniCardBadge tarjeta={tarjeta} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {tx.desc || tx.cat}
