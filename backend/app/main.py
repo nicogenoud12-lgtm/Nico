@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .database import Base, SessionLocal, engine
 from .models import Category, Medium, Month
-from .routers import backup, categories, mediums, months, tarjetas, telegram, transactions
+from .routers import backup, categories, mediums, months, suscripciones, tarjetas, telegram, transactions
 
 
 # ── Datos iniciales ──────────────────────────────────────────
@@ -122,6 +122,7 @@ app.include_router(transactions.router)
 app.include_router(categories.router)
 app.include_router(mediums.router)
 app.include_router(tarjetas.router)
+app.include_router(suscripciones.router)
 app.include_router(months.router)
 app.include_router(backup.router)
 app.include_router(telegram.router)

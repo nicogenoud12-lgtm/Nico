@@ -192,6 +192,49 @@ def reorder_tarjetas(db: Session, ids: list[int]) -> None:
     db.commit()
 
 
+# ── Suscripciones ────────────────────────────────────────────
+def list_suscripciones(db: Session) -> list[models.Suscripcion]:
+    return db.query(models.Suscripcion).order_by(models.Suscripcion.position.asc(), models.Suscripcion.id.asc()).all()
+
+
+def create_suscripcion(db: Session, payload: schemas.SuscripcionCreate) -> models.Suscripcion:
+    s = models.Suscripcion(
+        nombre=payload.nombre, monto=payload.monto, moneda=payload.moneda,
+        frecuencia=payload.frecuencia, vencimiento=payload.vencimiento,
+        estado=payload.estado, logo_url=payload.logo_url,
+        position=_next_position(db, models.Suscripcion),
+    )
+    db.add(s); db.commit(); db.refresh(s)
+    return s
+
+
+def update_suscripcion(db: Session, sid: int, payload: schemas.SuscripcionUpdate) -> Optional[models.Suscripcion]:
+    s = db.get(models.Suscripcion, sid)
+    if not s:
+        return None
+    data = payload.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(s, k, v)
+    db.commit(); db.refresh(s)
+    return s
+
+
+def delete_suscripcion(db: Session, sid: int) -> bool:
+    s = db.get(models.Suscripcion, sid)
+    if not s:
+        return False
+    db.delete(s); db.commit()
+    return True
+
+
+def reorder_suscripciones(db: Session, ids: list[int]) -> None:
+    for pos, sid in enumerate(ids):
+        s = db.get(models.Suscripcion, sid)
+        if s:
+            s.position = pos
+    db.commit()
+
+
 # ── Months ───────────────────────────────────────────────────
 def list_months(db: Session) -> list[models.Month]:
     return db.query(models.Month).all()

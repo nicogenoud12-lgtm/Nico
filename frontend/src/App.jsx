@@ -4,6 +4,7 @@ import { dateToMonthId, todayStr, sortMonthIdsDesc } from './utils/format.js';
 import { listTransactions } from './api/transactions.js';
 import { listCategories, listMediums } from './api/categories.js';
 import { listTarjetas } from './api/tarjetas.js';
+import { listSuscripciones } from './api/suscripciones.js';
 
 import SidebarDesktop from './components/SidebarDesktop.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -13,6 +14,7 @@ import ScreenMovimientos from './screens/ScreenMovimientos.jsx';
 import ScreenGastos from './screens/ScreenGastos.jsx';
 import ScreenIngresos from './screens/ScreenIngresos.jsx';
 import ScreenTarjetas from './screens/ScreenTarjetas.jsx';
+import ScreenSuscripciones from './screens/ScreenSuscripciones.jsx';
 import ScreenAnual from './screens/ScreenAnual.jsx';
 import ScreenAjustes from './screens/ScreenAjustes.jsx';
 
@@ -38,18 +40,20 @@ export default function App() {
   const [rawCats, setRawCats] = useState([]);
   const [mediums, setMediums] = useState([]);
   const [tarjetas, setTarjetas] = useState([]);
+  const [suscripciones, setSuscripciones] = useState([]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [t, c, m, tj] = await Promise.all([
-        listTransactions(), listCategories(), listMediums(), listTarjetas(),
+      const [t, c, m, tj, sb] = await Promise.all([
+        listTransactions(), listCategories(), listMediums(), listTarjetas(), listSuscripciones(),
       ]);
       setTxs(t);
       setRawCats(c);
       setMediums(m);
       setTarjetas(tj);
+      setSuscripciones(sb);
     } catch (e) {
       setError(e?.message || 'Error de conexión');
     } finally {
@@ -74,6 +78,7 @@ export default function App() {
   const reloadCats = useCallback(() => listCategories().then(setRawCats), []);
   const reloadMediums = useCallback(() => listMediums().then(setMediums), []);
   const reloadTarjetas = useCallback(() => listTarjetas().then(setTarjetas), []);
+  const reloadSuscripciones = useCallback(() => listSuscripciones().then(setSuscripciones), []);
 
   const onNav = useCallback((s) => { setScreen(s); setDrawerOpen(false); }, []);
 
@@ -113,6 +118,12 @@ export default function App() {
         <ScreenTarjetas
           {...screenProps}
           onTarjetasChange={async () => { await reloadTarjetas(); await reloadMediums(); }}
+        />
+      );
+      case 'suscripciones': return (
+        <ScreenSuscripciones
+          suscripciones={suscripciones}
+          onSuscripcionesChange={reloadSuscripciones}
         />
       );
       case 'anual': return <ScreenAnual {...screenProps} onNavigate={setScreen} />;

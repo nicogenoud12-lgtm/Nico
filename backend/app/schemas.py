@@ -81,6 +81,39 @@ class TarjetaRead(TarjetaBase):
         from_attributes = True
 
 
+# ── Suscripcion ──────────────────────────────────────────────
+class SuscripcionBase(BaseModel):
+    nombre: str
+    monto: float
+    moneda: Literal["ARS", "USD"] = "ARS"
+    frecuencia: Literal["mensual", "anual"] = "mensual"
+    vencimiento: Optional[str] = None
+    estado: Literal["activo", "inactivo"] = "activo"
+    logo_url: Optional[str] = None
+
+
+class SuscripcionCreate(SuscripcionBase):
+    pass
+
+
+class SuscripcionUpdate(BaseModel):
+    nombre: Optional[str] = None
+    monto: Optional[float] = None
+    moneda: Optional[Literal["ARS", "USD"]] = None
+    frecuencia: Optional[Literal["mensual", "anual"]] = None
+    vencimiento: Optional[str] = None
+    estado: Optional[Literal["activo", "inactivo"]] = None
+    logo_url: Optional[str] = None
+
+
+class SuscripcionRead(SuscripcionBase):
+    id: int
+    position: int
+
+    class Config:
+        from_attributes = True
+
+
 # ── Month ────────────────────────────────────────────────────
 class MonthRead(BaseModel):
     id: str

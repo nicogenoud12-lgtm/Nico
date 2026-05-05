@@ -48,6 +48,20 @@ class Tarjeta(Base):
     position = Column(Integer, nullable=False, default=0)
 
 
+class Suscripcion(Base):
+    __tablename__ = "suscripciones"
+
+    id = Column(Integer, primary_key=True)
+    nombre = Column(String, nullable=False)
+    monto = Column(Float, nullable=False)
+    moneda = Column(String, nullable=False, default="ARS")  # ARS | USD
+    frecuencia = Column(String, nullable=False, default="mensual")  # mensual | anual
+    vencimiento = Column(String, nullable=True)  # YYYY-MM-DD
+    estado = Column(String, nullable=False, default="activo")  # activo | inactivo
+    logo_url = Column(String, nullable=True)
+    position = Column(Integer, nullable=False, default=0)
+
+
 class Transaction(Base):
     __tablename__ = "transactions"
 
