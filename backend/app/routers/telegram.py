@@ -98,12 +98,12 @@ def _confirmation_text(partial: dict) -> str:
 
 def _persist(db: Session, partial: dict):
     payload = schemas.TransactionCreate(
-        month=partial["month"],
+        month=partial.get("month"),
         date=date_cls.fromisoformat(partial["date"]),
         desc=partial.get("desc") or partial.get("cat", ""),
         cat=partial["cat"],
         medio=partial["medio"],
-        amt=float(partial["amt"]),
+        amount=float(partial["amt"]),
         type=partial["type"],
     )
     return crud.create_transaction(db, payload, source="telegram")

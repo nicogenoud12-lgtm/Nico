@@ -34,7 +34,7 @@ def _serialize_tx_full(tx: models.Transaction) -> dict:
         "date": tx.date.isoformat() if isinstance(tx.date, date_type) else tx.date,
         "desc": tx.desc,
         "cat_id": tx.cat_id, "medio_id": tx.medio_id, "tarjeta_id": tx.tarjeta_id,
-        "amt": tx.amt, "type": tx.type, "currency": tx.currency or "ARS",
+        "amount": tx.amt, "type": tx.type, "currency": tx.currency or "ARS",
         "cuota_num": tx.cuota_num, "cuota_total": tx.cuota_total,
         "source": tx.source,
     }
@@ -92,7 +92,7 @@ def import_backup(payload: dict, db: Session = Depends(get_db)):
             db.add(models.Transaction(
                 id=tx.get("id"), month=tx["month"], date=d, desc=tx.get("desc", ""),
                 cat_id=tx.get("cat_id"), medio_id=tx.get("medio_id"), tarjeta_id=tx.get("tarjeta_id"),
-                amt=tx["amt"], type=tx.get("type", "g"),
+                amt=tx.get("amount", tx.get("amt", 0)), type=tx.get("type", "g"),
                 currency=tx.get("currency", "ARS"),
                 cuota_num=tx.get("cuota_num"), cuota_total=tx.get("cuota_total"),
                 source=tx.get("source", "web"),

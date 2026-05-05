@@ -32,6 +32,13 @@ def _get_or_create_medium(db: Session, name: str) -> models.Medium:
     return m
 
 
+def _date_to_month(d) -> str:
+    """Convert date to MMYY string."""
+    if hasattr(d, 'strftime'):
+        return d.strftime("%m%y")
+    return str(d)[5:7] + str(d)[2:4]
+
+
 def serialize_tx(tx: models.Transaction) -> dict:
     return {
         "id": tx.id,
@@ -40,7 +47,7 @@ def serialize_tx(tx: models.Transaction) -> dict:
         "desc": tx.desc,
         "cat": tx.category.name if tx.category else "",
         "medio": tx.medium.name if tx.medium else "",
-        "amt": tx.amt,
+        "amount": tx.amt,
         "type": tx.type,
         "currency": tx.currency or "ARS",
         "cuota_num": tx.cuota_num,
@@ -201,11 +208,12 @@ def list_transactions(db: Session) -> list[models.Transaction]:
 
 def create_transaction(db: Session, payload: schemas.TransactionCreate, source: str = "web") -> models.Transaction:
     cat = _get_or_create_category(db, payload.cat, kind="ingreso" if payload.type == "i" else "gasto")
-    medio = _get_or_create_medium(db, payload.medio)
+    medio = _get_or_create_medium(db, payload.medio or "")
+    month = payload.month or _date_to_month(payload.date)
     tx = models.Transaction(
-        month=payload.month, date=payload.date, desc=payload.desc,
+        month=month, date=payload.date, desc=payload.desc or "",
         cat_id=cat.id, medio_id=medio.id,
-        amt=payload.amt, type=payload.type, source=source,
+        amt=payload.amount, type=payload.type, source=source,
         currency=payload.currency or "ARS",
         cuota_num=payload.cuota_num,
         cuota_total=payload.cuota_total,
@@ -226,6 +234,10 @@ def update_transaction(db: Session, tx_id: int, payload: schemas.TransactionUpda
     if "medio" in data and data["medio"] is not None:
         medio = _get_or_create_medium(db, data.pop("medio"))
         tx.medio_id = medio.id
+    if "amount" in data:
+        tx.amt = data.pop("amount")
+    if "date" in data and data["date"] is not None:
+        tx.month = _date_to_month(data["date"])
     for k, v in data.items():
         setattr(tx, k, v)
     db.commit(); db.refresh(tx)

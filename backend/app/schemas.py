@@ -96,12 +96,11 @@ class MonthRead(BaseModel):
 
 # ── Transaction ──────────────────────────────────────────────
 class TransactionBase(BaseModel):
-    month: str
     date: date
-    desc: str
+    desc: str = ""
     cat: str
-    medio: str
-    amt: float
+    medio: str = ""
+    amount: float
     type: Literal["g", "i"]
     currency: Literal["ARS", "USD"] = "ARS"
     cuota_num: Optional[int] = None
@@ -110,16 +109,15 @@ class TransactionBase(BaseModel):
 
 
 class TransactionCreate(TransactionBase):
-    pass
+    month: Optional[str] = None  # derivado de date si no se provee
 
 
 class TransactionUpdate(BaseModel):
-    month: Optional[str] = None
     date: Optional[date] = None
     desc: Optional[str] = None
     cat: Optional[str] = None
     medio: Optional[str] = None
-    amt: Optional[float] = None
+    amount: Optional[float] = None
     type: Optional[Literal["g", "i"]] = None
     currency: Optional[Literal["ARS", "USD"]] = None
     cuota_num: Optional[int] = None
@@ -134,7 +132,7 @@ class TransactionRead(BaseModel):
     desc: str
     cat: str
     medio: str
-    amt: float
+    amount: float
     type: Literal["g", "i"]
     currency: str = "ARS"
     cuota_num: Optional[int] = None
