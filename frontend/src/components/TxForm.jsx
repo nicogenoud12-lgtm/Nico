@@ -4,7 +4,7 @@ import { todayStr } from '../utils/format.js';
 
 export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
   const [type, setType] = useState(initial?.type || 'g');
-  const [amount, setAmount] = useState(initial?.amount ? String(initial.amount) : '');
+  const [amount, setAmount] = useState(initial?.amount ? String(Math.abs(initial.amount)) : '');
   const [currency, setCurrency] = useState(initial?.currency || 'ARS');
   const [cat, setCat] = useState(initial?.cat || '');
   const [medio, setMedio] = useState(initial?.medio || '');
@@ -21,7 +21,7 @@ export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const n = parseFloat(amount);
+    const n = Math.abs(parseFloat(amount));
     if (!n || !cat || !date) return;
     setSaving(true);
     try {
