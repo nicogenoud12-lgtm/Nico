@@ -1,4 +1,4 @@
-from datetime import date
+import datetime
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -96,7 +96,7 @@ class MonthRead(BaseModel):
 
 # ── Transaction ──────────────────────────────────────────────
 class TransactionBase(BaseModel):
-    date: date
+    date: datetime.date
     desc: str = ""
     cat: str
     medio: str = ""
@@ -113,7 +113,7 @@ class TransactionCreate(TransactionBase):
 
 
 class TransactionUpdate(BaseModel):
-    date: Optional[date] = None
+    date: Optional[datetime.date] = None
     desc: Optional[str] = None
     cat: Optional[str] = None
     medio: Optional[str] = None
@@ -128,7 +128,7 @@ class TransactionUpdate(BaseModel):
 class TransactionRead(BaseModel):
     id: int
     month: str
-    date: date
+    date: datetime.date
     desc: str
     cat: str
     medio: str

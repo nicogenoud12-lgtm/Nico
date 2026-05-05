@@ -34,14 +34,7 @@ export function monthIdShort(id) {
 export function fmtARS(n, showSign = false) {
   if (n === null || n === undefined || isNaN(n)) return '$ 0';
   const abs = Math.abs(n);
-  let s;
-  if (abs >= 1_000_000) {
-    s = `$${(abs / 1_000_000).toFixed(2).replace('.', ',')}M`;
-  } else if (abs >= 1_000) {
-    s = `$${Math.round(abs / 1_000).toLocaleString('es-AR')}k`;
-  } else {
-    s = `$${Math.round(abs).toLocaleString('es-AR')}`;
-  }
+  const s = '$ ' + abs.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   if (!showSign) return s;
   return (n >= 0 ? '+' : '-') + s;
 }
