@@ -5,7 +5,7 @@ import SparkBar from './SparkBar.jsx';
 import TarjetaCard from './TarjetaCard.jsx';
 
 export default function TarjetaDetail({ tarjeta, txs, allMonthIds, onEdit, onDelete, onClose }) {
-  const cardTxs = txs.filter(t => t.medio === tarjeta.nombre);
+  const cardTxs = txs.filter(t => t.tarjeta_id === tarjeta.id || t.medio === tarjeta.nombre);
 
   const last12 = sortMonthIdsDesc(allMonthIds).slice(0, 12).reverse();
   const sparkData = last12.map(id => {

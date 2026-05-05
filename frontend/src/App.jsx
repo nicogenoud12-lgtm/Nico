@@ -107,15 +107,15 @@ export default function App() {
           onTxsChange={reloadTxs}
         />
       );
-      case 'gastos': return <ScreenGastos {...screenProps} />;
-      case 'ingresos': return <ScreenIngresos {...screenProps} />;
+      case 'gastos': return <ScreenGastos {...screenProps} onTxsChange={reloadTxs} />;
+      case 'ingresos': return <ScreenIngresos {...screenProps} onTxsChange={reloadTxs} />;
       case 'tarjetas': return (
         <ScreenTarjetas
           {...screenProps}
           onTarjetasChange={async () => { await reloadTarjetas(); await reloadMediums(); }}
         />
       );
-      case 'anual': return <ScreenAnual {...screenProps} />;
+      case 'anual': return <ScreenAnual {...screenProps} onNavigate={setScreen} />;
       case 'ajustes': return (
         <ScreenAjustes
           cats={cats} mediums={mediums}

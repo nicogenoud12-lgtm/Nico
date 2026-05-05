@@ -1,9 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { C } from '../theme.js';
+import { C, s } from '../theme.js';
 import { dateToMonthId, sortMonthIdsDesc, pctChange, fmtARS, monthIdLabel } from '../utils/format.js';
 import DonutChart from '../components/DonutChart.jsx';
 import Divider from '../components/Divider.jsx';
 import Dot from '../components/Dot.jsx';
+import FAB from '../components/FAB.jsx';
+import Modal from '../components/Modal.jsx';
+import TxForm from '../components/TxForm.jsx';
+import { createTransaction } from '../api/transactions.js';
 
 function PctBadge({ pct }) {
   if (pct === null || pct === undefined) return <span style={{ fontSize: 11, color: C.text3 }}>—</span>;
@@ -17,15 +21,17 @@ function PctBadge({ pct }) {
   );
 }
 
-export default function ScreenIngresos({ txs, cats, monthId, allMonthIds }) {
+export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthIds, setMonthId, onTxsChange }) {
   const [hoveredCat, setHoveredCat] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const sorted = useMemo(() => sortMonthIdsDesc(allMonthIds), [allMonthIds]);
   const monthTxs = useMemo(() => txs.filter(t => dateToMonthId(t.date) === monthId && t.type === 'i'), [txs, monthId]);
 
   const prevMonthId = useMemo(() => {
-    const sorted = sortMonthIdsDesc(allMonthIds);
     const idx = sorted.indexOf(monthId);
     return sorted[idx + 1] || null;
-  }, [allMonthIds, monthId]);
+  }, [sorted, monthId]);
 
   const prevTotal = useMemo(() =>
     prevMonthId ? txs.filter(t => dateToMonthId(t.date) === prevMonthId && t.type === 'i').reduce((s, t) => s + t.amount, 0) : 0,
@@ -49,10 +55,46 @@ export default function ScreenIngresos({ txs, cats, monthId, allMonthIds }) {
 
   const donutData = bycat.length > 0 ? bycat : [{ name: 'Sin datos', value: 1, color: C.surface2 }];
 
+  const handleSave = async (data, cuotas = 1) => {
+    const baseDate = new Date(data.date + 'T12:00:00');
+    for (let i = 0; i < cuotas; i++) {
+      const d = new Date(baseDate);
+      d.setMonth(d.getMonth() + i);
+      const ds = d.toISOString().slice(0, 10);
+      await createTransaction({
+        ...data,
+        amount: data.amount / cuotas,
+        date: ds,
+        cuota_num: cuotas > 1 ? i + 1 : null,
+        cuota_total: cuotas > 1 ? cuotas : null,
+      });
+    }
+    setModalOpen(false);
+    await onTxsChange();
+  };
+
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: '16px' }}>
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 12, color: C.text3, marginBottom: 4 }}>{monthIdLabel(monthId)}</div>
+      {/* Month navigation */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        <button
+          onClick={() => { const i = sorted.indexOf(monthId); if (i < sorted.length - 1) setMonthId(sorted[i + 1]); }}
+          style={{ ...s.btnIcon, fontSize: 18 }}
+        >‹</button>
+        <select
+          value={monthId}
+          onChange={e => setMonthId(e.target.value)}
+          style={{ ...s.select, width: 'auto', flex: 1, fontSize: 15, fontWeight: 600 }}
+        >
+          {sorted.map(id => <option key={id} value={id}>{monthIdLabel(id)}</option>)}
+        </select>
+        <button
+          onClick={() => { const i = sorted.indexOf(monthId); if (i > 0) setMonthId(sorted[i - 1]); }}
+          style={{ ...s.btnIcon, fontSize: 18 }}
+        >›</button>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 24, fontWeight: 700, color: C.green, marginBottom: 4 }}>{fmtARS(total)}</div>
         <PctBadge pct={pct} />
       </div>
@@ -86,7 +128,17 @@ export default function ScreenIngresos({ txs, cats, monthId, allMonthIds }) {
         )}
       </div>
 
-      <div style={{ height: 40 }} />
+      <div style={{ height: 80 }} />
+
+      <FAB onClick={() => setModalOpen(true)} />
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo ingreso">
+        <TxForm
+          cats={cats} mediums={mediums}
+          initial={{ type: 'i' }}
+          onSave={handleSave}
+          onCancel={() => setModalOpen(false)}
+        />
+      </Modal>
     </div>
   );
 }

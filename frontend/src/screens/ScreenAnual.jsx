@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { C } from '../theme.js';
 import { dateToMonthId, monthIdShort, sortMonthIdsDesc, fmtARS } from '../utils/format.js';
 
-export default function ScreenAnual({ txs, allMonthIds, monthId, setMonthId }) {
+export default function ScreenAnual({ txs, allMonthIds, monthId, setMonthId, onNavigate }) {
   const [hoveredBar, setHoveredBar] = useState(null);
   const sorted = useMemo(() => sortMonthIdsDesc(allMonthIds).slice(0, 12).reverse(), [allMonthIds]);
 
@@ -33,7 +33,7 @@ export default function ScreenAnual({ txs, allMonthIds, monthId, setMonthId }) {
           return (
             <div
               key={d.id}
-              onClick={() => setMonthId(d.id)}
+              onClick={() => { setMonthId(d.id); onNavigate?.('movimientos'); }}
               onMouseEnter={() => setHoveredBar(d.id)}
               onMouseLeave={() => setHoveredBar(null)}
               style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer', borderRadius: 4, transition: 'background .15s', background: isHovered && !isActive ? C.surface2 : 'transparent' }}
