@@ -7,14 +7,14 @@ services:
       - backend_data:/app/data
     environment:
       - DATABASE_URL=sqlite:////app/data/gastos.db
-      - CORS_ORIGINS=https://gastos.genoud-nube.com.ar,http://10.0.0.69:3000
+      - CORS_ORIGINS=https://gastos.genoud-nube.com.ar,http://10.0.0.69:3000,http://localhost:3000,http://127.0.0.1:3000
     restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       args:
-        - VITE_API_BASE_URL=https://apigastos.genoud-nube.com.ar
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8005}
     ports:
       - "3000:80"
     depends_on:
