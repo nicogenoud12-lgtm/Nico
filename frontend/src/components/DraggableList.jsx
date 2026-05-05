@@ -53,7 +53,7 @@ export default function DraggableList({ items, onReorder, onEdit, onDelete, hasC
   };
 
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'visible' }}>
       {items.length > 1 && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '6px 10px', borderBottom: `1px solid ${C.border}` }}>
           <button
@@ -98,7 +98,11 @@ export default function DraggableList({ items, onReorder, onEdit, onDelete, hasC
                   />
                   {showColorIdx === i && (
                     <div style={{
-                      position: 'absolute', top: 32, left: 0, zIndex: 20,
+                      position: 'absolute',
+                      ...(i >= items.length - 2 && items.length > 2
+                        ? { bottom: 32, left: 0 }
+                        : { top: 32, left: 0 }),
+                      zIndex: 20,
                       background: C.surface2, padding: 8, borderRadius: 10,
                       border: `1px solid ${C.border}`, display: 'flex', flexWrap: 'wrap', gap: 6,
                       width: 172, boxShadow: '0 8px 24px rgba(0,0,0,.5)',
