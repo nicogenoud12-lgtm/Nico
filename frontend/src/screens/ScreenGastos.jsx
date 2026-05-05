@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { C } from '../theme.js';
 import { dateToMonthId, sortMonthIdsDesc, pctChange, fmtARS, monthIdLabel } from '../utils/format.js';
 import DonutChart from '../components/DonutChart.jsx';
@@ -18,6 +18,7 @@ function PctBadge({ pct }) {
 }
 
 export default function ScreenGastos({ txs, cats, monthId, allMonthIds }) {
+  const [hoveredCat, setHoveredCat] = useState(null);
   const monthTxs = useMemo(() => txs.filter(t => dateToMonthId(t.date) === monthId && t.type === 'g'), [txs, monthId]);
 
   const prevMonthId = useMemo(() => {
@@ -71,7 +72,11 @@ export default function ScreenGastos({ txs, cats, monthId, allMonthIds }) {
         {bycat.map((item, i) => (
           <React.Fragment key={item.name}>
             {i > 0 && <Divider my={0} />}
-            <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              onMouseEnter={() => setHoveredCat(i)}
+              onMouseLeave={() => setHoveredCat(null)}
+              style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, background: hoveredCat === i ? C.surface2 : 'transparent', transition: 'background .15s' }}
+            >
               <Dot color={item.color} size={12} />
               <span style={{ flex: 1, fontSize: 14, color: C.text }}>{item.name}</span>
               <div style={{ textAlign: 'right' }}>

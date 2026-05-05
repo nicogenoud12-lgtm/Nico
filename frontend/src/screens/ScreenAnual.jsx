@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { C } from '../theme.js';
 import { dateToMonthId, monthIdShort, sortMonthIdsDesc, fmtARS } from '../utils/format.js';
 
 export default function ScreenAnual({ txs, allMonthIds, monthId, setMonthId }) {
+  const [hoveredBar, setHoveredBar] = useState(null);
   const sorted = useMemo(() => sortMonthIdsDesc(allMonthIds).slice(0, 12).reverse(), [allMonthIds]);
 
   const data = useMemo(() => sorted.map(id => {
@@ -28,29 +29,33 @@ export default function ScreenAnual({ txs, allMonthIds, monthId, setMonthId }) {
           const gasH = Math.max(4, (d.gas / maxVal) * 180);
           const isActive = d.id === monthId;
 
+          const isHovered = hoveredBar === d.id;
           return (
             <div
               key={d.id}
               onClick={() => setMonthId(d.id)}
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer' }}
+              onMouseEnter={() => setHoveredBar(d.id)}
+              onMouseLeave={() => setHoveredBar(null)}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer', borderRadius: 4, transition: 'background .15s', background: isHovered && !isActive ? C.surface2 : 'transparent' }}
             >
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 180 }}>
                 <div style={{
                   width: '100%', borderRadius: '3px 3px 0 0',
-                  background: isActive ? C.green : C.green + '66',
-                  height: ingH, transition: 'height .3s',
+                  background: isActive || isHovered ? C.green : C.green + '55',
+                  height: ingH, transition: 'height .3s, background .15s',
                   minWidth: 6,
                 }} />
                 <div style={{
                   width: '100%', borderRadius: '3px 3px 0 0',
-                  background: isActive ? C.red : C.red + '66',
-                  height: gasH, transition: 'height .3s',
+                  background: isActive || isHovered ? C.red : C.red + '55',
+                  height: gasH, transition: 'height .3s, background .15s',
                   minWidth: 6,
                 }} />
               </div>
               <span style={{
-                fontSize: 9, color: isActive ? C.text : C.text3,
+                fontSize: 9, color: isActive || isHovered ? C.text : C.text3,
                 fontWeight: isActive ? 700 : 400,
+                transition: 'color .15s',
               }}>
                 {monthIdShort(d.id)}
               </span>
@@ -82,11 +87,13 @@ export default function ScreenAnual({ txs, allMonthIds, monthId, setMonthId }) {
           <div
             key={d.id}
             onClick={() => setMonthId(d.id)}
+            onMouseEnter={() => setHoveredBar(d.id)}
+            onMouseLeave={() => setHoveredBar(null)}
             style={{
               display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr',
               padding: '11px 16px',
               borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : 'none',
-              background: d.id === monthId ? C.surface2 : 'transparent',
+              background: d.id === monthId ? C.surface2 : hoveredBar === d.id ? C.surface2 + 'aa' : 'transparent',
               cursor: 'pointer',
               transition: 'background .15s',
             }}

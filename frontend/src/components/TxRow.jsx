@@ -1,21 +1,31 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { C } from '../theme.js';
 import { fmtMoney, fmtDate } from '../utils/format.js';
 
 export default function TxRow({ tx, cats, onEdit, onDelete }) {
+  const [hovered, setHovered] = useState(false);
   const list = tx.type === 'i' ? cats.ingresos : cats.gastos;
   const cat = list.find(c => c.name === tx.cat);
   const color = cat?.color || (tx.type === 'i' ? C.green : C.red);
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 12,
-      padding: '11px 0',
-    }}>
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '11px 8px',
+        borderRadius: 8,
+        background: hovered ? C.surface2 : 'transparent',
+        transition: 'background .15s',
+        margin: '0 -8px',
+      }}
+    >
       <div style={{
         width: 36, height: 36, borderRadius: 10, flexShrink: 0,
         background: color + '22',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'background .15s',
       }}>
         <div style={{ width: 10, height: 10, borderRadius: '50%', background: color }} />
       </div>
@@ -36,7 +46,11 @@ export default function TxRow({ tx, cats, onEdit, onDelete }) {
         <div style={{ fontSize: 11, color: C.text3, marginTop: 1 }}>{fmtDate(tx.date)}</div>
       </div>
       {(onEdit || onDelete) && (
-        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+        <div style={{
+          display: 'flex', gap: 4, flexShrink: 0,
+          opacity: hovered ? 1 : 0,
+          transition: 'opacity .15s',
+        }}>
           {onEdit && (
             <button
               onClick={() => onEdit(tx)}
