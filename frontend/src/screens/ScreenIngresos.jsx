@@ -2,8 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { C, s } from '../theme.js';
 import { dateToMonthId, sortMonthIdsDesc, pctChange, fmtARS, monthIdLabel } from '../utils/format.js';
 import DonutChart from '../components/DonutChart.jsx';
-import Divider from '../components/Divider.jsx';
-import Dot from '../components/Dot.jsx';
 import FAB from '../components/FAB.jsx';
 import Modal from '../components/Modal.jsx';
 import TxForm from '../components/TxForm.jsx';
@@ -22,7 +20,7 @@ function PctBadge({ pct }) {
 }
 
 export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthIds, setMonthId, onTxsChange }) {
-  const [hoveredCat, setHoveredCat] = useState(null);
+  const [hoveredIdx, setHoveredIdx] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
 
   const sorted = useMemo(() => sortMonthIdsDesc(allMonthIds), [allMonthIds]);
@@ -53,8 +51,6 @@ export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthId
       .sort((a, b) => b.value - a.value);
   }, [monthTxs, cats]);
 
-  const donutData = bycat.length > 0 ? bycat : [{ name: 'Sin datos', value: 1, color: C.surface2 }];
-
   const handleSave = async (data, cuotas = 1) => {
     const baseDate = new Date(data.date + 'T12:00:00');
     for (let i = 0; i < cuotas; i++) {
@@ -71,6 +67,30 @@ export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthId
     }
     setModalOpen(false);
     await onTxsChange();
+  };
+
+  const displayIdx = hoveredIdx !== null ? hoveredIdx : (bycat.length > 0 ? 0 : null);
+  const displayItem = displayIdx !== null ? bycat[displayIdx] : null;
+
+  const renderCenter = () => {
+    if (!displayItem) return null;
+    const pctOf = total > 0 ? (displayItem.value / total) * 100 : 0;
+    return (
+      <div style={{ textAlign: 'center', maxWidth: 130 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 3 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: displayItem.color }} />
+          <span style={{ fontSize: 11, color: C.text2, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 100 }}>
+            {displayItem.name}
+          </span>
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 1 }}>
+          {fmtARS(displayItem.value)}
+        </div>
+        <div style={{ fontSize: 12, color: C.text3, fontWeight: 600 }}>
+          {pctOf.toFixed(1)}%
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -99,34 +119,59 @@ export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthId
         <PctBadge pct={pct} />
       </div>
 
-      {bycat.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-          <DonutChart data={donutData} size={200} thickness={32} center={`${bycat.length} cat.`} />
+      {bycat.length > 0 ? (
+        <div style={{
+          background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
+          padding: '20px 16px',
+          display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', justifyContent: 'center',
+        }}>
+          <DonutChart
+            data={bycat}
+            size={200}
+            thickness={32}
+            hoveredIdx={hoveredIdx}
+            onHover={setHoveredIdx}
+            renderCenter={renderCenter}
+          />
+          <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {bycat.map((item, i) => {
+              const pctOf = total > 0 ? (item.value / total) * 100 : 0;
+              const isHovered = hoveredIdx === i;
+              const isDimmed = hoveredIdx !== null && !isHovered;
+              return (
+                <div
+                  key={item.name}
+                  onMouseEnter={() => setHoveredIdx(i)}
+                  onMouseLeave={() => setHoveredIdx(null)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '7px 10px', borderRadius: 7,
+                    background: isHovered ? C.surface2 : 'transparent',
+                    opacity: isDimmed ? 0.4 : 1,
+                    transition: 'background .15s, opacity .15s',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: 13, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {item.name}
+                  </span>
+                  <span style={{ fontSize: 13, color: C.text2, fontWeight: 600, flexShrink: 0 }}>
+                    {pctOf.toFixed(1)}%
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
+          padding: '32px', textAlign: 'center', color: C.text3, fontSize: 14,
+        }}>
+          Sin ingresos este mes
         </div>
       )}
-
-      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
-        {bycat.map((item, i) => (
-          <React.Fragment key={item.name}>
-            {i > 0 && <Divider my={0} />}
-            <div
-              onMouseEnter={() => setHoveredCat(i)}
-              onMouseLeave={() => setHoveredCat(null)}
-              style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, background: hoveredCat === i ? C.surface2 : 'transparent', transition: 'background .15s' }}
-            >
-              <Dot color={item.color} size={12} />
-              <span style={{ flex: 1, fontSize: 14, color: C.text }}>{item.name}</span>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: C.green }}>{fmtARS(item.value)}</div>
-                <div style={{ fontSize: 11, color: C.text3 }}>{total > 0 ? Math.round(item.value / total * 100) : 0}%</div>
-              </div>
-            </div>
-          </React.Fragment>
-        ))}
-        {bycat.length === 0 && (
-          <div style={{ padding: '32px', textAlign: 'center', color: C.text3, fontSize: 14 }}>Sin ingresos este mes</div>
-        )}
-      </div>
 
       <div style={{ height: 80 }} />
 
