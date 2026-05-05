@@ -61,7 +61,7 @@ export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
         <div style={{ display: 'flex', gap: 8 }}>
           <input
             style={{ ...s.input, flex: 1 }}
-            type="number" step="any" min="0"
+            type="number" step="any"
             placeholder="0"
             value={amount}
             onChange={e => setAmount(e.target.value)}
