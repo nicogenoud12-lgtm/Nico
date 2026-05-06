@@ -132,7 +132,8 @@ function ComboChart({ data, mode, onClickMonth }) {
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
-  const maxVal = Math.max(...data.flatMap(d => [d.ing, d.gas]), 1);
+  const rawMax = Math.max(...data.flatMap(d => [d.ing, d.gas]), 1);
+  const maxVal = Math.ceil(rawMax / 100000) * 100000;
   const barWidth = chartWidth / (data.length * 2.5);
   const barGap = barWidth * 0.3;
 
@@ -163,11 +164,12 @@ function ComboChart({ data, mode, onClickMonth }) {
         {/* Grid + Y-axis labels */}
         {yTicks.map((val, i) => {
           const y = padding.top + chartHeight - (val / maxVal) * chartHeight;
+          const label = val === 0 ? '$0' : '$' + (val / 1000000).toFixed(val % 1000000 === 0 ? 0 : 1) + 'M';
           return (
             <g key={i}>
               <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke={C.border} strokeWidth="1" opacity="0.3" />
               <text x={padding.left - 10} y={y + 4} fontSize="10" fill={C.text3} textAnchor="end">
-                ${(val / 1000).toFixed(0)}k
+                {label}
               </text>
             </g>
           );
@@ -349,7 +351,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
       const net = ing - gas;
       const pctAhorro = ing > 0 ? (net / ing) * 100 : 0;
       return { id, ing, gas, net, pctAhorro };
-    });
+    }).filter(d => d.ing > 0 || d.gas > 0);
 
     result.forEach((d, i) => {
       const prev = result[i - 1];
