@@ -1,4 +1,6 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { C } from '../theme.js';
 import { dateToMonthId, monthIdLabel, fmtARS, pctChange } from '../utils/format.js';
 import DonutChart from '../components/DonutChart.jsx';
@@ -33,20 +35,30 @@ function runningSum(data) {
   });
 }
 
-function exportYearCSV(data, year) {
-  const headers = 'Mes,Ingresos,Gastos,Neto,% Ahorro,Variación';
-  const rows = data.map(d => {
-    const pctAhorro = d.ing > 0 ? ((d.net / d.ing) * 100).toFixed(1) : '—';
-    const variation = d.variation !== null ? d.variation.toFixed(1) : '—';
-    return `${MONTH_NAMES[parseInt(d.id.slice(0, 2)) - 1]} '${d.id.slice(2)},${d.ing},${d.gas},${d.net},${pctAhorro},${variation}`;
-  });
-  const csv = headers + '\n' + rows.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `gastos-anual-${year}.csv`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+async function exportYearPDF(dashboardRef, year) {
+  try {
+    const canvas = await html2canvas(dashboardRef.current, {
+      backgroundColor: '#0a0a0a',
+      scale: 2,
+      logging: false,
+      useCORS: true,
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const imgWidth = 280;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    pdf.addImage(imgData, 'PNG', 15, 15, imgWidth, imgHeight);
+    pdf.save(`gastos-anual-${year}.pdf`);
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    alert('Error al generar PDF');
+  }
 }
 
 function useIsMobile() {
@@ -59,8 +71,9 @@ function useIsMobile() {
   return mobile;
 }
 
-function KpiCard({ label, value, color, deltaPct, deltaLabel, progress, maxProgress }) {
+function KpiCard({ label, value, color, deltaPct, deltaLabel, progress, maxProgress, isPercentage }) {
   const progressPct = maxProgress > 0 ? (progress / maxProgress) * 100 : 0;
+  const displayValue = isPercentage ? value : fmtARS(value);
   return (
     <div style={{
       background: C.surface,
@@ -76,7 +89,7 @@ function KpiCard({ label, value, color, deltaPct, deltaLabel, progress, maxProgr
         {label}
       </div>
       <div style={{ fontSize: 24, fontWeight: 700, color, marginBottom: 8 }}>
-        {fmtARS(value)}
+        {displayValue}
       </div>
       {deltaLabel && (
         <div style={{ fontSize: 11, color: deltaPct > 0 ? C.green : deltaPct < 0 ? C.red : C.text3, fontWeight: 600, marginBottom: 8 }}>
@@ -247,17 +260,17 @@ function ComboChart({ data, mode, onClickMonth }) {
           );
         })}
 
-        {/* Legend inline */}
-        <circle cx={padding.left + 80} cy={padding.top + 8} r="2" fill={C.green} />
-        <text x={padding.left + 90} y={padding.top + 12} fontSize="10" fill={C.text2}>
+        {/* Legend below X-axis */}
+        <circle cx={padding.left + 80} cy={height - padding.bottom + 20} r="2" fill={C.green} />
+        <text x={padding.left + 90} y={height - padding.bottom + 24} fontSize="10" fill={C.text2}>
           Ingresos
         </text>
-        <circle cx={padding.left + 160} cy={padding.top + 8} r="2" fill={C.red} />
-        <text x={padding.left + 170} y={padding.top + 12} fontSize="10" fill={C.text2}>
+        <circle cx={padding.left + 180} cy={height - padding.bottom + 20} r="2" fill={C.red} />
+        <text x={padding.left + 190} y={height - padding.bottom + 24} fontSize="10" fill={C.text2}>
           Gastos
         </text>
-        <line x1={padding.left + 240} y1={padding.top + 8} x2={padding.left + 250} y2={padding.top + 8} stroke="#60a5fa" strokeWidth="2" />
-        <text x={padding.left + 260} y={padding.top + 12} fontSize="10" fill={C.text2}>
+        <line x1={padding.left + 260} y1={height - padding.bottom + 20} x2={padding.left + 270} y2={height - padding.bottom + 20} stroke="#60a5fa" strokeWidth="2" />
+        <text x={padding.left + 280} y={height - padding.bottom + 24} fontSize="10" fill={C.text2}>
           Neto
         </text>
       </svg>
@@ -332,6 +345,7 @@ function SummaryRow({ icon, label, value, color }) {
 }
 
 export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
+  const dashboardRef = useRef(null);
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [selectedYear, setSelectedYear] = useState(() => {
     const current = new Date().getFullYear().toString();
@@ -442,7 +456,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
   };
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: '16px' }}>
+    <div ref={dashboardRef} style={{ height: '100%', overflowY: 'auto', padding: '16px' }}>
       <div style={{ display: 'flex', gap: 20, flexDirection: mobile ? 'column' : 'row', alignItems: 'flex-start' }}>
         {/* Columna principal */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -468,7 +482,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
                 {years.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
               <button
-                onClick={() => exportYearCSV(data, selectedYear)}
+                onClick={() => exportYearPDF(dashboardRef, selectedYear)}
                 style={{
                   background: 'transparent',
                   color: C.accent,
@@ -521,6 +535,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
               color={C.accent}
               progress={kpis.pctAhorro}
               maxProgress={100}
+              isPercentage={true}
             />
           </div>
 
@@ -673,19 +688,11 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
                     color={C.red}
                   />
                 ) : null}
-                <div style={{ paddingBottom: 12, borderBottom: `1px solid ${C.border}` }}>
-                  <div style={{ fontSize: 10, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em' }}>
-                    Tendencia neto
-                  </div>
-                  <div style={{ fontSize: 13, color: summary.tendencia === 'positiva' ? C.green : summary.tendencia === 'negativa' ? C.red : C.text3, fontWeight: 600, marginTop: 2 }}>
-                    {summary.tendencia === 'positiva' ? '↗' : summary.tendencia === 'negativa' ? '↘' : '→'} {summary.tendencia.charAt(0).toUpperCase() + summary.tendencia.slice(1)}
-                  </div>
-                </div>
-                <div style={{ paddingTop: 12 }}>
-                  <div style={{ fontSize: 10, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                <div>
+                  <div style={{ fontSize: 10, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', paddingBottom: 12, borderBottom: `1px solid ${C.border}` }}>
                     Ingreso promedio
                   </div>
-                  <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginTop: 2 }}>
+                  <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginTop: 12 }}>
                     {fmtARS(summary.avgIng)}
                   </div>
                 </div>
