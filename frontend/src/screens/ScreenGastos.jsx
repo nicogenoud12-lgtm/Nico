@@ -5,7 +5,9 @@ import DonutChart from '../components/DonutChart.jsx';
 import FAB from '../components/FAB.jsx';
 import Modal from '../components/Modal.jsx';
 import TxForm from '../components/TxForm.jsx';
-import { createTransaction } from '../api/transactions.js';
+import TxRow from '../components/TxRow.jsx';
+import Divider from '../components/Divider.jsx';
+import { createTransaction, updateTransaction, deleteTransaction } from '../api/transactions.js';
 
 function PctBadge({ pct }) {
   if (pct === null || pct === undefined) return <span style={{ fontSize: 11, color: C.text3 }}>—</span>;
@@ -22,6 +24,7 @@ function PctBadge({ pct }) {
 export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds, setMonthId, onTxsChange }) {
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editTx, setEditTx] = useState(null);
 
   const sorted = useMemo(() => sortMonthIdsDesc(allMonthIds), [allMonthIds]);
   const monthTxs = useMemo(() => txs.filter(t => dateToMonthId(t.date) === monthId && t.type === 'g'), [txs, monthId]);
@@ -51,26 +54,56 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
       .sort((a, b) => b.value - a.value);
   }, [monthTxs, cats]);
 
+  const sortedTxs = useMemo(() =>
+    [...monthTxs].sort((a, b) => b.date.localeCompare(a.date)),
+    [monthTxs]);
+
+  const grouped = useMemo(() => {
+    const byDate = {};
+    sortedTxs.forEach(t => {
+      byDate[t.date] = byDate[t.date] || [];
+      byDate[t.date].push(t);
+    });
+    return Object.entries(byDate).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [sortedTxs]);
+
   const handleSave = async (data, cuotas = 1) => {
-    const baseDate = new Date(data.date + 'T12:00:00');
-    for (let i = 0; i < cuotas; i++) {
-      const d = new Date(baseDate);
-      d.setMonth(d.getMonth() + i);
-      const ds = d.toISOString().slice(0, 10);
-      await createTransaction({
-        ...data,
-        amount: data.amount / cuotas,
-        date: ds,
-        cuota_num: cuotas > 1 ? i + 1 : null,
-        cuota_total: cuotas > 1 ? cuotas : null,
-      });
+    if (editTx) {
+      await updateTransaction(editTx.id, data);
+    } else {
+      const baseDate = new Date(data.date + 'T12:00:00');
+      for (let i = 0; i < cuotas; i++) {
+        const d = new Date(baseDate);
+        d.setMonth(d.getMonth() + i);
+        const ds = d.toISOString().slice(0, 10);
+        await createTransaction({
+          ...data,
+          amount: data.amount / cuotas,
+          date: ds,
+          cuota_num: cuotas > 1 ? i + 1 : null,
+          cuota_total: cuotas > 1 ? cuotas : null,
+        });
+      }
     }
     setModalOpen(false);
+    setEditTx(null);
     await onTxsChange();
+  };
+
+  const handleDelete = async (tx) => {
+    if (!window.confirm('¿Eliminar movimiento?')) return;
+    await deleteTransaction(tx.id);
+    await onTxsChange();
+  };
+
+  const handleEdit = (tx) => {
+    setEditTx(tx);
+    setModalOpen(true);
   };
 
   const displayIdx = hoveredIdx !== null ? hoveredIdx : (bycat.length > 0 ? 0 : null);
   const displayItem = displayIdx !== null ? bycat[displayIdx] : null;
+  const hoveredCatName = hoveredIdx !== null ? bycat[hoveredIdx]?.name : null;
 
   const renderCenter = () => {
     if (!displayItem) return null;
@@ -173,15 +206,59 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
         </div>
       )}
 
+      {grouped.length > 0 && (
+        <>
+          <div style={{
+            fontSize: 11, fontWeight: 600, color: C.text3,
+            textTransform: 'uppercase', letterSpacing: '.06em',
+            margin: '24px 4px 10px',
+          }}>
+            Movimientos del mes
+          </div>
+          <div style={{
+            background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
+            padding: '4px 14px',
+          }}>
+            {grouped.map(([date, dayTxs], gi) => (
+              <React.Fragment key={date}>
+                {gi > 0 && <Divider />}
+                <div style={{
+                  fontSize: 10, fontWeight: 600, color: C.text3,
+                  textTransform: 'uppercase', letterSpacing: '.06em',
+                  padding: '10px 0 4px',
+                }}>
+                  {new Date(date + 'T12:00:00').toLocaleDateString('es-AR', {
+                    weekday: 'short', day: 'numeric', month: 'short',
+                  })}
+                </div>
+                {dayTxs.map(tx => {
+                  const isDimmed = hoveredCatName !== null && tx.cat !== hoveredCatName;
+                  return (
+                    <div key={tx.id} style={{ opacity: isDimmed ? 0.35 : 1, transition: 'opacity .15s' }}>
+                      <TxRow
+                        tx={tx}
+                        cats={cats}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                      />
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </div>
+        </>
+      )}
+
       <div style={{ height: 80 }} />
 
-      <FAB onClick={() => setModalOpen(true)} />
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo gasto">
+      <FAB onClick={() => { setEditTx(null); setModalOpen(true); }} />
+      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditTx(null); }} title={editTx ? 'Editar gasto' : 'Nuevo gasto'}>
         <TxForm
           cats={cats} mediums={mediums}
-          initial={{ type: 'g' }}
+          initial={editTx || { type: 'g' }}
           onSave={handleSave}
-          onCancel={() => setModalOpen(false)}
+          onCancel={() => { setModalOpen(false); setEditTx(null); }}
         />
       </Modal>
     </div>
