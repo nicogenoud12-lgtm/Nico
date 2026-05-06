@@ -13,6 +13,9 @@ class Settings(BaseSettings):
 
     SEED_DEMO_TX: bool = False
 
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+
     @property
     def cors_origins_list(self) -> list[str]:
         if self.CORS_ORIGINS.strip() == "*":

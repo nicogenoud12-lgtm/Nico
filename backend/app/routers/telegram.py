@@ -3,8 +3,9 @@ Webhook conversacional de Telegram.
 
 Flujo:
 1. Recibe update. Valida secret token y user permitido.
-2. Si hay pending para el chat → la respuesta completa el campo faltante.
-3. Si no → parsea el texto. Crea tx si está completa o pregunta lo que falta.
+2. Si hay pending para el chat → concatena el texto guardado con la nueva respuesta
+   y llama a Gemini con el contexto completo.
+3. Parsea con Gemini. Crea/borra tx según intent, o pregunta lo que falta.
 """
 from __future__ import annotations
 
@@ -17,8 +18,8 @@ from sqlalchemy.orm import Session
 from .. import crud, messages, schemas
 from ..config import settings
 from ..database import get_db
+from ..gemini import parse_telegram_message
 from ..models import PendingTransaction
-from ..parser import parse_message, resolve_field
 from ..telegram_client import send_message
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])
@@ -78,14 +79,6 @@ def _ask_for(field: str) -> str:
     }.get(field, messages.NOT_UNDERSTOOD_GENERIC)
 
 
-def _not_understood(field: str) -> str:
-    return {
-        "amt": messages.NOT_UNDERSTOOD_AMT,
-        "cat": messages.NOT_UNDERSTOOD_CAT,
-        "medio": messages.NOT_UNDERSTOOD_MEDIO,
-    }.get(field, messages.NOT_UNDERSTOOD_GENERIC)
-
-
 def _confirmation_text(partial: dict) -> str:
     template = messages.CONFIRM_INGRESO if partial["type"] == "i" else messages.CONFIRM_GASTO
     return template.format(
@@ -107,6 +100,22 @@ def _persist(db: Session, partial: dict):
         type=partial["type"],
     )
     return crud.create_transaction(db, payload, source="telegram")
+
+
+def _gemini_to_partial(result: dict) -> dict:
+    """Convierte la respuesta de Gemini (intent=create) al formato que acepta _persist."""
+    tx_type = result.get("tx_type") or "g"
+    raw_amt = abs(float(result.get("amt") or 0))
+    # gastos: negativo; ingresos: positivo (convención de la app)
+    amt_signed = raw_amt if tx_type == "i" else -raw_amt
+    return {
+        "date": result.get("date") or date_cls.today().isoformat(),
+        "cat": result.get("cat") or "",
+        "medio": result.get("medio") or "",
+        "amt": amt_signed,
+        "type": tx_type,
+        "desc": result.get("desc") or "",
+    }
 
 
 @router.post("/webhook", status_code=200)
@@ -135,51 +144,61 @@ async def telegram_webhook(
         await send_message(chat_id, "Mmm no tengo permiso para anotarte gastos a vos 🙅")
         return {"ok": True, "skipped": "user not allowed"}
 
+    # ── Reconstruir contexto si hay pending ───────────────────
     pending = _get_pending(db, chat_id)
-
-    # ── 1) Hay pending → la respuesta completa el siguiente campo faltante
     if pending:
-        partial = json.loads(pending.partial_json)
-        missing = [m for m in pending.missing_fields.split(",") if m]
-        current = missing[0] if missing else None
+        stored = json.loads(pending.partial_json)
+        original_text = stored.get("text", "")
+        full_text = f"{original_text}. {text}" if original_text else text
+    else:
+        full_text = text
 
-        if current:
-            value = resolve_field(current, text)
-            if value is None:
-                await send_message(chat_id, _not_understood(current))
-                return {"ok": True, "asking": current}
+    # ── Cargar cats / medios / txs recientes desde la DB ──────
+    cats = crud.list_categories(db)
+    cats_gasto = [c.name for c in cats if c.kind == "gasto"]
+    cats_ingreso = [c.name for c in cats if c.kind == "ingreso"]
+    mediums = [m.name for m in crud.list_mediums(db)]
+    recent = [crud.serialize_tx(t) for t in crud.list_transactions(db)[:10]]
 
-            if current == "amt":
-                amt_abs = abs(float(value))
-                partial["amt"] = amt_abs if partial["type"] == "i" else -amt_abs
-            else:
-                partial[current] = value
+    # ── Llamar a Gemini ───────────────────────────────────────
+    result = await parse_telegram_message(full_text, cats_gasto, cats_ingreso, mediums, recent)
+    if result is None:
+        await send_message(chat_id, messages.GEMINI_ERROR)
+        return {"ok": True, "skipped": "gemini_error"}
 
-            missing = missing[1:]
+    intent = result.get("intent", "unknown")
 
-        if missing:
-            _save_pending(db, chat_id, partial, missing)
-            await send_message(chat_id, _ask_for(missing[0]))
-            return {"ok": True, "asking": missing[0]}
-
-        # completo → persistir
-        tx = _persist(db, partial)
+    # ── intent: unknown ───────────────────────────────────────
+    if intent == "unknown":
         _clear_pending(db, chat_id)
-        await send_message(chat_id, _confirmation_text(partial))
-        return {"ok": True, "tx_id": tx.id}
+        reply = result.get("reply") or messages.NOT_UNDERSTOOD_GENERIC
+        await send_message(chat_id, reply)
+        return {"ok": True, "intent": "unknown"}
 
-    # ── 2) Sin pending → parsear como nuevo
-    parsed = parse_message(text)
-    if parsed.get("amt") is None and not parsed.get("missing"):
-        await send_message(chat_id, messages.NOT_UNDERSTOOD_GENERIC)
-        return {"ok": True, "skipped": "unparseable"}
+    # ── intent: delete ────────────────────────────────────────
+    if intent == "delete":
+        _clear_pending(db, chat_id)
+        tx_id = result.get("tx_id")
+        if not tx_id:
+            await send_message(chat_id, messages.NOT_FOUND_DELETE)
+            return {"ok": True, "intent": "delete", "error": "no_tx_id"}
+        deleted = crud.delete_transaction(db, tx_id)
+        if not deleted:
+            await send_message(chat_id, messages.NOT_FOUND_DELETE)
+            return {"ok": True, "intent": "delete", "error": "not_found"}
+        summary = result.get("summary") or f"tx #{tx_id}"
+        await send_message(chat_id, messages.CONFIRM_DELETE.format(summary=summary))
+        return {"ok": True, "intent": "delete", "tx_id": tx_id}
 
-    missing = parsed.get("missing", [])
+    # ── intent: create ────────────────────────────────────────
+    missing = result.get("missing") or []
     if missing:
-        _save_pending(db, chat_id, parsed, missing)
+        _save_pending(db, chat_id, {"text": full_text}, missing)
         await send_message(chat_id, _ask_for(missing[0]))
-        return {"ok": True, "asking": missing[0]}
+        return {"ok": True, "intent": "create", "asking": missing[0]}
 
-    tx = _persist(db, parsed)
-    await send_message(chat_id, _confirmation_text(parsed))
-    return {"ok": True, "tx_id": tx.id}
+    partial = _gemini_to_partial(result)
+    tx = _persist(db, partial)
+    _clear_pending(db, chat_id)
+    await send_message(chat_id, _confirmation_text(partial))
+    return {"ok": True, "intent": "create", "tx_id": tx.id}
