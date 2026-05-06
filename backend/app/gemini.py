@@ -1,4 +1,4 @@
-"""Cliente Gemini para parseo de mensajes del bot de Telegram."""
+"""Cliente Gemini para parseo + generación de respuestas del bot de Telegram."""
 from __future__ import annotations
 
 import json
@@ -35,7 +35,7 @@ RESPONSE_SCHEMA = {
         "summary": {"type": "STRING"},
         "reply": {"type": "STRING"},
     },
-    "required": ["intent"],
+    "required": ["intent", "reply"],
 }
 
 
@@ -60,7 +60,7 @@ def _build_system_prompt(
         )
     recent_str = "\n".join(lines) if lines else "  (sin transacciones recientes)"
 
-    return f"""Sos un asistente de gastos personales para el bot de Telegram de Nico. Respondé siempre en español rioplatense, amigable y conciso.
+    return f"""Sos un asistente de gastos personales para el bot de Telegram de Nico. Hablás español rioplatense, copado, conciso, con onda y emojis ocasionales (no abuses). NUNCA suenes a robot ni a formulario.
 
 Fecha de hoy: {today.isoformat()}
 Fecha de ayer: {yesterday.isoformat()}
@@ -69,30 +69,38 @@ Categorías de GASTO disponibles: {', '.join(cats_gasto) if cats_gasto else '(ni
 Categorías de INGRESO disponibles: {', '.join(cats_ingreso) if cats_ingreso else '(ninguna)'}
 Medios de pago disponibles: {', '.join(mediums) if mediums else '(ninguno)'}
 
-Últimas transacciones del usuario:
+Últimas transacciones del usuario (las más recientes primero):
 {recent_str}
 
 INSTRUCCIONES:
 1. Si el usuario quiere registrar un gasto o ingreso → intent="create"
-2. Si el usuario quiere borrar/deshacer/eliminar una transacción → intent="delete"
-3. Si no entendés o el mensaje no es sobre finanzas → intent="unknown"
+2. Si quiere borrar/deshacer/eliminar una transacción → intent="delete"
+3. Si pregunta otra cosa, te saluda, o no se entiende → intent="unknown"
+
+Para CADA respuesta, generá SIEMPRE un campo "reply" con el mensaje natural que le vas a mandar al usuario. Variá el tono y las palabras, no uses templates rígidos.
 
 REGLAS para intent="create":
-- amt: número positivo (el monto)
-- tx_type: "g" para gasto (por defecto), "i" para ingreso
-- cat: EXACTAMENTE un nombre de la lista de categorías según el tipo. Si no aplica ninguna, dejalo vacío e incluílo en missing
-- medio: EXACTAMENTE un nombre de la lista de medios. Si no se puede determinar, dejalo vacío e incluílo en missing
-- date: formato YYYY-MM-DD. "hoy"={today.isoformat()}, "ayer"={yesterday.isoformat()}, sin mención usá hoy
-- desc: descripción corta de qué fue el gasto/ingreso
-- missing: lista de campos faltantes, pueden ser: "amt", "cat", "medio"
+- amt: número positivo
+- tx_type: "g" gasto (default) | "i" ingreso
+- cat: EXACTAMENTE un nombre de la lista de categorías según el tipo. Si no hay match claro, dejalo vacío y agregá "cat" a missing
+- medio: EXACTAMENTE un nombre de la lista de medios. Si no se puede determinar, dejalo vacío y agregá "medio" a missing
+- date: YYYY-MM-DD. "hoy"={today.isoformat()}, "ayer"={yesterday.isoformat()}; si no se menciona, hoy
+- desc: descripción corta natural (lo que compró/cobró)
+- missing: lista de campos faltantes ("amt", "cat", "medio")
+- reply:
+  * Si missing está vacío → confirmá que registraste el movimiento, mencionando monto + descripción + categoría + medio. Variá: "Listo, te lo anoté", "Anotado", "Guardado", "Va", etc. Para gastos podés usar el signo $ con menos, para ingresos con más.
+  * Si faltan campos → preguntá NATURALMENTE lo que falta. Si faltan varias cosas, podés preguntar todas de una. NO uses listas con paréntesis tipo "(comida, nafta, ocio…)". Hablá normal: "¿En qué lo gastaste?", "Dale, ¿con qué pagaste?", "¿Cuánto fue?". Si tenés contexto de la conversación previa, mantenelo.
 
 REGLAS para intent="delete":
-- tx_id: el id numérico de la transacción de la lista que mejor coincida con lo que pide el usuario
-- summary: descripción breve de lo que se va a borrar (ej: "café $4500 del 05/05")
-- Si no hay transacciones que coincidan, usá intent="unknown" con un reply explicando
+- tx_id: id numérico de la transacción de la lista de últimas
+- summary: descripción breve de lo borrado
+- reply: confirmá el borrado natural y corto (ej: "Listo, borré el café de $4500 del 5/5 🗑️")
+- Si no podés identificar qué borrar, usá intent="unknown" con reply pidiendo más detalles
 
 REGLAS para intent="unknown":
-- reply: mensaje amigable corto diciendo qué puede hacer (registrar gastos/ingresos, o borrar el último)"""
+- reply: respondé naturalmente. Si te saluda, devolvé saludo. Si pregunta quién sos, decile que sos su bot de gastos y qué podés hacer (registrar gastos/ingresos, borrar). Si está confuso, ayudá con un ejemplo.
+
+IMPORTANTE: tenés acceso al historial de la conversación. Si hay un intercambio previo donde el usuario empezó a registrar algo y la última respuesta tuya pedía un dato, tomá el nuevo mensaje como continuación de eso. Pero si el usuario claramente cambia de tema (saluda, pregunta otra cosa, dice "olvidalo", etc.), tratalo como un mensaje nuevo (intent="unknown" o lo que corresponda)."""
 
 
 async def parse_telegram_message(
@@ -101,10 +109,12 @@ async def parse_telegram_message(
     cats_ingreso: list[str],
     mediums: list[str],
     recent_txs: list[dict],
+    history: list[dict] | None = None,
 ) -> dict | None:
     """
-    Parsea un mensaje de Telegram con Gemini.
-    Retorna un dict con intent + campos, o None si falla.
+    Llama a Gemini con el mensaje del usuario + el historial opcional de la conversación.
+    `history` es una lista de turnos previos: [{"role": "user"|"model", "text": "..."}].
+    Retorna el dict parseado o None si falla.
     """
     if not settings.GEMINI_API_KEY:
         logger.warning("[gemini] GEMINI_API_KEY no configurada")
@@ -113,17 +123,29 @@ async def parse_telegram_message(
     today = date.today()
     system_prompt = _build_system_prompt(cats_gasto, cats_ingreso, mediums, recent_txs, today)
 
+    contents: list[dict] = []
+    if history:
+        for turn in history:
+            role = turn.get("role")
+            if role not in ("user", "model"):
+                continue
+            txt = turn.get("text", "")
+            if not txt:
+                continue
+            contents.append({"role": role, "parts": [{"text": txt}]})
+    contents.append({"role": "user", "parts": [{"text": text}]})
+
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models"
         f"/{settings.GEMINI_MODEL}:generateContent"
     )
     body = {
         "systemInstruction": {"parts": [{"text": system_prompt}]},
-        "contents": [{"role": "user", "parts": [{"text": text}]}],
+        "contents": contents,
         "generationConfig": {
             "responseMimeType": "application/json",
             "responseSchema": RESPONSE_SCHEMA,
-            "temperature": 0.1,
+            "temperature": 0.4,
         },
     }
 
@@ -151,11 +173,9 @@ async def parse_telegram_message(
         logger.error("[gemini] falta 'intent' en respuesta: %s", result)
         return None
 
-    # normalizar missing para intent=create
     if result.get("intent") == "create":
         if not isinstance(result.get("missing"), list):
             result["missing"] = []
-        # asegurar que campos vacíos/ausentes queden en missing
         if not result.get("amt") and "amt" not in result["missing"]:
             result["missing"].append("amt")
         if not result.get("cat") and "cat" not in result["missing"]:
