@@ -8,7 +8,10 @@ Webhook conversacional de Telegram con Gemini.
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timedelta, date as date_cls
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -121,16 +124,21 @@ async def telegram_webhook(
         except json.JSONDecodeError:
             history = []
 
-    # ── Cargar cats / medios / txs recientes desde la DB ──────
+    # ── Cargar cats / medios / reglas / txs recientes desde la DB ──
     cats = crud.list_categories(db)
     cats_gasto = [c.name for c in cats if c.kind == "gasto"]
     cats_ingreso = [c.name for c in cats if c.kind == "ingreso"]
     mediums = [m.name for m in crud.list_mediums(db)]
+    bot_rules = [
+        {"keyword": r.keyword, "cat": r.cat, "tx_type": r.tx_type}
+        for r in crud.list_bot_rules(db)
+    ]
     recent = [crud.serialize_tx(t) for t in crud.list_transactions(db)[:10]]
 
     # ── Llamar a Gemini con historial ─────────────────────────
     result = await parse_telegram_message(
-        text, cats_gasto, cats_ingreso, mediums, recent, history=history
+        text, cats_gasto, cats_ingreso, mediums, recent,
+        bot_rules=bot_rules, history=history,
     )
     if result is None:
         await send_message(chat_id, messages.GEMINI_ERROR)
@@ -144,6 +152,18 @@ async def telegram_webhook(
         _clear_pending(db, chat_id)
         await send_message(chat_id, reply)
         return {"ok": True, "intent": "unknown"}
+
+    # ── intent: learn ────────────────────────────────────────
+    if intent == "learn":
+        _clear_pending(db, chat_id)
+        keyword = (result.get("rule_keyword") or "").strip()
+        cat = (result.get("rule_cat") or "").strip()
+        rule_tx_type = (result.get("rule_tx_type") or "g").strip()
+        if keyword and cat:
+            crud.save_bot_rule(db, keyword, cat, rule_tx_type)
+            logger.info("[bot] regla guardada: '%s' → %s (%s)", keyword, cat, rule_tx_type)
+        await send_message(chat_id, reply)
+        return {"ok": True, "intent": "learn", "keyword": keyword, "cat": cat}
 
     # ── intent: delete ────────────────────────────────────────
     if intent == "delete":

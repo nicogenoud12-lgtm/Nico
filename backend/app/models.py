@@ -92,3 +92,12 @@ class PendingTransaction(Base):
     partial_json = Column(Text, nullable=False)
     missing_fields = Column(String, nullable=False)  # csv
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class BotRule(Base):
+    __tablename__ = "bot_rules"
+
+    keyword = Column(String, primary_key=True)  # normalizado a minúsculas sin acentos
+    cat = Column(String, nullable=False)
+    tx_type = Column(String, nullable=False, default="g")  # g | i
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

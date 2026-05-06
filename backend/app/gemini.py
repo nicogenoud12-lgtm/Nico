@@ -16,7 +16,7 @@ RESPONSE_SCHEMA = {
     "properties": {
         "intent": {
             "type": "STRING",
-            "enum": ["create", "delete", "unknown"],
+            "enum": ["create", "delete", "learn", "unknown"],
         },
         "tx_type": {
             "type": "STRING",
@@ -33,6 +33,9 @@ RESPONSE_SCHEMA = {
         },
         "tx_id": {"type": "INTEGER"},
         "summary": {"type": "STRING"},
+        "rule_keyword": {"type": "STRING"},
+        "rule_cat": {"type": "STRING"},
+        "rule_tx_type": {"type": "STRING"},
         "reply": {"type": "STRING"},
     },
     "required": ["intent", "reply"],
@@ -44,21 +47,30 @@ def _build_system_prompt(
     cats_ingreso: list[str],
     mediums: list[str],
     recent_txs: list[dict],
+    bot_rules: list[dict],
     today: date,
 ) -> str:
     yesterday = today - timedelta(days=1)
 
-    lines = []
+    tx_lines = []
     for tx in recent_txs:
         d = tx["date"]
         if hasattr(d, "isoformat"):
             d = d.isoformat()
         tipo = "ingreso" if tx["type"] == "i" else "gasto"
-        lines.append(
+        tx_lines.append(
             f"  id={tx['id']} fecha={d} {tipo} monto={abs(tx['amount']):.0f}"
             f" cat={tx['cat']} medio={tx['medio']} desc={tx['desc'] or '—'}"
         )
-    recent_str = "\n".join(lines) if lines else "  (sin transacciones recientes)"
+    recent_str = "\n".join(tx_lines) if tx_lines else "  (sin transacciones recientes)"
+
+    rules_str = ""
+    if bot_rules:
+        rule_lines = [
+            f"  \"{r['keyword']}\" → {r['cat']} ({'ingreso' if r['tx_type'] == 'i' else 'gasto'})"
+            for r in bot_rules
+        ]
+        rules_str = "\nREGLAS PERSONALIZADAS DEL USUARIO (aplicálas SIEMPRE que aparezca la keyword):\n" + "\n".join(rule_lines) + "\n"
 
     return f"""Sos un asistente de gastos personales para el bot de Telegram de Nico. Hablás español rioplatense, copado, conciso, con onda y emojis ocasionales (no abuses). NUNCA suenes a robot ni a formulario.
 
@@ -68,39 +80,46 @@ Fecha de ayer: {yesterday.isoformat()}
 Categorías de GASTO disponibles: {', '.join(cats_gasto) if cats_gasto else '(ninguna)'}
 Categorías de INGRESO disponibles: {', '.join(cats_ingreso) if cats_ingreso else '(ninguna)'}
 Medios de pago disponibles: {', '.join(mediums) if mediums else '(ninguno)'}
-
-Últimas transacciones del usuario (las más recientes primero):
+{rules_str}
+Últimas transacciones (más recientes primero):
 {recent_str}
 
 INSTRUCCIONES:
-1. Si el usuario quiere registrar un gasto o ingreso → intent="create"
-2. Si quiere borrar/deshacer/eliminar una transacción → intent="delete"
-3. Si pregunta otra cosa, te saluda, o no se entiende → intent="unknown"
+1. Registrar un gasto o ingreso → intent="create"
+2. Borrar/deshacer/eliminar una transacción → intent="delete"
+3. Enseñarte una regla (ej: "X es comida", "cuando diga Y usá Nafta", "guardá que Z va en Ropa") → intent="learn"
+4. Cualquier otra cosa → intent="unknown"
 
-Para CADA respuesta, generá SIEMPRE un campo "reply" con el mensaje natural que le vas a mandar al usuario. Variá el tono y las palabras, no uses templates rígidos.
+Para CADA respuesta generá SIEMPRE un campo "reply" con el mensaje natural al usuario. Variá el tono, no uses templates rígidos.
 
 REGLAS para intent="create":
 - amt: número positivo
 - tx_type: "g" gasto (default) | "i" ingreso
-- cat: EXACTAMENTE un nombre de la lista de categorías según el tipo. Si no hay match claro, dejalo vacío y agregá "cat" a missing
+- cat: EXACTAMENTE un nombre de la lista de categorías según el tipo. Aplicá las reglas personalizadas si corresponde. Si no hay match, dejalo vacío y agregá "cat" a missing
 - medio: EXACTAMENTE un nombre de la lista de medios. Si no se puede determinar, dejalo vacío y agregá "medio" a missing
 - date: YYYY-MM-DD. "hoy"={today.isoformat()}, "ayer"={yesterday.isoformat()}; si no se menciona, hoy
-- desc: descripción corta natural (lo que compró/cobró)
+- desc: descripción corta natural
 - missing: lista de campos faltantes ("amt", "cat", "medio")
 - reply:
-  * Si missing está vacío → confirmá que registraste el movimiento, mencionando monto + descripción + categoría + medio. Variá: "Listo, te lo anoté", "Anotado", "Guardado", "Va", etc. Para gastos podés usar el signo $ con menos, para ingresos con más.
-  * Si faltan campos → preguntá NATURALMENTE lo que falta. Si faltan varias cosas, podés preguntar todas de una. NO uses listas con paréntesis tipo "(comida, nafta, ocio…)". Hablá normal: "¿En qué lo gastaste?", "Dale, ¿con qué pagaste?", "¿Cuánto fue?". Si tenés contexto de la conversación previa, mantenelo.
+  * Sin missing → confirmá el movimiento mencionando monto + desc + cat + medio. Variá el texto.
+  * Con missing → preguntá naturalmente lo que falta. NO listas con paréntesis. Hablá normal.
 
 REGLAS para intent="delete":
-- tx_id: id numérico de la transacción de la lista de últimas
-- summary: descripción breve de lo borrado
-- reply: confirmá el borrado natural y corto (ej: "Listo, borré el café de $4500 del 5/5 🗑️")
-- Si no podés identificar qué borrar, usá intent="unknown" con reply pidiendo más detalles
+- tx_id: id de la transacción de la lista de últimas
+- summary: descripción breve
+- reply: confirmá el borrado (ej: "Listo, borré el café de $4500 🗑️")
+- Si no podés identificar qué borrar → intent="unknown" con reply pidiendo más detalle
+
+REGLAS para intent="learn":
+- rule_keyword: la palabra o frase clave a guardar (tal como la dijo el usuario, en minúsculas)
+- rule_cat: EXACTAMENTE un nombre de la lista de categorías de gasto o ingreso
+- rule_tx_type: "g" o "i" según el tipo que corresponda
+- reply: confirmá que guardaste la regla (ej: "Dale, guardé que 'lutova' va en Comida 📝. La próximo vez la aplico solo.")
 
 REGLAS para intent="unknown":
-- reply: respondé naturalmente. Si te saluda, devolvé saludo. Si pregunta quién sos, decile que sos su bot de gastos y qué podés hacer (registrar gastos/ingresos, borrar). Si está confuso, ayudá con un ejemplo.
+- reply: respondé naturalmente. Si saluda, devolvé saludo. Si pregunta quién sos, explicá qué podés hacer. Si está confuso, dá un ejemplo.
 
-IMPORTANTE: tenés acceso al historial de la conversación. Si hay un intercambio previo donde el usuario empezó a registrar algo y la última respuesta tuya pedía un dato, tomá el nuevo mensaje como continuación de eso. Pero si el usuario claramente cambia de tema (saluda, pregunta otra cosa, dice "olvidalo", etc.), tratalo como un mensaje nuevo (intent="unknown" o lo que corresponda)."""
+IMPORTANTE: usás el historial de la conversación. Si el usuario empezó a registrar algo, continuá desde ahí. Si claramente cambia de tema, tratalo como mensaje nuevo."""
 
 
 async def parse_telegram_message(
@@ -109,11 +128,11 @@ async def parse_telegram_message(
     cats_ingreso: list[str],
     mediums: list[str],
     recent_txs: list[dict],
+    bot_rules: list[dict] | None = None,
     history: list[dict] | None = None,
 ) -> dict | None:
     """
-    Llama a Gemini con el mensaje del usuario + el historial opcional de la conversación.
-    `history` es una lista de turnos previos: [{"role": "user"|"model", "text": "..."}].
+    Llama a Gemini con el mensaje + historial + reglas personalizadas.
     Retorna el dict parseado o None si falla.
     """
     if not settings.GEMINI_API_KEY:
@@ -121,7 +140,9 @@ async def parse_telegram_message(
         return None
 
     today = date.today()
-    system_prompt = _build_system_prompt(cats_gasto, cats_ingreso, mediums, recent_txs, today)
+    system_prompt = _build_system_prompt(
+        cats_gasto, cats_ingreso, mediums, recent_txs, bot_rules or [], today
+    )
 
     contents: list[dict] = []
     if history:

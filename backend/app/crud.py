@@ -293,3 +293,32 @@ def delete_transaction(db: Session, tx_id: int) -> bool:
         return False
     db.delete(tx); db.commit()
     return True
+
+
+# ── BotRules ─────────────────────────────────────────────────
+def list_bot_rules(db: Session) -> list[models.BotRule]:
+    return db.query(models.BotRule).order_by(models.BotRule.created_at.asc()).all()
+
+
+def save_bot_rule(db: Session, keyword: str, cat: str, tx_type: str = "g") -> models.BotRule:
+    import unicodedata
+    normalized = "".join(
+        c for c in unicodedata.normalize("NFD", keyword.lower().strip())
+        if unicodedata.category(c) != "Mn"
+    )
+    existing = db.get(models.BotRule, normalized)
+    if existing:
+        existing.cat = cat
+        existing.tx_type = tx_type
+    else:
+        db.add(models.BotRule(keyword=normalized, cat=cat, tx_type=tx_type))
+    db.commit()
+    return db.get(models.BotRule, normalized)
+
+
+def delete_bot_rule(db: Session, keyword: str) -> bool:
+    rule = db.get(models.BotRule, keyword.lower().strip())
+    if not rule:
+        return False
+    db.delete(rule); db.commit()
+    return True
