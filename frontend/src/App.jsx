@@ -1,194 +1,156 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import Dashboard from './screens/Dashboard.jsx';
-import Movimientos from './screens/Movimientos.jsx';
-import Categorias from './screens/Categorias.jsx';
-import Anual from './screens/Anual.jsx';
-import Ajustes from './screens/Ajustes.jsx';
-import {
-  listTransactions, createTransaction, updateTransaction, deleteTransaction
-} from './api/transactions.js';
-import {
-  listCategories, createCategory, updateCategory, deleteCategory, reorderCategories,
-  listMediums, createMedium, updateMedium, deleteMedium, reorderMediums,
-  listMonths
-} from './api/categories.js';
-import { monthIdToLabelFull, monthIdToShort, todayStr, dateToMonthId } from './utils/format.js';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { C } from './theme.js';
+import { dateToMonthId, todayStr, sortMonthIdsDesc } from './utils/format.js';
+import { listTransactions } from './api/transactions.js';
+import { listCategories, listMediums } from './api/categories.js';
+import { listTarjetas } from './api/tarjetas.js';
+import { listSuscripciones } from './api/suscripciones.js';
+
+import SidebarDesktop from './components/SidebarDesktop.jsx';
+import Sidebar from './components/Sidebar.jsx';
+import MobileTopbar from './components/MobileTopbar.jsx';
+
+import ScreenMovimientos from './screens/ScreenMovimientos.jsx';
+import ScreenGastos from './screens/ScreenGastos.jsx';
+import ScreenIngresos from './screens/ScreenIngresos.jsx';
+import ScreenTarjetas from './screens/ScreenTarjetas.jsx';
+import ScreenSuscripciones from './screens/ScreenSuscripciones.jsx';
+import ScreenAnual from './screens/ScreenAnual.jsx';
+import ScreenAjustes from './screens/ScreenAjustes.jsx';
+
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return mobile;
+}
 
 export default function App() {
-  const [screen, setScreen] = useState('dashboard');
+  const mobile = useIsMobile();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [screen, setScreen] = useState('movimientos');
   const [monthId, setMonthId] = useState(dateToMonthId(todayStr()));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [transactions, setTransactions] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [txs, setTxs] = useState([]);
+  const [rawCats, setRawCats] = useState([]);
   const [mediums, setMediums] = useState([]);
-  const [months, setMonths] = useState([]);
+  const [tarjetas, setTarjetas] = useState([]);
+  const [suscripciones, setSuscripciones] = useState([]);
 
-  const refreshAll = useCallback(async () => {
+  const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [txs, cats, meds, mts] = await Promise.all([
-        listTransactions(), listCategories(), listMediums(), listMonths()
+      const [t, c, m, tj, sb] = await Promise.all([
+        listTransactions(), listCategories(), listMediums(), listTarjetas(), listSuscripciones(),
       ]);
-      setTransactions(txs);
-      setCategories(cats);
-      setMediums(meds);
-      setMonths(mts);
+      setTxs(t);
+      setRawCats(c);
+      setMediums(m);
+      setTarjetas(tj);
+      setSuscripciones(sb);
     } catch (e) {
-      setError(e?.message || 'Error cargando datos');
+      setError(e?.message || 'Error de conexión');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { refreshAll(); }, [refreshAll]);
+  useEffect(() => { loadAll(); }, [loadAll]);
 
-  const addTx = useCallback(async (tx) => {
-    const created = await createTransaction(tx);
-    setTransactions(prev => [created, ...prev]);
-    setMonthId(created.month);
-  }, []);
+  const cats = useMemo(() => ({
+    gastos: rawCats.filter(c => c.kind === 'gasto'),
+    ingresos: rawCats.filter(c => c.kind === 'ingreso'),
+  }), [rawCats]);
 
-  const editTx = useCallback(async (id, tx) => {
-    const updated = await updateTransaction(id, tx);
-    setTransactions(prev => prev.map(t => (t.id === id ? updated : t)));
-    setMonthId(updated.month);
-  }, []);
+  const allMonthIds = useMemo(() => {
+    const ids = new Set(txs.map(t => dateToMonthId(t.date)).filter(Boolean));
+    if (monthId) ids.add(monthId);
+    return sortMonthIdsDesc([...ids]);
+  }, [txs, monthId]);
 
-  const deleteTx = useCallback(async (id) => {
-    await deleteTransaction(id);
-    setTransactions(prev => prev.filter(t => t.id !== id));
-  }, []);
+  const reloadTxs = useCallback(() => listTransactions().then(setTxs), []);
+  const reloadCats = useCallback(() => listCategories().then(setRawCats), []);
+  const reloadMediums = useCallback(() => listMediums().then(setMediums), []);
+  const reloadTarjetas = useCallback(() => listTarjetas().then(setTarjetas), []);
+  const reloadSuscripciones = useCallback(() => listSuscripciones().then(setSuscripciones), []);
 
-  const createCat = useCallback(async (cat) => {
-    const created = await createCategory(cat);
-    setCategories(prev => [...prev, created]);
-  }, []);
-
-  const editCat = useCallback(async (id, cat) => {
-    const updated = await updateCategory(id, cat);
-    setCategories(prev => prev.map(c => (c.id === id ? updated : c)));
-  }, []);
-
-  const removeCat = useCallback(async (id) => {
-    await deleteCategory(id);
-    setCategories(prev => prev.filter(c => c.id !== id));
-  }, []);
-
-  const reorderCats = useCallback(async (orderedItems, kind) => {
-    setCategories(prev => {
-      const others = prev.filter(c => c.kind !== kind);
-      return [...others, ...orderedItems];
-    });
-    await reorderCategories(orderedItems.map(c => c.id));
-  }, []);
-
-  const createMed = useCallback(async (m) => {
-    const created = await createMedium(m);
-    setMediums(prev => [...prev, created]);
-  }, []);
-
-  const editMed = useCallback(async (id, m) => {
-    const updated = await updateMedium(id, m);
-    setMediums(prev => prev.map(x => (x.id === id ? updated : x)));
-  }, []);
-
-  const removeMed = useCallback(async (id) => {
-    await deleteMedium(id);
-    setMediums(prev => prev.filter(x => x.id !== id));
-  }, []);
-
-  const reorderMeds = useCallback(async (orderedItems) => {
-    setMediums(orderedItems);
-    await reorderMediums(orderedItems.map(m => m.id));
-  }, []);
-
-  const allMonths = useMemo(() => {
-    const known = new Map(months.map(m => [m.id, m]));
-    transactions.forEach(t => {
-      if (!known.has(t.month)) {
-        known.set(t.month, { id: t.month, label: monthIdToLabelFull(t.month), short: monthIdToShort(t.month), saldoInicial: 0, cuotas: 0 });
-      }
-    });
-    if (!known.has(monthId)) {
-      known.set(monthId, { id: monthId, label: monthIdToLabelFull(monthId), short: monthIdToShort(monthId), saldoInicial: 0, cuotas: 0 });
-    }
-    return [...known.values()].sort((a, b) => {
-      const toSort = id => id.slice(2) + id.slice(0, 2);
-      return toSort(b.id).localeCompare(toSort(a.id));
-    });
-  }, [months, transactions, monthId]);
-
-  const txs = useMemo(
-    () => transactions.filter(t => t.month === monthId).sort((a, b) => b.date.localeCompare(a.date)),
-    [transactions, monthId]
-  );
-  const month = allMonths.find(m => m.id === monthId) || allMonths[0];
-
-  const changeMonth = useCallback(dir => {
-    const idx = allMonths.findIndex(m => m.id === monthId);
-    const next = allMonths[idx + dir];
-    if (next) setMonthId(next.id);
-  }, [monthId, allMonths]);
-
-  const catGastoList = useMemo(() => categories.filter(c => c.kind === 'gasto'), [categories]);
-  const catIngresoList = useMemo(() => categories.filter(c => c.kind === 'ingreso'), [categories]);
+  const onNav = useCallback((s) => { setScreen(s); setDrawerOpen(false); }, []);
 
   if (loading) {
-    return <div style={{ padding: 24, textAlign: 'center', color: '#888' }}>Cargando…</div>;
-  }
-  if (error) {
     return (
-      <div style={{ padding: 24, textAlign: 'center', color: '#c04030' }}>
-        <div style={{ fontWeight: 600, marginBottom: 8 }}>No se pudo conectar con el backend</div>
-        <div style={{ fontSize: 12, color: '#888', marginBottom: 16 }}>{error}</div>
-        <button onClick={refreshAll} style={{ padding: '8px 16px', background: '#1a1a1a', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>Reintentar</button>
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.bg, color: C.text2, fontSize: 14 }}>
+        Cargando…
       </div>
     );
   }
 
-  const screens = {
-    dashboard: (
-      <Dashboard
-        month={month} txs={txs} allMonths={allMonths}
-        onNav={setScreen} onMonthChange={changeMonth}
-        onAddTx={addTx} onEditTx={editTx} onDeleteTx={deleteTx}
-        catList={categories} medioList={mediums}
-      />
-    ),
-    movimientos: (
-      <Movimientos
-        month={month} txs={txs} allMonths={allMonths}
-        onNav={setScreen} onMonthChange={changeMonth}
-        onAddTx={addTx} onEditTx={editTx} onDeleteTx={deleteTx}
-        catList={categories} medioList={mediums}
-      />
-    ),
-    categorias: (
-      <Categorias
-        month={month} txs={txs} onNav={setScreen}
-        catList={categories}
-        onCreateCat={({ name, color }) => createCat({ name, color, kind: 'gasto' })}
-        onUpdateCat={editCat}
-      />
-    ),
-    anual: (
-      <Anual
-        currentMonthId={monthId} allMonths={allMonths} allTx={transactions}
-        onNav={setScreen} onSelectMonth={setMonthId}
-      />
-    ),
-    ajustes: (
-      <Ajustes
-        catGastoList={catGastoList} catIngresoList={catIngresoList} medioList={mediums}
-        onCreateCat={createCat} onUpdateCat={editCat} onDeleteCat={removeCat} onReorderCats={reorderCats}
-        onCreateMedium={createMed} onUpdateMedium={editMed} onDeleteMedium={removeMed} onReorderMediums={reorderMeds}
-        onNav={setScreen}
-      />
-    )
+  if (error) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: C.bg, padding: 24, textAlign: 'center' }}>
+        <div style={{ color: C.red, fontWeight: 600, marginBottom: 8 }}>No se pudo conectar con el backend</div>
+        <div style={{ color: C.text3, fontSize: 12, marginBottom: 20 }}>{error}</div>
+        <button onClick={loadAll} style={{ padding: '9px 20px', background: C.accent, color: '#fff', border: 'none', borderRadius: 8, fontFamily: 'inherit', fontSize: 14, cursor: 'pointer' }}>
+          Reintentar
+        </button>
+      </div>
+    );
+  }
+
+  const screenProps = { txs, cats, mediums, tarjetas, monthId, allMonthIds, setMonthId };
+
+  const renderScreen = () => {
+    switch (screen) {
+      case 'movimientos': return (
+        <ScreenMovimientos
+          {...screenProps}
+          onTxsChange={reloadTxs}
+        />
+      );
+      case 'gastos': return <ScreenGastos {...screenProps} onTxsChange={reloadTxs} />;
+      case 'ingresos': return <ScreenIngresos {...screenProps} onTxsChange={reloadTxs} />;
+      case 'tarjetas': return (
+        <ScreenTarjetas
+          {...screenProps}
+          onTarjetasChange={async () => { await reloadTarjetas(); await reloadMediums(); }}
+        />
+      );
+      case 'suscripciones': return (
+        <ScreenSuscripciones
+          suscripciones={suscripciones}
+          onSuscripcionesChange={reloadSuscripciones}
+        />
+      );
+      case 'anual': return <ScreenAnual {...screenProps} onNavigate={setScreen} />;
+      case 'ajustes': return (
+        <ScreenAjustes
+          cats={cats} mediums={mediums}
+          onCatsChange={reloadCats}
+          onMediumsChange={reloadMediums}
+        />
+      );
+      default: return null;
+    }
   };
 
-  return screens[screen] || screens.dashboard;
+  return (
+    <div style={{ height: '100%', display: 'flex', background: C.bg, overflow: 'hidden' }}>
+      {!mobile && <SidebarDesktop screen={screen} onNav={onNav} />}
+      {mobile && (
+        <Sidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} screen={screen} onNav={onNav} />
+      )}
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+        {mobile && <MobileTopbar screen={screen} onMenu={() => setDrawerOpen(true)} />}
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          {renderScreen()}
+        </div>
+      </div>
+    </div>
+  );
 }

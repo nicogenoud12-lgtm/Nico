@@ -1,7 +1,7 @@
 import { api } from './client.js';
 
 export const listTransactions = () =>
-  api.get('/transactions').then(r => r.data);
+  api.get('/transactions').then(r => r.data.map(tx => ({ ...tx, amount: Math.abs(tx.amount) })));
 
 export const createTransaction = (tx) =>
   api.post('/transactions', tx).then(r => r.data);

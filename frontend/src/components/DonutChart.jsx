@@ -1,43 +1,82 @@
-export default function DonutChart({ data, size = 160, onSliceClick }) {
-  const total = data.reduce((s, d) => s + d.value, 0);
-  const cx = size / 2, cy = size / 2, r = size * 0.38, inner = size * 0.24;
+import React, { useState } from 'react';
+import { C } from '../theme.js';
 
-  if (data.length === 1) {
-    return (
-      <svg width={size} height={size} style={{ cursor: 'pointer' }} onClick={() => onSliceClick && onSliceClick()}>
-        <circle cx={cx} cy={cy} r={(r + inner) / 2} fill="none" stroke={data[0].color} strokeWidth={r - inner} />
-      </svg>
-    );
-  }
+export default function DonutChart({
+  data,
+  size = 160,
+  thickness = 28,
+  center,
+  renderCenter,
+  hoveredIdx: controlledHover,
+  onHover,
+}) {
+  const [internalHover, setInternalHover] = useState(null);
+  const hoveredIdx = controlledHover !== undefined ? controlledHover : internalHover;
+  const setHover = onHover || setInternalHover;
 
-  let angle = -Math.PI / 2;
+  const pad = 6;
+  const inner = size - pad * 2;
+  const r = (inner - thickness) / 2;
+  const circ = 2 * Math.PI * r;
+  const total = data.reduce((s, d) => s + d.value, 0) || 1;
+
+  let offset = 0;
   const slices = data.map(d => {
-    const sweep = d.value / total * Math.PI * 2;
-    const a1 = angle, a2 = angle + sweep;
-    angle = a2;
-    const x1 = cx + r * Math.cos(a1), y1 = cy + r * Math.sin(a1);
-    const x2 = cx + r * Math.cos(a2), y2 = cy + r * Math.sin(a2);
-    const xi1 = cx + inner * Math.cos(a1), yi1 = cy + inner * Math.sin(a1);
-    const xi2 = cx + inner * Math.cos(a2), yi2 = cy + inner * Math.sin(a2);
-    const lg = sweep > Math.PI ? 1 : 0;
-    const path = `M${xi1},${yi1} L${x1},${y1} A${r},${r} 0 ${lg},1 ${x2},${y2} L${xi2},${yi2} A${inner},${inner} 0 ${lg},0 ${xi1},${yi1} Z`;
-    return { ...d, path };
+    const pct = d.value / total;
+    const len = pct * circ;
+    const slice = { ...d, offset, len };
+    offset += len;
+    return slice;
   });
 
+  const cx = size / 2;
+  const cy = size / 2;
+
   return (
-    <svg width={size} height={size} style={{ cursor: 'pointer' }} onClick={() => onSliceClick && onSliceClick()}>
-      {slices.map((s, i) => (
-        <path
-          key={i}
-          d={s.path}
-          fill={s.color}
-          stroke="#fafaf8"
-          strokeWidth="2"
-          style={{ transition: 'opacity .15s' }}
-          onMouseEnter={e => (e.target.style.opacity = '.75')}
-          onMouseLeave={e => (e.target.style.opacity = '1')}
-        />
-      ))}
-    </svg>
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', overflow: 'visible' }}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.surface2} strokeWidth={thickness} />
+        {slices.map((s, i) => {
+          const isHovered = hoveredIdx === i;
+          const isDimmed = hoveredIdx !== null && hoveredIdx !== undefined && !isHovered;
+          return (
+            <circle
+              key={i}
+              cx={cx} cy={cy} r={r}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={isHovered ? thickness + 5 : thickness}
+              strokeDasharray={`${s.len} ${circ - s.len}`}
+              strokeDashoffset={-s.offset}
+              transform={`rotate(-90 ${cx} ${cy})`}
+              opacity={isDimmed ? 0.35 : 1}
+              style={{ transition: 'stroke-width .15s, opacity .15s', cursor: 'pointer' }}
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
+            />
+          );
+        })}
+        {center && !renderCenter && (
+          <text
+            x={cx} y={cy}
+            textAnchor="middle" dominantBaseline="middle"
+            fill={hoveredIdx !== null && hoveredIdx !== undefined ? slices[hoveredIdx]?.color : C.text}
+            fontSize={12} fontWeight={600} fontFamily="Inter, sans-serif"
+            style={{ transition: 'fill .15s' }}
+          >
+            {hoveredIdx !== null && hoveredIdx !== undefined ? `${Math.round(slices[hoveredIdx].value / total * 100)}%` : center}
+          </text>
+        )}
+      </svg>
+      {renderCenter && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          pointerEvents: 'none',
+        }}>
+          {renderCenter(hoveredIdx, slices, total)}
+        </div>
+      )}
+    </div>
   );
 }

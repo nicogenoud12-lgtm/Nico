@@ -1,4 +1,4 @@
-from datetime import date
+import datetime
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -50,6 +50,70 @@ class MediumRead(MediumBase):
         from_attributes = True
 
 
+# ── Tarjeta ──────────────────────────────────────────────────
+class TarjetaBase(BaseModel):
+    nombre: str
+    banco: str = ""
+    ultimos4: str = ""
+    cierre: str = ""
+    vence: str = ""
+    color_idx: int = 0
+
+
+class TarjetaCreate(TarjetaBase):
+    pass
+
+
+class TarjetaUpdate(BaseModel):
+    nombre: Optional[str] = None
+    banco: Optional[str] = None
+    ultimos4: Optional[str] = None
+    cierre: Optional[str] = None
+    vence: Optional[str] = None
+    color_idx: Optional[int] = None
+
+
+class TarjetaRead(TarjetaBase):
+    id: int
+    position: int
+
+    class Config:
+        from_attributes = True
+
+
+# ── Suscripcion ──────────────────────────────────────────────
+class SuscripcionBase(BaseModel):
+    nombre: str
+    monto: float
+    moneda: Literal["ARS", "USD"] = "ARS"
+    frecuencia: Literal["mensual", "anual"] = "mensual"
+    vencimiento: Optional[str] = None
+    estado: Literal["activo", "inactivo"] = "activo"
+    logo_url: Optional[str] = None
+
+
+class SuscripcionCreate(SuscripcionBase):
+    pass
+
+
+class SuscripcionUpdate(BaseModel):
+    nombre: Optional[str] = None
+    monto: Optional[float] = None
+    moneda: Optional[Literal["ARS", "USD"]] = None
+    frecuencia: Optional[Literal["mensual", "anual"]] = None
+    vencimiento: Optional[str] = None
+    estado: Optional[Literal["activo", "inactivo"]] = None
+    logo_url: Optional[str] = None
+
+
+class SuscripcionRead(SuscripcionBase):
+    id: int
+    position: int
+
+    class Config:
+        from_attributes = True
+
+
 # ── Month ────────────────────────────────────────────────────
 class MonthRead(BaseModel):
     id: str
@@ -65,41 +129,62 @@ class MonthRead(BaseModel):
 
 # ── Transaction ──────────────────────────────────────────────
 class TransactionBase(BaseModel):
-    month: str
-    date: date
-    desc: str
+    date: datetime.date
+    desc: str = ""
     cat: str
-    medio: str
-    amt: float
+    medio: str = ""
+    amount: float
     type: Literal["g", "i"]
+    currency: Literal["ARS", "USD"] = "ARS"
+    cuota_num: Optional[int] = None
+    cuota_total: Optional[int] = None
+    tarjeta_id: Optional[int] = None
 
 
 class TransactionCreate(TransactionBase):
-    pass
+    month: Optional[str] = None  # derivado de date si no se provee
 
 
 class TransactionUpdate(BaseModel):
-    month: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[datetime.date] = None
     desc: Optional[str] = None
     cat: Optional[str] = None
     medio: Optional[str] = None
-    amt: Optional[float] = None
+    amount: Optional[float] = None
     type: Optional[Literal["g", "i"]] = None
+    currency: Optional[Literal["ARS", "USD"]] = None
+    cuota_num: Optional[int] = None
+    cuota_total: Optional[int] = None
+    tarjeta_id: Optional[int] = None
 
 
 class TransactionRead(BaseModel):
     id: int
     month: str
-    date: date
+    date: datetime.date
     desc: str
     cat: str
     medio: str
-    amt: float
+    amount: float
     type: Literal["g", "i"]
+    currency: str = "ARS"
+    cuota_num: Optional[int] = None
+    cuota_total: Optional[int] = None
+    tarjeta_id: Optional[int] = None
     source: str
 
 
 # ── Reorder ──────────────────────────────────────────────────
 class ReorderPayload(BaseModel):
     ids: list[int]
+
+
+# ── Backup ───────────────────────────────────────────────────
+class BackupPayload(BaseModel):
+    version: int = 1
+    exported_at: Optional[str] = None
+    categories: list[dict] = []
+    mediums: list[dict] = []
+    tarjetas: list[dict] = []
+    months: list[dict] = []
+    transactions: list[dict] = []

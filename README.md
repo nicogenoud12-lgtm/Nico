@@ -1,17 +1,24 @@
 # Nico – App de Gastos
 
-Monorepo con frontend SPA y backend API para registro de gastos personales,
-con bot de Telegram conversacional para cargar movimientos por chat.
+Monorepo con frontend dark mode + responsive y backend API para registro de gastos personales.
+Incluye bot de Telegram conversacional con Gemini API para cargar movimientos por chat, soporte para crear reglas personalizadas (ej. "LUTOVA es comida"), y capacidad de borrar transacciones.
 
 ```
 .
-├── viejo.html       # versión legacy (HTML monolítico, snapshot histórico)
-├── index.html       # idem (snapshot previo a la migración)
-├── frontend/        # SPA Vite + React (deploy: Vercel)
-└── backend/         # FastAPI + SQLite + webhook Telegram (servidor local)
+├── frontend/        # Vite + React (dark mode, responsive, 6 pantallas)
+├── backend/         # FastAPI + SQLAlchemy + SQLite + webhook Telegram
+├── docker-compose.yml
+└── CLAUDE.md        # notas de desarrollo
 ```
 
-## Quick start
+## Features
+
+- **App web**: Movimientos, Gastos, Ingresos, Tarjetas, Anual, Ajustes
+- **Bot Telegram**: Entiende lenguaje natural con Gemini; crea/borra/aprende
+- **Reglas personalizadas**: "LUTOVA es comida" → la próxima vez aplica automáticamente
+- **Concurrencia**: WAL mode en SQLite para lecturas/escrituras simultáneas
+
+## Development (local)
 
 ### Backend
 
@@ -19,24 +26,33 @@ con bot de Telegram conversacional para cargar movimientos por chat.
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
+cp .env.example .env                      # editar con GEMINI_API_KEY, TELEGRAM_BOT_TOKEN
 uvicorn app.main:app --reload --port 8000
 ```
 
-Docs: http://localhost:8000/docs · ver [`backend/README.md`](backend/README.md) para Telegram.
+Docs: http://localhost:8000/docs
 
 ### Frontend
 
 ```bash
 cd frontend
 npm install
-cp .env.example .env       # VITE_API_BASE_URL=http://localhost:8000
+cp .env.example .env                      # VITE_API_BASE_URL=http://localhost:8000
 npm run dev
 ```
 
 Abrir http://localhost:5173.
 
-## Deploy
+## Deploy (CasaOS servidor local)
 
-- **Frontend (Vercel)**: conectar el repo, `Root Directory = frontend`, build `npm run build`, output `dist`. Setear `VITE_API_BASE_URL` apuntando al backend público.
-- **Backend (server local)**: correr `uvicorn` y exponerlo con Cloudflare Tunnel / ngrok / VPS. Registrar el webhook de Telegram con la URL pública.
+```bash
+ssh genoud@familia
+cd /home/genoud/Nico
+git pull origin claude/refactor-html-app-6Qyuy
+docker compose up -d --build
+```
+
+Frontend: https://gastos.genoud-nube.com.ar  
+Backend API: https://apigastos.genoud-nube.com.ar
+
+**Nota**: Cloudflare Tunnel expone los contenedores Docker. Webhook de Telegram apunta a `/telegram/webhook`.

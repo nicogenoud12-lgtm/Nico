@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import crud, schemas
@@ -14,12 +15,18 @@ def list_cats(db: Session = Depends(get_db)):
 
 @router.post("", response_model=schemas.CategoryRead, status_code=201)
 def create_cat(payload: schemas.CategoryCreate, db: Session = Depends(get_db)):
-    return crud.create_category(db, payload)
+    try:
+        return crud.create_category(db, payload)
+    except IntegrityError:
+        raise HTTPException(409, f"Ya existe una categoría de {payload.kind} con ese nombre")
 
 
 @router.put("/{cat_id}", response_model=schemas.CategoryRead)
 def update_cat(cat_id: int, payload: schemas.CategoryUpdate, db: Session = Depends(get_db)):
-    cat = crud.update_category(db, cat_id, payload)
+    try:
+        cat = crud.update_category(db, cat_id, payload)
+    except IntegrityError:
+        raise HTTPException(409, "Ya existe una categoría con ese nombre y tipo")
     if not cat:
         raise HTTPException(404, "Category not found")
     return cat

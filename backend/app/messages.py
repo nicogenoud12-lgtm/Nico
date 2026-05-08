@@ -15,5 +15,10 @@ CONFIRM_GASTO = "Listo, te lo anoté ✅\n−$ {amt} · {desc}\n📂 {cat} · �
 CONFIRM_INGRESO = "Anotado el ingreso 💸\n+$ {amt} · {desc}\n📂 {cat} · 💳 {medio}"
 
 
+GEMINI_ERROR = "Uy, no pude procesar tu mensaje ahora 🤖💥. Probá de nuevo en un toque."
+CONFIRM_DELETE = "Borré el movimiento 🗑️\n{summary}"
+NOT_FOUND_DELETE = "No encontré ese movimiento 🤔. Probá ser más específico."
+
+
 def fmt_amount(n: float) -> str:
     return f"{int(abs(n)):,}".replace(",", ".")

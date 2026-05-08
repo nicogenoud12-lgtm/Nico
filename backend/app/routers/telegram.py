@@ -1,15 +1,17 @@
 """
-Webhook conversacional de Telegram.
+Webhook conversacional de Telegram con Gemini.
 
-Flujo:
-1. Recibe update. Valida secret token y user permitido.
-2. Si hay pending para el chat → la respuesta completa el campo faltante.
-3. Si no → parsea el texto. Crea tx si está completa o pregunta lo que falta.
+- Si hay pending para el chat → reusa el historial de la conversación.
+- Cada llamada manda el historial + el nuevo mensaje a Gemini.
+- Gemini decide intent (create/delete/unknown) Y genera el texto de respuesta.
 """
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timedelta, date as date_cls
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -17,13 +19,14 @@ from sqlalchemy.orm import Session
 from .. import crud, messages, schemas
 from ..config import settings
 from ..database import get_db
+from ..gemini import parse_telegram_message
 from ..models import PendingTransaction
-from ..parser import parse_message, resolve_field
 from ..telegram_client import send_message
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
 PENDING_TTL_MIN = 30
+MAX_HISTORY_TURNS = 10  # último user+model = 2 turnos
 
 
 def _validate_secret(x_telegram_bot_api_secret_token: str | None) -> None:
@@ -47,16 +50,17 @@ def _get_pending(db: Session, chat_id: int) -> PendingTransaction | None:
     return p
 
 
-def _save_pending(db: Session, chat_id: int, partial: dict, missing: list[str]) -> None:
+def _save_pending(db: Session, chat_id: int, history: list[dict], missing: list[str]) -> None:
+    payload = json.dumps({"history": history[-MAX_HISTORY_TURNS:]}, default=str)
     existing = db.get(PendingTransaction, chat_id)
     if existing:
-        existing.partial_json = json.dumps(partial, default=str)
+        existing.partial_json = payload
         existing.missing_fields = ",".join(missing)
         existing.created_at = datetime.utcnow()
     else:
         db.add(PendingTransaction(
             chat_id=chat_id,
-            partial_json=json.dumps(partial, default=str),
+            partial_json=payload,
             missing_fields=",".join(missing),
             created_at=datetime.utcnow(),
         ))
@@ -69,42 +73,17 @@ def _clear_pending(db: Session, chat_id: int) -> None:
         db.delete(p); db.commit()
 
 
-def _ask_for(field: str) -> str:
-    return {
-        "amt": messages.ASK_AMT,
-        "cat": messages.ASK_CAT,
-        "medio": messages.ASK_MEDIO,
-        "desc": messages.ASK_DESC,
-    }.get(field, messages.NOT_UNDERSTOOD_GENERIC)
-
-
-def _not_understood(field: str) -> str:
-    return {
-        "amt": messages.NOT_UNDERSTOOD_AMT,
-        "cat": messages.NOT_UNDERSTOOD_CAT,
-        "medio": messages.NOT_UNDERSTOOD_MEDIO,
-    }.get(field, messages.NOT_UNDERSTOOD_GENERIC)
-
-
-def _confirmation_text(partial: dict) -> str:
-    template = messages.CONFIRM_INGRESO if partial["type"] == "i" else messages.CONFIRM_GASTO
-    return template.format(
-        amt=messages.fmt_amount(partial["amt"]),
-        desc=partial.get("desc") or partial.get("cat") or "—",
-        cat=partial.get("cat") or "—",
-        medio=partial.get("medio") or "—",
-    )
-
-
-def _persist(db: Session, partial: dict):
+def _persist(db: Session, result: dict):
+    tx_type = result.get("tx_type") or "g"
+    raw_amt = abs(float(result.get("amt") or 0))
+    amt_signed = raw_amt if tx_type == "i" else -raw_amt
     payload = schemas.TransactionCreate(
-        month=partial["month"],
-        date=date_cls.fromisoformat(partial["date"]),
-        desc=partial.get("desc") or partial.get("cat", ""),
-        cat=partial["cat"],
-        medio=partial["medio"],
-        amt=float(partial["amt"]),
-        type=partial["type"],
+        date=date_cls.fromisoformat(result.get("date") or date_cls.today().isoformat()),
+        desc=result.get("desc") or result.get("cat") or "",
+        cat=result.get("cat") or "",
+        medio=result.get("medio") or "",
+        amount=amt_signed,
+        type=tx_type,
     )
     return crud.create_transaction(db, payload, source="telegram")
 
@@ -135,51 +114,80 @@ async def telegram_webhook(
         await send_message(chat_id, "Mmm no tengo permiso para anotarte gastos a vos 🙅")
         return {"ok": True, "skipped": "user not allowed"}
 
+    # ── Recuperar historial si hay pending ────────────────────
     pending = _get_pending(db, chat_id)
-
-    # ── 1) Hay pending → la respuesta completa el siguiente campo faltante
+    history: list[dict] = []
     if pending:
-        partial = json.loads(pending.partial_json)
-        missing = [m for m in pending.missing_fields.split(",") if m]
-        current = missing[0] if missing else None
+        try:
+            stored = json.loads(pending.partial_json)
+            history = stored.get("history", []) or []
+        except json.JSONDecodeError:
+            history = []
 
-        if current:
-            value = resolve_field(current, text)
-            if value is None:
-                await send_message(chat_id, _not_understood(current))
-                return {"ok": True, "asking": current}
+    # ── Cargar cats / medios / reglas / txs recientes desde la DB ──
+    cats = crud.list_categories(db)
+    cats_gasto = [c.name for c in cats if c.kind == "gasto"]
+    cats_ingreso = [c.name for c in cats if c.kind == "ingreso"]
+    mediums = [m.name for m in crud.list_mediums(db)]
+    bot_rules = [
+        {"keyword": r.keyword, "cat": r.cat, "tx_type": r.tx_type}
+        for r in crud.list_bot_rules(db)
+    ]
+    recent = [crud.serialize_tx(t) for t in crud.list_transactions(db)[:10]]
 
-            if current == "amt":
-                amt_abs = abs(float(value))
-                partial["amt"] = amt_abs if partial["type"] == "i" else -amt_abs
-            else:
-                partial[current] = value
+    # ── Llamar a Gemini con historial ─────────────────────────
+    result = await parse_telegram_message(
+        text, cats_gasto, cats_ingreso, mediums, recent,
+        bot_rules=bot_rules, history=history,
+    )
+    if result is None:
+        await send_message(chat_id, messages.GEMINI_ERROR)
+        return {"ok": True, "skipped": "gemini_error"}
 
-            missing = missing[1:]
+    intent = result.get("intent", "unknown")
+    reply = (result.get("reply") or "").strip() or messages.NOT_UNDERSTOOD_GENERIC
 
-        if missing:
-            _save_pending(db, chat_id, partial, missing)
-            await send_message(chat_id, _ask_for(missing[0]))
-            return {"ok": True, "asking": missing[0]}
-
-        # completo → persistir
-        tx = _persist(db, partial)
+    # ── intent: unknown ───────────────────────────────────────
+    if intent == "unknown":
         _clear_pending(db, chat_id)
-        await send_message(chat_id, _confirmation_text(partial))
-        return {"ok": True, "tx_id": tx.id}
+        await send_message(chat_id, reply)
+        return {"ok": True, "intent": "unknown"}
 
-    # ── 2) Sin pending → parsear como nuevo
-    parsed = parse_message(text)
-    if parsed.get("amt") is None and not parsed.get("missing"):
-        await send_message(chat_id, messages.NOT_UNDERSTOOD_GENERIC)
-        return {"ok": True, "skipped": "unparseable"}
+    # ── intent: learn ────────────────────────────────────────
+    if intent == "learn":
+        _clear_pending(db, chat_id)
+        keyword = (result.get("rule_keyword") or "").strip()
+        cat = (result.get("rule_cat") or "").strip()
+        rule_tx_type = (result.get("rule_tx_type") or "g").strip()
+        if keyword and cat:
+            crud.save_bot_rule(db, keyword, cat, rule_tx_type)
+            logger.info("[bot] regla guardada: '%s' → %s (%s)", keyword, cat, rule_tx_type)
+        await send_message(chat_id, reply)
+        return {"ok": True, "intent": "learn", "keyword": keyword, "cat": cat}
 
-    missing = parsed.get("missing", [])
+    # ── intent: delete ────────────────────────────────────────
+    if intent == "delete":
+        _clear_pending(db, chat_id)
+        tx_id = result.get("tx_id")
+        if not tx_id or not crud.delete_transaction(db, tx_id):
+            await send_message(chat_id, messages.NOT_FOUND_DELETE)
+            return {"ok": True, "intent": "delete", "error": "not_found"}
+        await send_message(chat_id, reply)
+        return {"ok": True, "intent": "delete", "tx_id": tx_id}
+
+    # ── intent: create ────────────────────────────────────────
+    missing = result.get("missing") or []
+    new_history = history + [
+        {"role": "user", "text": text},
+        {"role": "model", "text": reply},
+    ]
+
     if missing:
-        _save_pending(db, chat_id, parsed, missing)
-        await send_message(chat_id, _ask_for(missing[0]))
-        return {"ok": True, "asking": missing[0]}
+        _save_pending(db, chat_id, new_history, missing)
+        await send_message(chat_id, reply)
+        return {"ok": True, "intent": "create", "asking": missing[0]}
 
-    tx = _persist(db, parsed)
-    await send_message(chat_id, _confirmation_text(parsed))
-    return {"ok": True, "tx_id": tx.id}
+    tx = _persist(db, result)
+    _clear_pending(db, chat_id)
+    await send_message(chat_id, reply)
+    return {"ok": True, "intent": "create", "tx_id": tx.id}
