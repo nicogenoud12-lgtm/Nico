@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class CategoryBase(BaseModel):
     name: str
     color: str = "#b0aaaa"
-    kind: Literal["gasto", "ingreso"] = "gasto"
+    kind: Literal["gasto", "ingreso", "inversion"] = "gasto"
 
 
 class CategoryCreate(CategoryBase):
@@ -18,7 +18,7 @@ class CategoryCreate(CategoryBase):
 class CategoryUpdate(BaseModel):
     name: Optional[str] = None
     color: Optional[str] = None
-    kind: Optional[Literal["gasto", "ingreso"]] = None
+    kind: Optional[Literal["gasto", "ingreso", "inversion"]] = None
 
 
 class CategoryRead(CategoryBase):
@@ -164,6 +164,7 @@ class TransactionRead(BaseModel):
     date: datetime.date
     desc: str
     cat: str
+    cat_kind: str = "gasto"
     medio: str
     amount: float
     type: Literal["g", "i"]

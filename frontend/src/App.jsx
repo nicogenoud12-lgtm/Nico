@@ -66,6 +66,7 @@ export default function App() {
   const cats = useMemo(() => ({
     gastos: rawCats.filter(c => c.kind === 'gasto'),
     ingresos: rawCats.filter(c => c.kind === 'ingreso'),
+    inversiones: rawCats.filter(c => c.kind === 'inversion'),
   }), [rawCats]);
 
   const allMonthIds = useMemo(() => {

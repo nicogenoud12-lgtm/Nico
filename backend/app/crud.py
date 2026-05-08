@@ -13,9 +13,9 @@ def _next_position(db: Session, model) -> int:
 
 
 def _get_or_create_category(db: Session, name: str, kind: str = "gasto") -> models.Category:
-    cat = db.query(models.Category).filter(
-        models.Category.name == name, models.Category.kind == kind
-    ).first()
+    # Buscar por nombre primero (sin filtro de kind) para respetar categorías
+    # con kind='inversion' que no deben duplicarse como kind='gasto'.
+    cat = db.query(models.Category).filter(models.Category.name == name).first()
     if not cat:
         cat = models.Category(name=name, color="#b0aaaa", kind=kind, position=_next_position(db, models.Category))
         db.add(cat)
@@ -46,6 +46,7 @@ def serialize_tx(tx: models.Transaction) -> dict:
         "date": tx.date,
         "desc": tx.desc,
         "cat": tx.category.name if tx.category else "",
+        "cat_kind": tx.category.kind if tx.category else "gasto",
         "medio": tx.medium.name if tx.medium else "",
         "amount": tx.amt,
         "type": tx.type,

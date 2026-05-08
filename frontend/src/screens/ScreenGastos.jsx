@@ -27,7 +27,7 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
   const [editTx, setEditTx] = useState(null);
 
   const sorted = useMemo(() => sortMonthIdsDesc(allMonthIds), [allMonthIds]);
-  const monthTxs = useMemo(() => txs.filter(t => dateToMonthId(t.date) === monthId && t.type === 'g'), [txs, monthId]);
+  const monthTxs = useMemo(() => txs.filter(t => dateToMonthId(t.date) === monthId && t.type === 'g' && t.cat_kind !== 'inversion'), [txs, monthId]);
 
   const prevMonthId = useMemo(() => {
     const idx = sorted.indexOf(monthId);
@@ -35,7 +35,7 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
   }, [sorted, monthId]);
 
   const prevTotal = useMemo(() =>
-    prevMonthId ? txs.filter(t => dateToMonthId(t.date) === prevMonthId && t.type === 'g').reduce((s, t) => s + t.amount, 0) : 0,
+    prevMonthId ? txs.filter(t => dateToMonthId(t.date) === prevMonthId && t.type === 'g' && t.cat_kind !== 'inversion').reduce((s, t) => s + t.amount, 0) : 0,
     [txs, prevMonthId]);
 
   const total = monthTxs.reduce((s, t) => s + t.amount, 0);

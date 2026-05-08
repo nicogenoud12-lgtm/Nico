@@ -361,11 +361,12 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
     const result = months12.map(id => {
       const monthTxs = txs.filter(t => dateToMonthId(t.date) === id);
       const ing = monthTxs.filter(t => t.type === 'i').reduce((s, t) => s + t.amount, 0);
-      const gas = monthTxs.filter(t => t.type === 'g').reduce((s, t) => s + t.amount, 0);
+      const gas = monthTxs.filter(t => t.type === 'g' && t.cat_kind !== 'inversion').reduce((s, t) => s + t.amount, 0);
+      const inv = monthTxs.filter(t => t.cat_kind === 'inversion').reduce((s, t) => s + t.amount, 0);
       const net = ing - gas;
       const pctAhorro = ing > 0 ? (net / ing) * 100 : 0;
-      return { id, ing, gas, net, pctAhorro };
-    }).filter(d => d.ing > 0 || d.gas > 0);
+      return { id, ing, gas, inv, net, pctAhorro };
+    }).filter(d => d.ing > 0 || d.gas > 0 || d.inv > 0);
 
     result.forEach((d, i) => {
       const prev = result[i - 1];
@@ -396,7 +397,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
   const kpis = useMemo(() => {
     if (!kpiMonth) {
       return {
-        ing: 0, gas: 0, net: 0, pctAhorro: 0,
+        ing: 0, gas: 0, inv: 0, net: 0, pctAhorro: 0,
         varIng: null, varGas: null, varNet: null,
         label: '',
       };
@@ -408,6 +409,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
     return {
       ing: kpiMonth.ing,
       gas: kpiMonth.gas,
+      inv: kpiMonth.inv,
       net: kpiMonth.net,
       pctAhorro: kpiMonth.pctAhorro,
       varIng, varGas, varNet,
@@ -441,11 +443,12 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
   const ytd = useMemo(() => {
     const totalIng = data.reduce((s, d) => s + d.ing, 0);
     const totalGas = data.reduce((s, d) => s + d.gas, 0);
+    const totalInv = data.reduce((s, d) => s + d.inv, 0);
     const netAcum = totalIng - totalGas;
     const nonZeroIng = data.filter(d => d.ing > 0);
     const pctAhorroProm = nonZeroIng.length > 0 ? nonZeroIng.reduce((s, d) => s + d.pctAhorro, 0) / nonZeroIng.length : 0;
 
-    return { totalIng, totalGas, netAcum, pctAhorroProm };
+    return { totalIng, totalGas, totalInv, netAcum, pctAhorroProm };
   }, [data]);
 
   const chartData = mode === 'mensual' ? data : runningSum(data);
@@ -531,11 +534,10 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
             />
             <KpiCard
               label={`Ahorro · ${kpis.label}`}
-              value={kpis.pctAhorro.toFixed(1) + '%'}
-              color={C.accent}
-              progress={kpis.pctAhorro}
-              maxProgress={100}
-              isPercentage={true}
+              value={kpis.inv}
+              color="#5a9cd4"
+              progress={kpis.inv}
+              maxProgress={Math.max(maxKpi, kpis.inv || 1)}
             />
           </div>
 
@@ -719,6 +721,14 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
                   </div>
                   <div style={{ fontSize: 16, color: C.red, fontWeight: 700, marginTop: 4 }}>
                     {fmtARS(ytd.totalGas)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                    Total invertido
+                  </div>
+                  <div style={{ fontSize: 16, color: '#5a9cd4', fontWeight: 700, marginTop: 4 }}>
+                    {fmtARS(ytd.totalInv)}
                   </div>
                 </div>
                 <div style={{ paddingTop: 8, borderTop: `1px solid ${C.border}` }}>

@@ -79,6 +79,12 @@ def _migrate(conn) -> None:
         conn.exec_driver_sql("ALTER TABLE categories_new RENAME TO categories")
         conn.exec_driver_sql("PRAGMA foreign_keys=ON")
 
+    # 3. Migrar categoría Inversiones a kind='inversion' (fallback idempotente;
+    #    la migración canónica la ejecuta Alembic al iniciar el contenedor)
+    conn.exec_driver_sql(
+        "UPDATE categories SET kind='inversion' WHERE name='Inversiones' AND kind='gasto'"
+    )
+
 
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
