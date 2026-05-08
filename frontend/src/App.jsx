@@ -16,6 +16,7 @@ import ScreenIngresos from './screens/ScreenIngresos.jsx';
 import ScreenTarjetas from './screens/ScreenTarjetas.jsx';
 import ScreenSuscripciones from './screens/ScreenSuscripciones.jsx';
 import ScreenAnual from './screens/ScreenAnual.jsx';
+import ScreenInversiones from './screens/ScreenInversiones.jsx';
 import ScreenAjustes from './screens/ScreenAjustes.jsx';
 
 function useIsMobile() {
@@ -128,6 +129,7 @@ export default function App() {
         />
       );
       case 'anual': return <ScreenAnual {...screenProps} onNavigate={setScreen} />;
+      case 'inversiones': return <ScreenInversiones {...screenProps} onTxsChange={reloadTxs} />;
       case 'ajustes': return (
         <ScreenAjustes
           cats={cats} mediums={mediums}

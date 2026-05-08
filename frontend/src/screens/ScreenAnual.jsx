@@ -533,7 +533,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
               maxProgress={maxKpi}
             />
             <KpiCard
-              label={`Ahorro · ${kpis.label}`}
+              label={`Inversión · ${kpis.label}`}
               value={kpis.inv}
               color="#5a9cd4"
               progress={kpis.inv}
@@ -725,7 +725,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
                 </div>
                 <div>
                   <div style={{ fontSize: 10, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em' }}>
-                    Total invertido
+                    Total inversiones
                   </div>
                   <div style={{ fontSize: 16, color: '#5a9cd4', fontWeight: 700, marginTop: 4 }}>
                     {fmtARS(ytd.totalInv)}
