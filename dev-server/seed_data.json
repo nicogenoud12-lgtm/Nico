@@ -1,0 +1,116 @@
+{
+  "categories": [
+    { "id": 1, "name": "Comida", "color": "#e8b86d", "kind": "gasto", "position": 0 },
+    { "id": 2, "name": "Ocio", "color": "#a78bda", "kind": "gasto", "position": 1 },
+    { "id": 3, "name": "Casa", "color": "#d4876b", "kind": "gasto", "position": 2 },
+    { "id": 4, "name": "Otros", "color": "#b0aaaa", "kind": "gasto", "position": 3 },
+    { "id": 5, "name": "Sueldo", "color": "#2d7a52", "kind": "ingreso", "position": 4 },
+    { "id": 6, "name": "Inversiones", "color": "#5a9cd4", "kind": "inversion", "position": 5 }
+  ],
+  "mediums": [
+    { "id": 1, "name": "Contado", "position": 0 },
+    { "id": 2, "name": "MP", "position": 1 },
+    { "id": 3, "name": "Naranja X", "position": 2 }
+  ],
+  "tarjetas": [
+    { "id": 1, "nombre": "Naranja X", "banco": "Naranja", "ultimos4": "1234", "cierre": "20", "vence": "10", "color_idx": 0, "position": 0 }
+  ],
+  "suscripciones": [
+    {
+      "id": 1, "nombre": "Netflix", "monto": 7.99, "moneda": "USD",
+      "frecuencia": "mensual", "vencimiento": null, "estado": "activo", "logo_url": null,
+      "dia_mes": null, "cat_id": null, "medio_id": null, "tarjeta_id": null,
+      "auto_create": false, "last_run_month": null, "position": 0
+    },
+    {
+      "id": 2, "nombre": "Internet", "monto": 15000, "moneda": "ARS",
+      "frecuencia": "mensual", "vencimiento": null, "estado": "activo", "logo_url": null,
+      "dia_mes": 5, "cat_id": 3, "medio_id": 2, "tarjeta_id": null,
+      "auto_create": true, "last_run_month": null, "position": 1
+    }
+  ],
+  "months": [
+    { "id": "0526", "label": "Mayo 2026", "short": "May", "saldo_inicial": 4500000, "cuotas": 0 },
+    { "id": "0426", "label": "Abril 2026", "short": "Abr", "saldo_inicial": 4300000, "cuotas": 0 },
+    { "id": "0326", "label": "Marzo 2026", "short": "Mar", "saldo_inicial": 4100000, "cuotas": 0 }
+  ],
+  "transactions": [
+    {
+      "id": 1, "month": "0526", "date": "2026-05-01", "desc": "Sueldo mayo",
+      "cat_id": 5, "medio_id": 2, "tarjeta_id": null,
+      "amt": 1500000, "type": "i", "currency": "ARS",
+      "cuota_num": null, "cuota_total": null, "parent_tx_id": null,
+      "source": "web", "created_at": "2026-05-01T10:00:00"
+    },
+    {
+      "id": 2, "month": "0526", "date": "2026-05-03", "desc": "Supermercado",
+      "cat_id": 1, "medio_id": 1, "tarjeta_id": null,
+      "amt": 85000, "type": "g", "currency": "ARS",
+      "cuota_num": null, "cuota_total": null, "parent_tx_id": null,
+      "source": "web", "created_at": "2026-05-03T18:30:00"
+    },
+    {
+      "id": 3, "month": "0526", "date": "2026-05-05", "desc": "Heladera",
+      "cat_id": 3, "medio_id": 3, "tarjeta_id": 1,
+      "amt": 100000, "type": "g", "currency": "ARS",
+      "cuota_num": 1, "cuota_total": 6, "parent_tx_id": null,
+      "source": "telegram", "created_at": "2026-05-05T20:00:00"
+    },
+    {
+      "id": 4, "month": "0626", "date": "2026-06-05", "desc": "Heladera",
+      "cat_id": 3, "medio_id": 3, "tarjeta_id": 1,
+      "amt": 100000, "type": "g", "currency": "ARS",
+      "cuota_num": 2, "cuota_total": 6, "parent_tx_id": 3,
+      "source": "telegram", "created_at": "2026-05-05T20:00:00"
+    },
+    {
+      "id": 5, "month": "0726", "date": "2026-07-05", "desc": "Heladera",
+      "cat_id": 3, "medio_id": 3, "tarjeta_id": 1,
+      "amt": 100000, "type": "g", "currency": "ARS",
+      "cuota_num": 3, "cuota_total": 6, "parent_tx_id": 3,
+      "source": "telegram", "created_at": "2026-05-05T20:00:00"
+    },
+    {
+      "id": 6, "month": "0526", "date": "2026-05-06", "desc": "Inversión Plazo Fijo",
+      "cat_id": 6, "medio_id": 2, "tarjeta_id": null,
+      "amt": 200000, "type": "g", "currency": "ARS",
+      "cuota_num": null, "cuota_total": null, "parent_tx_id": null,
+      "source": "web", "created_at": "2026-05-06T11:00:00"
+    },
+    {
+      "id": 7, "month": "0526", "date": "2026-05-07", "desc": "Cine",
+      "cat_id": 2, "medio_id": 1, "tarjeta_id": null,
+      "amt": 12000, "type": "g", "currency": "ARS",
+      "cuota_num": null, "cuota_total": null, "parent_tx_id": null,
+      "source": "web", "created_at": "2026-05-07T22:00:00"
+    },
+    {
+      "id": 8, "month": "0426", "date": "2026-04-01", "desc": "Sueldo abril",
+      "cat_id": 5, "medio_id": 2, "tarjeta_id": null,
+      "amt": 1450000, "type": "i", "currency": "ARS",
+      "cuota_num": null, "cuota_total": null, "parent_tx_id": null,
+      "source": "web", "created_at": "2026-04-01T10:00:00"
+    },
+    {
+      "id": 9, "month": "0426", "date": "2026-04-15", "desc": "Restaurant",
+      "cat_id": 1, "medio_id": 1, "tarjeta_id": null,
+      "amt": 38000, "type": "g", "currency": "ARS",
+      "cuota_num": null, "cuota_total": null, "parent_tx_id": null,
+      "source": "web", "created_at": "2026-04-15T21:00:00"
+    },
+    {
+      "id": 10, "month": "0426", "date": "2026-04-20", "desc": "Inversión bonos",
+      "cat_id": 6, "medio_id": 2, "tarjeta_id": null,
+      "amt": 150000, "type": "g", "currency": "ARS",
+      "cuota_num": null, "cuota_total": null, "parent_tx_id": null,
+      "source": "web", "created_at": "2026-04-20T15:00:00"
+    }
+  ],
+  "counters": {
+    "categories": 6,
+    "mediums": 3,
+    "tarjetas": 1,
+    "suscripciones": 2,
+    "transactions": 10
+  }
+}

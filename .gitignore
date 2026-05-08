@@ -7,6 +7,13 @@ backend/*.egg-info/
 backend/.env
 backend/gastos_local.db
 
+# Dev server
+dev-server/venv/
+dev-server/__pycache__/
+dev-server/*.pyc
+dev-server/dev_data.json
+dev-server/static/
+
 # Node
 frontend/node_modules/
 frontend/dist/

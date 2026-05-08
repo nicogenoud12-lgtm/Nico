@@ -99,6 +99,14 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
     setModalOpen(true);
   };
 
+  // Movimientos permite registrar gastos puros e inversiones desde el mismo FAB.
+  // TxForm muestra cats.gastos para type='g'; mergeamos inversiones para que
+  // ambas familias aparezcan en el dropdown de categoría.
+  const catsForForm = useMemo(
+    () => ({ ...cats, gastos: [...cats.gastos, ...cats.inversiones] }),
+    [cats]
+  );
+
   const statCard = (label, value, pct, inverse = false) => (
     <div style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '14px 16px' }}>
       <div style={{ fontSize: 10, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>{label}</div>
@@ -185,7 +193,7 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
       <FAB onClick={() => { setEditTx(null); setModalOpen(true); }} />
       <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditTx(null); }} title={editTx ? 'Editar movimiento' : 'Nuevo movimiento'}>
         <TxForm
-          cats={cats} mediums={mediums}
+          cats={catsForForm} mediums={mediums}
           initial={editTx}
           onSave={handleSave}
           onCancel={() => { setModalOpen(false); setEditTx(null); }}
