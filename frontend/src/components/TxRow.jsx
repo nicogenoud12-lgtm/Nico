@@ -33,10 +33,18 @@ export default function TxRow({ tx, cats, onEdit, onDelete }) {
         <div style={{ fontSize: 14, fontWeight: 500, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {tx.desc || tx.cat}
         </div>
-        <div style={{ fontSize: 12, color: C.text3, marginTop: 1 }}>
-          {tx.cat}
-          {tx.medio ? ` · ${tx.medio}` : ''}
-          {tx.cuota_num && tx.cuota_total ? ` · cuota ${tx.cuota_num}/${tx.cuota_total}` : ''}
+        <div style={{ fontSize: 12, color: C.text3, marginTop: 1, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+          <span>{tx.cat}{tx.medio ? ` · ${tx.medio}` : ''}</span>
+          {tx.cuota_num && tx.cuota_total && (
+            <span style={{
+              fontSize: 10, fontWeight: 700, lineHeight: 1,
+              color: C.accent, background: C.accentBg,
+              padding: '2px 5px', borderRadius: 4,
+              letterSpacing: '.02em',
+            }}>
+              {tx.cuota_num}/{tx.cuota_total}
+            </span>
+          )}
         </div>
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
