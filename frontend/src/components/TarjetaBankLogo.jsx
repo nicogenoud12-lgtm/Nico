@@ -22,7 +22,7 @@ export default function TarjetaBankLogo({ banco, logoUrl, size = 32 }) {
   return (
     <div style={{
       width: size, height: size, borderRadius: size / 4,
-      background: showImg ? '#fff' : 'rgba(255,255,255,0.2)',
+      background: showImg ? 'transparent' : 'rgba(255,255,255,0.2)',
       overflow: 'hidden',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontSize: size * 0.35, fontWeight: 700, color: '#fff',
