@@ -81,8 +81,8 @@ class TarjetaRead(TarjetaBase):
         from_attributes = True
 
 
-# ── Suscripcion ──────────────────────────────────────────────
-class SuscripcionBase(BaseModel):
+# ── Recurrente ──────────────────────────────────────────────
+class RecurrenteBase(BaseModel):
     nombre: str
     monto: float
     moneda: Literal["ARS", "USD"] = "ARS"
@@ -94,11 +94,11 @@ class SuscripcionBase(BaseModel):
     auto_create: bool = False
 
 
-class SuscripcionCreate(SuscripcionBase):
+class RecurrenteCreate(RecurrenteBase):
     pass
 
 
-class SuscripcionUpdate(BaseModel):
+class RecurrenteUpdate(BaseModel):
     nombre: Optional[str] = None
     monto: Optional[float] = None
     moneda: Optional[Literal["ARS", "USD"]] = None
@@ -111,7 +111,7 @@ class SuscripcionUpdate(BaseModel):
     last_run_month: Optional[str] = None
 
 
-class SuscripcionRead(SuscripcionBase):
+class RecurrenteRead(RecurrenteBase):
     id: int
     position: int
     last_run_month: Optional[str] = None

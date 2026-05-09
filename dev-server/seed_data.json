@@ -15,7 +15,7 @@
   "tarjetas": [
     { "id": 1, "nombre": "Naranja X", "banco": "Naranja", "ultimos4": "1234", "cierre": "20", "vence": "10", "color_idx": 0, "position": 0 }
   ],
-  "suscripciones": [
+  "recurrentes": [
     {
       "id": 1, "nombre": "Netflix", "monto": 7.99, "moneda": "USD",
       "frecuencia": "mensual", "vencimiento": null, "estado": "activo", "logo_url": null,
@@ -110,7 +110,7 @@
     "categories": 6,
     "mediums": 3,
     "tarjetas": 1,
-    "suscripciones": 2,
+    "recurrentes": 2,
     "transactions": 10
   }
 }

@@ -4,7 +4,7 @@ import { dateToMonthId, todayStr, sortMonthIdsDesc } from './utils/format.js';
 import { listTransactions } from './api/transactions.js';
 import { listCategories, listMediums } from './api/categories.js';
 import { listTarjetas } from './api/tarjetas.js';
-import { listSuscripciones } from './api/suscripciones.js';
+import { listRecurrentes } from './api/recurrentes.js';
 
 import SidebarDesktop from './components/SidebarDesktop.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -14,7 +14,7 @@ import ScreenMovimientos from './screens/ScreenMovimientos.jsx';
 import ScreenGastos from './screens/ScreenGastos.jsx';
 import ScreenIngresos from './screens/ScreenIngresos.jsx';
 import ScreenTarjetas from './screens/ScreenTarjetas.jsx';
-import ScreenSuscripciones from './screens/ScreenSuscripciones.jsx';
+import ScreenRecurrentes from './screens/ScreenRecurrentes.jsx';
 import ScreenAnual from './screens/ScreenAnual.jsx';
 import ScreenInversiones from './screens/ScreenInversiones.jsx';
 import ScreenAjustes from './screens/ScreenAjustes.jsx';
@@ -32,7 +32,7 @@ function useIsMobile() {
 export default function App() {
   const mobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const VALID_SCREENS = ['movimientos', 'gastos', 'ingresos', 'tarjetas', 'suscripciones', 'anual', 'inversiones', 'ajustes'];
+  const VALID_SCREENS = ['movimientos', 'gastos', 'ingresos', 'tarjetas', 'recurrentes', 'anual', 'inversiones', 'ajustes'];
   const [screen, setScreen] = useState(() => {
     const s = localStorage.getItem('nav_screen');
     return VALID_SCREENS.includes(s) ? s : 'movimientos';
@@ -48,20 +48,20 @@ export default function App() {
   const [rawCats, setRawCats] = useState([]);
   const [mediums, setMediums] = useState([]);
   const [tarjetas, setTarjetas] = useState([]);
-  const [suscripciones, setSuscripciones] = useState([]);
+  const [recurrentes, setRecurrentes] = useState([]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [t, c, m, tj, sb] = await Promise.all([
-        listTransactions(), listCategories(), listMediums(), listTarjetas(), listSuscripciones(),
+      const [t, c, m, tj, r] = await Promise.all([
+        listTransactions(), listCategories(), listMediums(), listTarjetas(), listRecurrentes(),
       ]);
       setTxs(t);
       setRawCats(c);
       setMediums(m);
       setTarjetas(tj);
-      setSuscripciones(sb);
+      setRecurrentes(r);
     } catch (e) {
       setError(e?.message || 'Error de conexión');
     } finally {
@@ -89,7 +89,7 @@ export default function App() {
   const reloadCats = useCallback(() => listCategories().then(setRawCats), []);
   const reloadMediums = useCallback(() => listMediums().then(setMediums), []);
   const reloadTarjetas = useCallback(() => listTarjetas().then(setTarjetas), []);
-  const reloadSuscripciones = useCallback(() => listSuscripciones().then(setSuscripciones), []);
+  const reloadRecurrentes = useCallback(() => listRecurrentes().then(setRecurrentes), []);
 
   const onNav = useCallback((s) => { setScreen(s); setDrawerOpen(false); }, []);
 
@@ -132,10 +132,10 @@ export default function App() {
           onTxsChange={reloadTxs}
         />
       );
-      case 'suscripciones': return (
-        <ScreenSuscripciones
-          suscripciones={suscripciones}
-          onSuscripcionesChange={reloadSuscripciones}
+      case 'recurrentes': return (
+        <ScreenRecurrentes
+          recurrentes={recurrentes}
+          onRecurrentesChange={reloadRecurrentes}
         />
       );
       case 'anual': return <ScreenAnual {...screenProps} onNavigate={setScreen} />;

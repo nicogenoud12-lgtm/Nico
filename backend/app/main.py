@@ -10,7 +10,7 @@ from . import crud
 from .config import settings
 from .database import Base, SessionLocal, engine, get_db
 from .models import Category, Medium, Month
-from .routers import backup, categories, mediums, months, suscripciones, tarjetas, telegram, transactions
+from .routers import backup, categories, mediums, months, recurrentes, tarjetas, telegram, transactions
 
 log = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 # ── Datos iniciales ──────────────────────────────────────────
 DEFAULT_CATEGORIES_GASTO = [
     ("Comida", "#e8b86d"), ("Compras", "#7eb8d4"), ("Combustible", "#d4876b"),
-    ("Ocio", "#a78bda"), ("Salud", "#6bbf8e"), ("Suscripciones", "#e88ba0"),
+    ("Ocio", "#a78bda"), ("Salud", "#6bbf8e"), ("Recurrentes", "#e88ba0"),
     ("Ropa", "#f0c060"), ("Viajes", "#60b4b4"), ("Inversiones", "#5a9cd4"),
     ("Gimnasio", "#88c070"), ("Regalo", "#d490c0"), ("Donación", "#a0c890"),
     ("Art. Higiene", "#80c8c0"), ("Impuestos", "#c8a080"), ("Suplementos", "#98d0a0"),
@@ -27,7 +27,7 @@ DEFAULT_CATEGORIES_GASTO = [
 DEFAULT_CATEGORIES_INGRESO = [
     ("Ingresos", "#2d7a52"), ("Fábrica", "#2d7a52"),
 ]
-DEFAULT_MEDIOS = ["Efectivo", "Transferencia", "MP", "MP Crédito", "Naranja X", "Ualá", "Ualá Crédito", "Astropay", "Personal Pay"]
+DEFAULT_MEDIOS = ["Contado", "Transferencia", "MP", "MP Crédito", "Naranja X", "Ualá", "Ualá Crédito", "Astropay", "Personal Pay"]
 DEFAULT_MONTHS = [
     ("0326", "Marzo 2026", "Mar", 4495051, 0),
     ("0226", "Febrero 2026", "Feb", 4100000, 50000),
@@ -162,13 +162,13 @@ app.include_router(transactions.router)
 app.include_router(categories.router)
 app.include_router(mediums.router)
 app.include_router(tarjetas.router)
-app.include_router(suscripciones.router)
+app.include_router(recurrentes.router)
 app.include_router(months.router)
 app.include_router(backup.router)
 app.include_router(telegram.router)
 
 
-@app.post("/cron/suscripciones")
+@app.post("/cron/recurrentes")
 def trigger_recurrentes(db: Session = Depends(get_db)):
     created = crud.run_recurrentes(db)
     return {"created": len(created), "transactions": created}

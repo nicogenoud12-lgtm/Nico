@@ -38,7 +38,7 @@ MEDIO_ALIASES: list[tuple[str, list[str]]] = [
     ("Ualá",          [r"\buala\b"]),
     ("Astropay",      [r"\bastropay\b"]),
     ("Personal Pay",  [r"\bpersonal\s*pay\b"]),
-    ("Efectivo",      [r"\befectivo\b", r"\befe\b", r"\bcash\b", r"\bplata\s+en\s+mano\b", r"\bmano\b"]),
+    ("Contado",       [r"\bcontado\b", r"\befectivo\b", r"\befe\b", r"\bcash\b", r"\bplata\s+en\s+mano\b", r"\bmano\b"]),
     ("Crédito",       [r"\bcredito\b", r"\btarjeta\s*credito\b"]),
     ("Débito",        [r"\bdebito\b", r"\btarjeta\s*debito\b"]),
 ]
@@ -50,7 +50,7 @@ CAT_KEYWORDS: list[tuple[str, list[str]]] = [
                        r"\bhelado\b", r"\brappi\b", r"\bpedidos\s*ya\b"]),
     ("Combustible",   [r"\bcombust\w*", r"\bnafta\b", r"\bgnc\b", r"\bypf\b", r"\bshell\b", r"\baxion\b"]),
     ("Gimnasio",      [r"\bgimnasio\b", r"\bgym\b"]),
-    ("Suscripciones", [r"\bsuscrip\w*", r"\bspotify\b", r"\bnetflix\b", r"\bgoogle\s*one\b",
+    ("Recurrentes",   [r"\brecurrent\w*", r"\bsuscrip\w*", r"\bspotify\b", r"\bnetflix\b", r"\bgoogle\s*one\b",
                        r"\bdisney\b", r"\bhbo\b", r"\bprime\b", r"\bicloud\b"]),
     ("Ropa",          [r"\bropa\b", r"\bremera\b", r"\bcampera\b", r"\bzapatill\w*", r"\bjean\b",
                        r"\bpantalon\b", r"\bbuzo\b"]),

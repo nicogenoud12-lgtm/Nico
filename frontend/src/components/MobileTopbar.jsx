@@ -6,8 +6,9 @@ const SCREEN_LABELS = {
   gastos: 'Gastos',
   ingresos: 'Ingresos',
   tarjetas: 'Tarjetas',
-  suscripciones: 'Suscripciones',
+  recurrentes: 'Recurrentes',
   anual: 'Anual',
+  inversiones: 'Inversiones',
   ajustes: 'Ajustes',
 };
 

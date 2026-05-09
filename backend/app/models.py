@@ -48,7 +48,7 @@ class Tarjeta(Base):
     position = Column(Integer, nullable=False, default=0)
 
 
-class Suscripcion(Base):
+class Recurrente(Base):
     __tablename__ = "suscripciones"
 
     id = Column(Integer, primary_key=True)

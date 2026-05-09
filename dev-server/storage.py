@@ -32,7 +32,7 @@ def load() -> dict[str, Any]:
             with DATA_PATH.open("r", encoding="utf-8") as f:
                 _state = json.load(f)
             # Asegurar todas las colecciones esperadas
-            for key in ("categories", "mediums", "tarjetas", "suscripciones",
+            for key in ("categories", "mediums", "tarjetas", "recurrentes",
                          "transactions", "months"):
                 _state.setdefault(key, [])
             _state.setdefault("counters", {})

@@ -2,7 +2,7 @@
 
 Replica el contrato HTTP del backend de prod (`/transactions`, `/categories`,
 etc.) para que el frontend funcione tal cual, y agrega endpoints de simulación
-(`/bot/gasto`, `/cron/suscripciones`, `/dev/reset`) para validar features
+(`/bot/gasto`, `/cron/recurrentes`, `/dev/reset`) para validar features
 planificadas sin tocar la DB real.
 """
 from __future__ import annotations
@@ -206,7 +206,7 @@ def delete_transaction(tx_id: int):
 
 
 # ════════════════════════════════════════════════════════════
-# Categories / Mediums / Tarjetas / Suscripciones / Months
+# Categories / Mediums / Tarjetas / Recurrentes / Months
 # ════════════════════════════════════════════════════════════
 def _crud_factory(collection: str, create_schema, update_schema):
     """Genera handlers genéricos para colecciones simples."""
@@ -351,35 +351,35 @@ def reorder_tarjetas(payload: schemas.ReorderPayload):
     return _tar_reorder(payload)
 
 
-# Suscripciones
-_sus_list, _sus_create, _sus_update, _sus_delete, _sus_reorder = _crud_factory(
-    "suscripciones", schemas.SuscripcionCreate, schemas.SuscripcionUpdate
+# Recurrentes
+_rec_list, _rec_create, _rec_update, _rec_delete, _rec_reorder = _crud_factory(
+    "recurrentes", schemas.RecurrenteCreate, schemas.RecurrenteUpdate
 )
 
 
-@app.get("/suscripciones")
-def get_suscripciones():
-    return _sus_list()
+@app.get("/recurrentes")
+def get_recurrentes():
+    return _rec_list()
 
 
-@app.post("/suscripciones", status_code=201)
-def post_suscripcion(payload: schemas.SuscripcionCreate):
-    return _sus_create(payload)
+@app.post("/recurrentes", status_code=201)
+def post_recurrente(payload: schemas.RecurrenteCreate):
+    return _rec_create(payload)
 
 
-@app.put("/suscripciones/{sid}")
-def put_suscripcion(sid: int, payload: schemas.SuscripcionUpdate):
-    return _sus_update(sid, payload)
+@app.put("/recurrentes/{rid}")
+def put_recurrente(rid: int, payload: schemas.RecurrenteUpdate):
+    return _rec_update(rid, payload)
 
 
-@app.delete("/suscripciones/{sid}", status_code=204)
-def del_suscripcion(sid: int):
-    return _sus_delete(sid)
+@app.delete("/recurrentes/{rid}", status_code=204)
+def del_recurrente(rid: int):
+    return _rec_delete(rid)
 
 
-@app.post("/suscripciones/reorder", status_code=204)
-def reorder_suscripciones(payload: schemas.ReorderPayload):
-    return _sus_reorder(payload)
+@app.post("/recurrentes/reorder", status_code=204)
+def reorder_recurrentes(payload: schemas.ReorderPayload):
+    return _rec_reorder(payload)
 
 
 # Months
@@ -477,8 +477,8 @@ def bot_gasto(payload: schemas.BotGastoIn):
 # ════════════════════════════════════════════════════════════
 # Cron simulado
 # ════════════════════════════════════════════════════════════
-@app.post("/cron/suscripciones")
-def cron_suscripciones(month: Optional[str] = Query(None, description="MMYY; default=mes actual")):
+@app.post("/cron/recurrentes")
+def cron_recurrentes(month: Optional[str] = Query(None, description="MMYY; default=mes actual")):
     created = recurrentes.run_for_month(month)
     return {
         "target_month": month or "current",

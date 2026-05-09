@@ -24,11 +24,11 @@ def _serialize_tarj(t: models.Tarjeta) -> dict:
     }
 
 
-def _serialize_sub(s: models.Suscripcion) -> dict:
+def _serialize_rec(r: models.Recurrente) -> dict:
     return {
-        "id": s.id, "nombre": s.nombre, "monto": s.monto, "moneda": s.moneda,
-        "frecuencia": s.frecuencia, "vencimiento": s.vencimiento, "estado": s.estado,
-        "logo_url": s.logo_url, "position": s.position,
+        "id": r.id, "nombre": r.nombre, "monto": r.monto, "moneda": r.moneda,
+        "frecuencia": r.frecuencia, "vencimiento": r.vencimiento, "estado": r.estado,
+        "logo_url": r.logo_url, "position": r.position,
     }
 
 
@@ -56,7 +56,7 @@ def export_backup(db: Session = Depends(get_db)):
         "categories": [_serialize_cat(c) for c in crud.list_categories(db)],
         "mediums": [_serialize_med(m) for m in crud.list_mediums(db)],
         "tarjetas": [_serialize_tarj(t) for t in crud.list_tarjetas(db)],
-        "suscripciones": [_serialize_sub(s) for s in crud.list_suscripciones(db)],
+        "recurrentes": [_serialize_rec(r) for r in crud.list_recurrentes(db)],
         "months": [_serialize_month(m) for m in crud.list_months(db)],
         "transactions": [_serialize_tx_full(t) for t in crud.list_transactions(db)],
     }
@@ -70,7 +70,7 @@ def import_backup(payload: dict, db: Session = Depends(get_db)):
         # Borrar todo en orden inverso de FK
         db.query(models.Transaction).delete()
         db.query(models.Month).delete()
-        db.query(models.Suscripcion).delete()
+        db.query(models.Recurrente).delete()
         db.query(models.Tarjeta).delete()
         db.query(models.Medium).delete()
         db.query(models.Category).delete()
@@ -90,12 +90,12 @@ def import_backup(payload: dict, db: Session = Depends(get_db)):
                 vence=t.get("vence", ""), color_idx=t.get("color_idx", 0),
                 position=t.get("position", 0),
             ))
-        for sb in payload.get("suscripciones", []):
-            db.add(models.Suscripcion(
-                id=sb.get("id"), nombre=sb["nombre"], monto=sb.get("monto", 0),
-                moneda=sb.get("moneda", "ARS"), frecuencia=sb.get("frecuencia", "mensual"),
-                vencimiento=sb.get("vencimiento"), estado=sb.get("estado", "activo"),
-                logo_url=sb.get("logo_url"), position=sb.get("position", 0),
+        for r in payload.get("recurrentes", []) or payload.get("suscripciones", []):
+            db.add(models.Recurrente(
+                id=r.get("id"), nombre=r["nombre"], monto=r.get("monto", 0),
+                moneda=r.get("moneda", "ARS"), frecuencia=r.get("frecuencia", "mensual"),
+                vencimiento=r.get("vencimiento"), estado=r.get("estado", "activo"),
+                logo_url=r.get("logo_url"), position=r.get("position", 0),
             ))
         for mo in payload.get("months", []):
             db.add(models.Month(
