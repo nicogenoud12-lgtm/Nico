@@ -39,6 +39,11 @@ export function fmtARS(n, showSign = false) {
   return (n >= 0 ? '+' : '-') + s;
 }
 
+export function fmtARSInt(n) {
+  if (n === null || n === undefined || isNaN(n)) return '$ 0';
+  return '$ ' + Math.round(Math.abs(n)).toLocaleString('es-AR');
+}
+
 export function fmtUSD(n) {
   return `U$D ${Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }

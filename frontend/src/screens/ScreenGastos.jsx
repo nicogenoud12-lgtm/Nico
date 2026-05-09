@@ -92,15 +92,22 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
     await onTxsChange();
   };
 
-  const handleDelete = async (tx) => {
+  const handleDelete = async () => {
+    if (!editTx) return;
     if (!window.confirm('¿Eliminar movimiento?')) return;
-    await deleteTransaction(tx.id);
+    await deleteTransaction(editTx.id);
+    setModalOpen(false);
+    setEditTx(null);
     await onTxsChange();
   };
 
-  const handleEdit = (tx) => {
-    setEditTx(tx);
-    setModalOpen(true);
+  const handleRowClick = (tx) => {
+    if (tx.cuota_total && tx.cuota_total > 1) {
+      setCuotaTx(tx);
+    } else {
+      setEditTx(tx);
+      setModalOpen(true);
+    }
   };
 
   const displayIdx = hoveredIdx !== null ? hoveredIdx : (bycat.length > 0 ? 0 : null);
@@ -240,9 +247,7 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
                       <TxRow
                         tx={tx}
                         cats={cats}
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
-                        onCuotaClick={setCuotaTx}
+                        onClick={handleRowClick}
                       />
                     </div>
                   );
@@ -262,6 +267,7 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
           initial={editTx || { type: 'g' }}
           onSave={handleSave}
           onCancel={() => { setModalOpen(false); setEditTx(null); }}
+          onDelete={handleDelete}
         />
       </Modal>
       <CuotaDetailModal open={!!cuotaTx} tx={cuotaTx} allTxs={txs} onClose={() => setCuotaTx(null)} />

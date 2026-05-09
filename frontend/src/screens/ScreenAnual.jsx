@@ -125,6 +125,15 @@ function MiniBar({ pct, label }) {
   );
 }
 
+function MobileMetric({ label, value, color, bold = false }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <span style={{ fontSize: 10, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: bold ? 700 : 500, color }}>{value}</span>
+    </div>
+  );
+}
+
 function VariationChip({ pct }) {
   if (pct === null || pct === undefined) {
     return <span style={{ fontSize: 11, color: C.text3 }}>—</span>;
@@ -595,27 +604,52 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
             <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', padding: '10px 16px', borderBottom: `1px solid ${C.border}` }}>
               Detalle por mes
             </div>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: mobile ? '1fr' : 'repeat(6, 1fr)',
-              gap: 0,
-              borderBottom: `1px solid ${C.border}`,
-            }}>
-              {['Mes', 'Ingresos', 'Gastos', 'Neto', '% Ahorro', 'Variación'].map(h => (
-                !mobile || h === 'Mes' ? (
+            {!mobile && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(6, 1fr)',
+                gap: 0,
+                borderBottom: `1px solid ${C.border}`,
+              }}>
+                {['Mes', 'Ingresos', 'Gastos', 'Neto', '% Ahorro', 'Variación'].map(h => (
                   <div key={h} style={{ padding: '10px 16px', borderRight: h !== 'Variación' ? `1px solid ${C.border}` : 'none' }}>
                     <span style={{ fontSize: 10, fontWeight: 600, color: C.text3 }}>{h}</span>
                   </div>
-                ) : null
-              ))}
-            </div>
-            {[...data].reverse().map((d, i) => (
+                ))}
+              </div>
+            )}
+            {[...data].reverse().map((d, i) => mobile ? (
+              <div
+                key={d.id}
+                onClick={() => handleClickMonth(d.id)}
+                style={{
+                  padding: '12px 14px',
+                  borderBottom: i < data.length - 1 ? `1px solid ${C.border}` : 'none',
+                  background: d.id === monthId ? C.surface2 : 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 8 }}>
+                  {monthIdLabel(d.id)}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
+                  <MobileMetric label="Ingreso" value={fmtARS(d.ing)} color={C.green} />
+                  <MobileMetric label="Gasto" value={fmtARS(d.gas)} color={C.red} />
+                  <MobileMetric label="Neto" value={fmtARS(d.net)} color={d.net >= 0 ? C.green : C.red} bold />
+                  <MobileMetric label="Ahorro" value={d.ing > 0 ? d.pctAhorro.toFixed(1) + '%' : '—'} color={C.text} />
+                  <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Variación</span>
+                    <VariationChip pct={d.variation} />
+                  </div>
+                </div>
+              </div>
+            ) : (
               <div
                 key={d.id}
                 onClick={() => handleClickMonth(d.id)}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: mobile ? '1fr' : 'repeat(6, 1fr)',
+                  gridTemplateColumns: 'repeat(6, 1fr)',
                   gap: 0,
                   padding: '11px 16px',
                   borderBottom: i < data.length - 1 ? `1px solid ${C.border}` : 'none',

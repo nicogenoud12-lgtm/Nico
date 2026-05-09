@@ -58,6 +58,7 @@ class TarjetaBase(BaseModel):
     cierre: str = ""
     vence: str = ""
     color_idx: int = 0
+    logo_url: Optional[str] = None
 
 
 class TarjetaCreate(TarjetaBase):
@@ -71,6 +72,7 @@ class TarjetaUpdate(BaseModel):
     cierre: Optional[str] = None
     vence: Optional[str] = None
     color_idx: Optional[int] = None
+    logo_url: Optional[str] = None
 
 
 class TarjetaRead(TarjetaBase):

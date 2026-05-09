@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { C, s } from '../theme.js';
 import { todayStr } from '../utils/format.js';
 
-export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
+export default function TxForm({ cats, mediums, onSave, onCancel, onDelete, initial }) {
   const [type, setType] = useState(initial?.type || 'g');
   const [amount, setAmount] = useState(initial?.amount != null ? String(Math.abs(initial.amount)) : '');
   const [currency, setCurrency] = useState(initial?.currency || 'ARS');
@@ -141,6 +141,20 @@ export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
           {saving ? '…' : (initial ? 'Guardar' : 'Agregar')}
         </button>
       </div>
+
+      {initial && onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          style={{
+            background: 'transparent', border: `1px solid ${C.red}40`,
+            color: C.red, padding: '9px', borderRadius: 8,
+            fontFamily: 'inherit', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+          }}
+        >
+          Eliminar
+        </button>
+      )}
     </form>
   );
 }

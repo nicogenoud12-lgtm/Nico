@@ -90,13 +90,16 @@ export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthId
     await onTxsChange();
   };
 
-  const handleDelete = async (tx) => {
+  const handleDelete = async () => {
+    if (!editTx) return;
     if (!window.confirm('¿Eliminar movimiento?')) return;
-    await deleteTransaction(tx.id);
+    await deleteTransaction(editTx.id);
+    setModalOpen(false);
+    setEditTx(null);
     await onTxsChange();
   };
 
-  const handleEdit = (tx) => {
+  const handleRowClick = (tx) => {
     setEditTx(tx);
     setModalOpen(true);
   };
@@ -238,8 +241,7 @@ export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthId
                       <TxRow
                         tx={tx}
                         cats={cats}
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
+                        onClick={handleRowClick}
                       />
                     </div>
                   );
@@ -259,6 +261,7 @@ export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthId
           initial={editTx || { type: 'i' }}
           onSave={handleSave}
           onCancel={() => { setModalOpen(false); setEditTx(null); }}
+          onDelete={handleDelete}
         />
       </Modal>
     </div>

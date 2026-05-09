@@ -21,6 +21,7 @@ def _serialize_tarj(t: models.Tarjeta) -> dict:
     return {
         "id": t.id, "nombre": t.nombre, "banco": t.banco, "ultimos4": t.ultimos4,
         "cierre": t.cierre, "vence": t.vence, "color_idx": t.color_idx, "position": t.position,
+        "logo_url": t.logo_url,
     }
 
 
@@ -89,6 +90,7 @@ def import_backup(payload: dict, db: Session = Depends(get_db)):
                 ultimos4=t.get("ultimos4", ""), cierre=t.get("cierre", ""),
                 vence=t.get("vence", ""), color_idx=t.get("color_idx", 0),
                 position=t.get("position", 0),
+                logo_url=t.get("logo_url"),
             ))
         for r in payload.get("recurrentes", []) or payload.get("suscripciones", []):
             db.add(models.Recurrente(

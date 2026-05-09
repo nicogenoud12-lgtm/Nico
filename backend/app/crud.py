@@ -159,6 +159,7 @@ def create_tarjeta(db: Session, payload: schemas.TarjetaCreate) -> models.Tarjet
     t = models.Tarjeta(
         nombre=payload.nombre, banco=payload.banco, ultimos4=payload.ultimos4,
         cierre=payload.cierre, vence=payload.vence, color_idx=payload.color_idx,
+        logo_url=payload.logo_url,
         position=_next_position(db, models.Tarjeta),
     )
     db.add(t); db.flush()

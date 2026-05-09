@@ -8,13 +8,18 @@ export default function TarjetaForm({ onSave, onCancel, initial }) {
   const [cierre, setCierre] = useState(initial?.cierre || '');
   const [vence, setVence] = useState(initial?.vence || '');
   const [colorIdx, setColorIdx] = useState(initial?.color_idx ?? 0);
+  const [logoUrl, setLogoUrl] = useState(initial?.logo_url || '');
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await onSave({ nombre, banco, ultimos4, cierre, vence, color_idx: colorIdx });
+      await onSave({
+        nombre, banco, ultimos4, cierre, vence,
+        color_idx: colorIdx,
+        logo_url: logoUrl.trim() || null,
+      });
     } finally {
       setSaving(false);
     }
@@ -62,6 +67,17 @@ export default function TarjetaForm({ onSave, onCancel, initial }) {
             />
           ))}
         </div>
+      </div>
+      <div style={row}>
+        <span style={lbl}>URL del logo (opcional)</span>
+        <input
+          style={s.input} type="url"
+          value={logoUrl} onChange={e => setLogoUrl(e.target.value)}
+          placeholder="https://… (.png, .svg, etc)"
+        />
+        <span style={{ fontSize: 11, color: C.text3 }}>
+          Si lo dejás vacío se muestran las iniciales del banco.
+        </span>
       </div>
       <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
         <button type="button" onClick={onCancel} style={{ ...s.btnGhost, flex: 1 }}>Cancelar</button>

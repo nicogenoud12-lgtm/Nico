@@ -106,13 +106,16 @@ export default function ScreenInversiones({ txs, cats, mediums, monthId, allMont
     await onTxsChange();
   };
 
-  const handleDelete = async (tx) => {
+  const handleDelete = async () => {
+    if (!editTx) return;
     if (!window.confirm('¿Eliminar movimiento?')) return;
-    await deleteTransaction(tx.id);
+    await deleteTransaction(editTx.id);
+    setModalOpen(false);
+    setEditTx(null);
     await onTxsChange();
   };
 
-  const handleEdit = (tx) => {
+  const handleRowClick = (tx) => {
     setEditTx(tx);
     setModalOpen(true);
   };
@@ -256,8 +259,7 @@ export default function ScreenInversiones({ txs, cats, mediums, monthId, allMont
                       <TxRow
                         tx={tx}
                         cats={cats}
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
+                        onClick={handleRowClick}
                       />
                     </div>
                   );
@@ -282,6 +284,7 @@ export default function ScreenInversiones({ txs, cats, mediums, monthId, allMont
           initial={editTx || { type: 'g', cat: cats.inversiones[0]?.name || 'Inversiones' }}
           onSave={handleSave}
           onCancel={() => { setModalOpen(false); setEditTx(null); }}
+          onDelete={handleDelete}
         />
       </Modal>
     </div>
