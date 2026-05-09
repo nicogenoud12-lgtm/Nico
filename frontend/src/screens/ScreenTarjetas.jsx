@@ -6,6 +6,7 @@ import TarjetaForm from '../components/TarjetaForm.jsx';
 import Modal from '../components/Modal.jsx';
 import { fmtMoney, fmtDate, todayStr, dateToMonthId } from '../utils/format.js';
 import { createTarjeta, updateTarjeta, deleteTarjeta } from '../api/tarjetas.js';
+import { deleteTransaction } from '../api/transactions.js';
 
 const BANK_INITIALS = {
   galicia: 'G', santander: 'S', macro: 'M', bbva: 'B', icbc: 'I',
@@ -143,7 +144,7 @@ function UnifiedMovementsList({ tarjetas, txs }) {
   );
 }
 
-function UnifiedCuotasList({ tarjetas, txs }) {
+function UnifiedCuotasList({ tarjetas, txs, onTxsChange }) {
   const today = todayStr();
   const [expandedKey, setExpandedKey] = useState(null);
 
@@ -216,26 +217,52 @@ function UnifiedCuotasList({ tarjetas, txs }) {
             </div>
 
             {/* Cuotas expandidas */}
-            {isExpanded && group.cuotas.map((tx, ci) => (
-              <div
-                key={tx.id}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '8px 14px 8px 36px',
-                  borderBottom: isLast && ci === group.cuotas.length - 1 ? 'none' : `1px solid ${C.border}`,
-                  background: C.surface2,
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, color: C.text2 }}>
-                    Cuota {tx.cuota_num}/{tx.cuota_total} · {fmtDate(tx.date)}
+            {isExpanded && (
+              <>
+                {group.cuotas.map((tx, ci) => (
+                  <div
+                    key={tx.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '8px 14px 8px 36px',
+                      borderBottom: `1px solid ${C.border}`,
+                      background: C.surface2,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, color: C.text2 }}>
+                        Cuota {tx.cuota_num}/{tx.cuota_total} · {fmtDate(tx.date)}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>
+                      {fmtMoney(tx.amount, tx.currency || 'ARS')}
+                    </div>
                   </div>
+                ))}
+                <div style={{
+                  padding: '8px 14px',
+                  borderBottom: isLast ? 'none' : `1px solid ${C.border}`,
+                  background: C.surface2,
+                }}>
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm(`¿Eliminar las ${group.cuotas.length} cuotas pendientes?`)) return;
+                      for (const tx of group.cuotas) await deleteTransaction(tx.id);
+                      setExpandedKey(null);
+                      await onTxsChange();
+                    }}
+                    style={{
+                      width: '100%', padding: '7px 0',
+                      background: C.redBg, border: `1px solid ${C.red}40`,
+                      borderRadius: 6, color: C.red,
+                      fontFamily: 'inherit', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >
+                    Eliminar {group.cuotas.length} cuotas
+                  </button>
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>
-                  {fmtMoney(tx.amount, tx.currency || 'ARS')}
-                </div>
-              </div>
-            ))}
+              </>
+            )}
           </div>
         );
       })}
@@ -253,7 +280,7 @@ function useIsMobile() {
   return mobile;
 }
 
-export default function ScreenTarjetas({ tarjetas, txs, allMonthIds, onTarjetasChange }) {
+export default function ScreenTarjetas({ tarjetas, txs, allMonthIds, onTarjetasChange, onTxsChange }) {
   const [selected, setSelected] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -312,7 +339,7 @@ export default function ScreenTarjetas({ tarjetas, txs, allMonthIds, onTarjetasC
       display: 'flex', flexDirection: 'column', gap: 16,
     }}>
       <UnifiedMovementsList tarjetas={tarjetas} txs={txs} />
-      <UnifiedCuotasList tarjetas={tarjetas} txs={txs} />
+      <UnifiedCuotasList tarjetas={tarjetas} txs={txs} onTxsChange={onTxsChange} />
     </div>
   );
 

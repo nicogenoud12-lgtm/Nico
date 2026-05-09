@@ -129,6 +129,7 @@ export default function App() {
         <ScreenTarjetas
           {...screenProps}
           onTarjetasChange={async () => { await reloadTarjetas(); await reloadMediums(); }}
+          onTxsChange={reloadTxs}
         />
       );
       case 'suscripciones': return (
