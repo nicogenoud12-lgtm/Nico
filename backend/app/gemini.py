@@ -97,7 +97,7 @@ REGLAS para intent="create":
 - amt: número positivo
 - tx_type: "g" gasto (default) | "i" ingreso
 - cat: EXACTAMENTE un nombre de la lista de categorías según el tipo. Aplicá las reglas personalizadas si corresponde. Si no hay match, dejalo vacío y agregá "cat" a missing
-- medio: EXACTAMENTE un nombre de la lista de medios. Si no se menciona o no se puede determinar, usá "Contado"
+- medio: EXACTAMENTE un nombre de la lista de medios. Si no se menciona, usá "Contado". Excepción: si cuotas > 1 y no se mencionó ningún medio/tarjeta, dejalo vacío y agregá "medio" a missing (las compras en cuotas siempre van con tarjeta)
 - date: YYYY-MM-DD. "hoy"={today.isoformat()}, "ayer"={yesterday.isoformat()}; si no se menciona, hoy
 - desc: descripción corta natural
 - cuotas: número entero de cuotas (1 si no se menciona ninguna cuota)
@@ -203,6 +203,8 @@ async def parse_telegram_message(
             result["missing"].append("amt")
         if not result.get("cat") and "cat" not in result["missing"]:
             result["missing"].append("cat")
-        # medio tiene default "Efectivo", no se agrega a missing
+        # Si hay cuotas y no se especificó tarjeta/medio, preguntar
+        if int(result.get("cuotas") or 1) > 1 and not result.get("medio") and "medio" not in result["missing"]:
+            result["missing"].append("medio")
 
     return result
