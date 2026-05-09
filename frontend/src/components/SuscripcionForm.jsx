@@ -9,6 +9,8 @@ export default function SuscripcionForm({ onSave, onCancel, initial }) {
   const [vencimiento, setVencimiento] = useState(initial?.vencimiento || '');
   const [estado, setEstado] = useState(initial?.estado || 'activo');
   const [logoUrl, setLogoUrl] = useState(initial?.logo_url || '');
+  const [diaMes, setDiaMes] = useState(initial?.dia_mes?.toString() || '');
+  const [autoCreate, setAutoCreate] = useState(initial?.auto_create || false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -20,6 +22,7 @@ export default function SuscripcionForm({ onSave, onCancel, initial }) {
     if (isNaN(m) || m <= 0) { setError('Monto inválido'); return; }
     setSaving(true);
     try {
+      const dm = parseInt(diaMes);
       await onSave({
         nombre: nombre.trim(),
         monto: m,
@@ -28,6 +31,8 @@ export default function SuscripcionForm({ onSave, onCancel, initial }) {
         vencimiento: vencimiento || null,
         estado,
         logo_url: logoUrl.trim() || null,
+        dia_mes: diaMes && dm >= 1 && dm <= 31 ? dm : null,
+        auto_create: autoCreate,
       });
     } catch (err) {
       setError(err?.response?.data?.detail || err?.message || 'Error guardando');
@@ -98,6 +103,24 @@ export default function SuscripcionForm({ onSave, onCancel, initial }) {
           <button type="button" onClick={() => setEstado('inactivo')} style={toggleBtn(estado === 'inactivo', C.text2)}>
             Inactivo
           </button>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ ...row, flex: 1 }}>
+          <span style={lbl}>Día de débito</span>
+          <input
+            style={s.input} type="number" min="1" max="31"
+            value={diaMes} onChange={e => setDiaMes(e.target.value)}
+            placeholder="1-31"
+          />
+        </div>
+        <div style={{ ...row, flex: 2 }}>
+          <span style={lbl}>Crear gasto automáticamente</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={() => setAutoCreate(true)} style={toggleBtn(autoCreate, C.green)}>Sí</button>
+            <button type="button" onClick={() => setAutoCreate(false)} style={toggleBtn(!autoCreate, C.text2)}>No</button>
+          </div>
         </div>
       </div>
 

@@ -90,6 +90,8 @@ class SuscripcionBase(BaseModel):
     vencimiento: Optional[str] = None
     estado: Literal["activo", "inactivo"] = "activo"
     logo_url: Optional[str] = None
+    dia_mes: Optional[int] = None       # 1-31, día de débito mensual
+    auto_create: bool = False
 
 
 class SuscripcionCreate(SuscripcionBase):
@@ -104,11 +106,15 @@ class SuscripcionUpdate(BaseModel):
     vencimiento: Optional[str] = None
     estado: Optional[Literal["activo", "inactivo"]] = None
     logo_url: Optional[str] = None
+    dia_mes: Optional[int] = None
+    auto_create: Optional[bool] = None
+    last_run_month: Optional[str] = None
 
 
 class SuscripcionRead(SuscripcionBase):
     id: int
     position: int
+    last_run_month: Optional[str] = None
 
     class Config:
         from_attributes = True

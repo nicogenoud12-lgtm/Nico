@@ -1,3 +1,5 @@
+from calendar import monthrange
+from datetime import date
 from typing import Optional
 
 from sqlalchemy.exc import IntegrityError
@@ -203,6 +205,7 @@ def create_suscripcion(db: Session, payload: schemas.SuscripcionCreate) -> model
         nombre=payload.nombre, monto=payload.monto, moneda=payload.moneda,
         frecuencia=payload.frecuencia, vencimiento=payload.vencimiento,
         estado=payload.estado, logo_url=payload.logo_url,
+        dia_mes=payload.dia_mes, auto_create=payload.auto_create,
         position=_next_position(db, models.Suscripcion),
     )
     db.add(s); db.commit(); db.refresh(s)
@@ -234,6 +237,43 @@ def reorder_suscripciones(db: Session, ids: list[int]) -> None:
         if s:
             s.position = pos
     db.commit()
+
+
+def run_recurrentes(db: Session) -> list[dict]:
+    """Crea una transacción por cada suscripción activa con auto_create=True
+    cuyo día de débito ya pasó en el mes actual y aún no fue procesada."""
+    today = date.today()
+    current_month = today.strftime("%m%y")
+
+    candidatas = db.query(models.Suscripcion).filter(
+        models.Suscripcion.estado == "activo",
+        models.Suscripcion.auto_create == True,
+        models.Suscripcion.dia_mes.isnot(None),
+    ).all()
+
+    created = []
+    for s in candidatas:
+        if s.last_run_month == current_month:
+            continue
+        if today.day < s.dia_mes:
+            continue
+        last_day = monthrange(today.year, today.month)[1]
+        tx_day = min(s.dia_mes, last_day)
+        tx_date = today.replace(day=tx_day)
+        payload = schemas.TransactionCreate(
+            type="g",
+            amount=s.monto,
+            currency=s.moneda,
+            cat="Suscripciones",
+            medio="",
+            desc=s.nombre,
+            date=tx_date,
+        )
+        tx = create_transaction(db, payload, source="cron")
+        s.last_run_month = current_month
+        db.commit()
+        created.append(serialize_tx(tx))
+    return created
 
 
 # ── Months ───────────────────────────────────────────────────

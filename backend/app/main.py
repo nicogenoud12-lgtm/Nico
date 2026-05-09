@@ -1,12 +1,18 @@
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from apscheduler.schedulers.background import BackgroundScheduler
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 
+from . import crud
 from .config import settings
-from .database import Base, SessionLocal, engine
+from .database import Base, SessionLocal, engine, get_db
 from .models import Category, Medium, Month
 from .routers import backup, categories, mediums, months, suscripciones, tarjetas, telegram, transactions
+
+log = logging.getLogger(__name__)
 
 
 # ── Datos iniciales ──────────────────────────────────────────
@@ -85,6 +91,17 @@ def _migrate(conn) -> None:
         "UPDATE categories SET kind='inversion' WHERE name='Inversiones' AND kind='gasto'"
     )
 
+    # 4. Agregar columnas de auto-creación en suscripciones
+    sus_cols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(suscripciones)").fetchall()}
+    new_sus_cols = [
+        ("dia_mes", "INTEGER"),
+        ("auto_create", "INTEGER NOT NULL DEFAULT 0"),
+        ("last_run_month", "TEXT"),
+    ]
+    for name, decl in new_sus_cols:
+        if name not in sus_cols:
+            conn.exec_driver_sql(f"ALTER TABLE suscripciones ADD COLUMN {name} {decl}")
+
 
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
@@ -108,10 +125,27 @@ def init_db() -> None:
         db.close()
 
 
+def _recurrentes_job() -> None:
+    db = SessionLocal()
+    try:
+        created = crud.run_recurrentes(db)
+        if created:
+            log.info("Cron recurrentes: %d transacciones creadas", len(created))
+    except Exception:
+        log.exception("Error en cron recurrentes")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(_recurrentes_job, "cron", hour=0, minute=5)
+    scheduler.start()
+    _recurrentes_job()  # ejecutar al arrancar para recuperar días perdidos
     yield
+    scheduler.shutdown(wait=False)
 
 
 app = FastAPI(title="Gastos API", version="0.2.0", lifespan=lifespan)
@@ -132,6 +166,12 @@ app.include_router(suscripciones.router)
 app.include_router(months.router)
 app.include_router(backup.router)
 app.include_router(telegram.router)
+
+
+@app.post("/cron/suscripciones")
+def trigger_recurrentes(db: Session = Depends(get_db)):
+    created = crud.run_recurrentes(db)
+    return {"created": len(created), "transactions": created}
 
 
 @app.get("/health")
