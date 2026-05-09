@@ -27,6 +27,7 @@ RESPONSE_SCHEMA = {
         "medio": {"type": "STRING"},
         "desc": {"type": "STRING"},
         "date": {"type": "STRING"},
+        "cuotas": {"type": "INTEGER"},
         "missing": {
             "type": "ARRAY",
             "items": {"type": "STRING"},
@@ -96,12 +97,13 @@ REGLAS para intent="create":
 - amt: número positivo
 - tx_type: "g" gasto (default) | "i" ingreso
 - cat: EXACTAMENTE un nombre de la lista de categorías según el tipo. Aplicá las reglas personalizadas si corresponde. Si no hay match, dejalo vacío y agregá "cat" a missing
-- medio: EXACTAMENTE un nombre de la lista de medios. Si no se puede determinar, dejalo vacío y agregá "medio" a missing
+- medio: EXACTAMENTE un nombre de la lista de medios. Si no se menciona o no se puede determinar, usá "Efectivo"
 - date: YYYY-MM-DD. "hoy"={today.isoformat()}, "ayer"={yesterday.isoformat()}; si no se menciona, hoy
 - desc: descripción corta natural
-- missing: lista de campos faltantes ("amt", "cat", "medio")
+- cuotas: número entero de cuotas (1 si no se menciona ninguna cuota)
+- missing: lista de campos faltantes; solo puede contener "amt" o "cat" (medio ya tiene default)
 - reply:
-  * Sin missing → confirmá el movimiento mencionando monto + desc + cat + medio. Variá el texto.
+  * Sin missing → confirmá el movimiento mencionando monto + desc + cat + medio. Si cuotas > 1, mencioná las cuotas (ej: "en 6 cuotas de $X"). Variá el texto.
   * Con missing → preguntá naturalmente lo que falta. NO listas con paréntesis. Hablá normal.
 
 REGLAS para intent="delete":
@@ -201,7 +203,6 @@ async def parse_telegram_message(
             result["missing"].append("amt")
         if not result.get("cat") and "cat" not in result["missing"]:
             result["missing"].append("cat")
-        if not result.get("medio") and "medio" not in result["missing"]:
-            result["missing"].append("medio")
+        # medio tiene default "Efectivo", no se agrega a missing
 
     return result
