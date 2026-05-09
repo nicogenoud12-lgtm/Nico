@@ -14,9 +14,7 @@ echo "================================"
 echo ""
 echo "📦 Buildeando frontend (VITE_API_BASE_URL=relativo)..."
 cd "$FRONT"
-if [ ! -d "node_modules" ]; then
-  npm install
-fi
+npm install
 # URL vacía → el frontend usa rutas relativas, mismo origen
 VITE_API_BASE_URL="" npm run build
 
