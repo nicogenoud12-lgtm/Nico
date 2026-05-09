@@ -32,8 +32,15 @@ function useIsMobile() {
 export default function App() {
   const mobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [screen, setScreen] = useState('movimientos');
-  const [monthId, setMonthId] = useState(dateToMonthId(todayStr()));
+  const VALID_SCREENS = ['movimientos', 'gastos', 'ingresos', 'tarjetas', 'suscripciones', 'anual', 'inversiones', 'ajustes'];
+  const [screen, setScreen] = useState(() => {
+    const s = localStorage.getItem('nav_screen');
+    return VALID_SCREENS.includes(s) ? s : 'movimientos';
+  });
+  const [monthId, setMonthId] = useState(() => {
+    const m = localStorage.getItem('nav_month');
+    return m && /^\d{4}$/.test(m) ? m : dateToMonthId(todayStr());
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -63,6 +70,8 @@ export default function App() {
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => { localStorage.setItem('nav_screen', screen); }, [screen]);
+  useEffect(() => { localStorage.setItem('nav_month', monthId); }, [monthId]);
 
   const cats = useMemo(() => ({
     gastos: rawCats.filter(c => c.kind === 'gasto'),
