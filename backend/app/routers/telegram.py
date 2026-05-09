@@ -78,7 +78,7 @@ def _persist(db: Session, result: dict, tarjetas: list):
     tx_type = result.get("tx_type") or "g"
     raw_amt = abs(float(result.get("amt") or 0))
     cuotas = max(1, min(int(result.get("cuotas") or 1), 48))
-    medio = (result.get("medio") or "Efectivo").strip()
+    medio = (result.get("medio") or "Contado").strip()
 
     # Resolver tarjeta_id si el medio coincide con una tarjeta del usuario
     medio_lower = medio.lower()
