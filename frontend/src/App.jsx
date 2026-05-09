@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { C } from './theme.js';
+import { usePullToRefresh } from './hooks/usePullToRefresh.js';
 import { dateToMonthId, todayStr, sortMonthIdsDesc } from './utils/format.js';
 import { listTransactions } from './api/transactions.js';
 import { listCategories, listMediums } from './api/categories.js';
@@ -93,6 +94,8 @@ export default function App() {
 
   const onNav = useCallback((s) => { setScreen(s); setDrawerOpen(false); }, []);
 
+  const { pullY, refreshing: pullRefreshing, threshold } = usePullToRefresh(loadAll);
+
   if (loading) {
     return (
       <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.bg, color: C.text2, fontSize: 14 }}>
@@ -160,8 +163,31 @@ export default function App() {
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
         {mobile && <MobileTopbar screen={screen} onMenu={() => setDrawerOpen(true)} />}
-        <div style={{ flex: 1, overflow: 'hidden' }}>
-          {renderScreen()}
+        <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+          {mobile && (pullY > 0 || pullRefreshing) && (
+            <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50,
+              display: 'flex', justifyContent: 'center', alignItems: 'center',
+              height: pullRefreshing ? 44 : Math.min(pullY, 44),
+              overflow: 'hidden', transition: pullRefreshing ? 'none' : undefined,
+            }}>
+              <svg
+                width="22" height="22" viewBox="0 0 22 22"
+                style={{
+                  opacity: pullRefreshing ? 1 : pullY / threshold,
+                  animation: pullRefreshing ? 'ptr-spin 0.7s linear infinite' : 'none',
+                  transformOrigin: '50% 50%',
+                  transform: pullRefreshing ? undefined : `rotate(${(pullY / threshold) * 270}deg)`,
+                }}
+              >
+                <style>{`@keyframes ptr-spin { to { transform: rotate(360deg); } }`}</style>
+                <circle cx="11" cy="11" r="9" stroke={C.accent} strokeWidth="2.5" fill="none" strokeDasharray="40 20" />
+              </svg>
+            </div>
+          )}
+          <div style={{ height: '100%', transform: mobile && pullY > 0 ? `translateY(${Math.min(pullY, 44)}px)` : 'none', transition: pullY === 0 ? 'transform 0.2s' : 'none' }}>
+            {renderScreen()}
+          </div>
         </div>
       </div>
     </div>

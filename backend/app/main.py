@@ -27,7 +27,7 @@ DEFAULT_CATEGORIES_GASTO = [
 DEFAULT_CATEGORIES_INGRESO = [
     ("Ingresos", "#2d7a52"), ("Fábrica", "#2d7a52"),
 ]
-DEFAULT_MEDIOS = ["Contado", "Transferencia", "MP", "MP Crédito", "Naranja X", "Ualá", "Ualá Crédito", "Astropay", "Personal Pay"]
+DEFAULT_MEDIOS = ["Contado", "MP", "MP Crédito", "Naranja X", "Ualá", "Ualá Crédito", "Astropay", "Personal Pay"]
 DEFAULT_MONTHS = [
     ("0326", "Marzo 2026", "Mar", 4495051, 0),
     ("0226", "Febrero 2026", "Feb", 4100000, 50000),

@@ -2,16 +2,18 @@ import React, { useState } from 'react';
 import { C } from '../theme.js';
 import { fmtMoney, fmtDate } from '../utils/format.js';
 
-export default function TxRow({ tx, cats, onEdit, onDelete }) {
+export default function TxRow({ tx, cats, onEdit, onDelete, onCuotaClick }) {
   const [hovered, setHovered] = useState(false);
   const list = tx.type === 'i' ? cats.ingresos : cats.gastos;
   const cat = list.find(c => c.name === tx.cat);
   const color = cat?.color || (tx.type === 'i' ? C.green : C.red);
+  const hasCuota = !!(tx.cuota_num && tx.cuota_total);
 
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={hasCuota && onCuotaClick ? () => onCuotaClick(tx) : undefined}
       style={{
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '11px 8px',
@@ -19,6 +21,7 @@ export default function TxRow({ tx, cats, onEdit, onDelete }) {
         background: hovered ? C.surface2 : 'transparent',
         transition: 'background .15s',
         margin: '0 -8px',
+        cursor: hasCuota && onCuotaClick ? 'pointer' : 'default',
       }}
     >
       <div style={{
@@ -61,13 +64,13 @@ export default function TxRow({ tx, cats, onEdit, onDelete }) {
         }}>
           {onEdit && (
             <button
-              onClick={() => onEdit(tx)}
+              onClick={(e) => { e.stopPropagation(); onEdit(tx); }}
               style={{ background: 'none', border: 'none', color: C.text3, fontSize: 14, cursor: 'pointer', padding: '2px 4px' }}
             >✎</button>
           )}
           {onDelete && (
             <button
-              onClick={() => onDelete(tx)}
+              onClick={(e) => { e.stopPropagation(); onDelete(tx); }}
               style={{ background: 'none', border: 'none', color: C.red, fontSize: 14, cursor: 'pointer', padding: '2px 4px' }}
             >✕</button>
           )}

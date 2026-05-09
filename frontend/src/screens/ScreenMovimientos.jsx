@@ -6,6 +6,7 @@ import FAB from '../components/FAB.jsx';
 import Modal from '../components/Modal.jsx';
 import TxForm from '../components/TxForm.jsx';
 import Divider from '../components/Divider.jsx';
+import CuotaDetailModal from '../components/CuotaDetailModal.jsx';
 import { createTransaction, updateTransaction, deleteTransaction } from '../api/transactions.js';
 
 function PctBadge({ pct, inverse = false }) {
@@ -24,6 +25,7 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
   const [modalOpen, setModalOpen] = useState(false);
   const [editTx, setEditTx] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [cuotaTx, setCuotaTx] = useState(null);
 
   const monthTxs = useMemo(() => txs.filter(t => dateToMonthId(t.date) === monthId), [txs, monthId]);
 
@@ -182,7 +184,7 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
             {dayTxs.map((tx, i) => (
               <React.Fragment key={tx.id}>
                 {i > 0 && <Divider my={0} />}
-                <TxRow tx={tx} cats={cats} onEdit={handleEdit} onDelete={handleDelete} />
+                <TxRow tx={tx} cats={cats} onEdit={handleEdit} onDelete={handleDelete} onCuotaClick={setCuotaTx} />
               </React.Fragment>
             ))}
           </div>
@@ -199,6 +201,7 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
           onCancel={() => { setModalOpen(false); setEditTx(null); }}
         />
       </Modal>
+      <CuotaDetailModal open={!!cuotaTx} tx={cuotaTx} allTxs={txs} onClose={() => setCuotaTx(null)} />
     </div>
   );
 }

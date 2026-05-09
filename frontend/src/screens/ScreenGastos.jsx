@@ -7,6 +7,7 @@ import Modal from '../components/Modal.jsx';
 import TxForm from '../components/TxForm.jsx';
 import TxRow from '../components/TxRow.jsx';
 import Divider from '../components/Divider.jsx';
+import CuotaDetailModal from '../components/CuotaDetailModal.jsx';
 import { createTransaction, updateTransaction, deleteTransaction } from '../api/transactions.js';
 
 function PctBadge({ pct }) {
@@ -25,6 +26,7 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editTx, setEditTx] = useState(null);
+  const [cuotaTx, setCuotaTx] = useState(null);
 
   const sorted = useMemo(() => sortMonthIdsDesc(allMonthIds), [allMonthIds]);
   const monthTxs = useMemo(() => txs.filter(t => dateToMonthId(t.date) === monthId && t.type === 'g' && t.cat_kind !== 'inversion'), [txs, monthId]);
@@ -240,6 +242,7 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
                         cats={cats}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
+                        onCuotaClick={setCuotaTx}
                       />
                     </div>
                   );
@@ -261,6 +264,7 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
           onCancel={() => { setModalOpen(false); setEditTx(null); }}
         />
       </Modal>
+      <CuotaDetailModal open={!!cuotaTx} tx={cuotaTx} allTxs={txs} onClose={() => setCuotaTx(null)} />
     </div>
   );
 }
