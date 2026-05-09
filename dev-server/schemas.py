@@ -1,3 +1,10 @@
+"""Pydantic schemas para el dev-server.
+
+Replican el contrato de `backend/app/schemas.py` y agregan campos de features
+planificadas (parent_tx_id en transacciones, dia_mes / cat_id / medio_id /
+last_run_month / auto_create en suscripciones) para validar el flujo end-to-end
+antes de que existan en prod.
+"""
 import datetime
 from typing import Literal, Optional
 
@@ -25,9 +32,6 @@ class CategoryRead(CategoryBase):
     id: int
     position: int
 
-    class Config:
-        from_attributes = True
-
 
 # ── Medium ───────────────────────────────────────────────────
 class MediumBase(BaseModel):
@@ -46,9 +50,6 @@ class MediumRead(MediumBase):
     id: int
     position: int
 
-    class Config:
-        from_attributes = True
-
 
 # ── Tarjeta ──────────────────────────────────────────────────
 class TarjetaBase(BaseModel):
@@ -58,7 +59,6 @@ class TarjetaBase(BaseModel):
     cierre: str = ""
     vence: str = ""
     color_idx: int = 0
-    logo_url: Optional[str] = None
 
 
 class TarjetaCreate(TarjetaBase):
@@ -72,18 +72,14 @@ class TarjetaUpdate(BaseModel):
     cierre: Optional[str] = None
     vence: Optional[str] = None
     color_idx: Optional[int] = None
-    logo_url: Optional[str] = None
 
 
 class TarjetaRead(TarjetaBase):
     id: int
     position: int
 
-    class Config:
-        from_attributes = True
 
-
-# ── Recurrente ──────────────────────────────────────────────
+# ── Recurrente / Gasto Recurrente ───────────────────────────
 class RecurrenteBase(BaseModel):
     nombre: str
     monto: float
@@ -92,8 +88,13 @@ class RecurrenteBase(BaseModel):
     vencimiento: Optional[str] = None
     estado: Literal["activo", "inactivo"] = "activo"
     logo_url: Optional[str] = None
-    dia_mes: Optional[int] = None       # 1-31, día de débito mensual
+    # Campos nuevos para la lógica CRON (forward-looking):
+    dia_mes: Optional[int] = None
+    cat_id: Optional[int] = None
+    medio_id: Optional[int] = None
+    tarjeta_id: Optional[int] = None
     auto_create: bool = False
+    last_run_month: Optional[str] = None  # MMYY
 
 
 class RecurrenteCreate(RecurrenteBase):
@@ -109,17 +110,15 @@ class RecurrenteUpdate(BaseModel):
     estado: Optional[Literal["activo", "inactivo"]] = None
     logo_url: Optional[str] = None
     dia_mes: Optional[int] = None
+    cat_id: Optional[int] = None
+    medio_id: Optional[int] = None
+    tarjeta_id: Optional[int] = None
     auto_create: Optional[bool] = None
-    last_run_month: Optional[str] = None
 
 
 class RecurrenteRead(RecurrenteBase):
     id: int
     position: int
-    last_run_month: Optional[str] = None
-
-    class Config:
-        from_attributes = True
 
 
 # ── Month ────────────────────────────────────────────────────
@@ -131,7 +130,6 @@ class MonthRead(BaseModel):
     cuotas: float
 
     class Config:
-        from_attributes = True
         populate_by_name = True
 
 
@@ -147,10 +145,11 @@ class TransactionBase(BaseModel):
     cuota_num: Optional[int] = None
     cuota_total: Optional[int] = None
     tarjeta_id: Optional[int] = None
+    parent_tx_id: Optional[int] = None  # forward-looking: agrupa cuotas
 
 
 class TransactionCreate(TransactionBase):
-    month: Optional[str] = None  # derivado de date si no se provee
+    month: Optional[str] = None
 
 
 class TransactionUpdate(BaseModel):
@@ -180,20 +179,21 @@ class TransactionRead(BaseModel):
     cuota_num: Optional[int] = None
     cuota_total: Optional[int] = None
     tarjeta_id: Optional[int] = None
+    parent_tx_id: Optional[int] = None
     source: str
+
+
+# ── Bot ──────────────────────────────────────────────────────
+class BotGastoIn(BaseModel):
+    text: str
+
+
+class BotGastoOut(BaseModel):
+    parsed: dict
+    transactions: list[TransactionRead]
+    reply: str
 
 
 # ── Reorder ──────────────────────────────────────────────────
 class ReorderPayload(BaseModel):
     ids: list[int]
-
-
-# ── Backup ───────────────────────────────────────────────────
-class BackupPayload(BaseModel):
-    version: int = 1
-    exported_at: Optional[str] = None
-    categories: list[dict] = []
-    mediums: list[dict] = []
-    tarjetas: list[dict] = []
-    months: list[dict] = []
-    transactions: list[dict] = []

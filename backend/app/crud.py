@@ -1,3 +1,5 @@
+from calendar import monthrange
+from datetime import date
 from typing import Optional
 
 from sqlalchemy.exc import IntegrityError
@@ -13,9 +15,9 @@ def _next_position(db: Session, model) -> int:
 
 
 def _get_or_create_category(db: Session, name: str, kind: str = "gasto") -> models.Category:
-    cat = db.query(models.Category).filter(
-        models.Category.name == name, models.Category.kind == kind
-    ).first()
+    # Buscar por nombre primero (sin filtro de kind) para respetar categorías
+    # con kind='inversion' que no deben duplicarse como kind='gasto'.
+    cat = db.query(models.Category).filter(models.Category.name == name).first()
     if not cat:
         cat = models.Category(name=name, color="#b0aaaa", kind=kind, position=_next_position(db, models.Category))
         db.add(cat)
@@ -46,6 +48,7 @@ def serialize_tx(tx: models.Transaction) -> dict:
         "date": tx.date,
         "desc": tx.desc,
         "cat": tx.category.name if tx.category else "",
+        "cat_kind": tx.category.kind if tx.category else "gasto",
         "medio": tx.medium.name if tx.medium else "",
         "amount": tx.amt,
         "type": tx.type,
@@ -156,6 +159,7 @@ def create_tarjeta(db: Session, payload: schemas.TarjetaCreate) -> models.Tarjet
     t = models.Tarjeta(
         nombre=payload.nombre, banco=payload.banco, ultimos4=payload.ultimos4,
         cierre=payload.cierre, vence=payload.vence, color_idx=payload.color_idx,
+        logo_url=payload.logo_url,
         position=_next_position(db, models.Tarjeta),
     )
     db.add(t); db.flush()
@@ -192,47 +196,85 @@ def reorder_tarjetas(db: Session, ids: list[int]) -> None:
     db.commit()
 
 
-# ── Suscripciones ────────────────────────────────────────────
-def list_suscripciones(db: Session) -> list[models.Suscripcion]:
-    return db.query(models.Suscripcion).order_by(models.Suscripcion.position.asc(), models.Suscripcion.id.asc()).all()
+# ── Recurrentes ────────────────────────────────────────────
+def list_recurrentes(db: Session) -> list[models.Recurrente]:
+    return db.query(models.Recurrente).order_by(models.Recurrente.position.asc(), models.Recurrente.id.asc()).all()
 
 
-def create_suscripcion(db: Session, payload: schemas.SuscripcionCreate) -> models.Suscripcion:
-    s = models.Suscripcion(
+def create_recurrente(db: Session, payload: schemas.RecurrenteCreate) -> models.Recurrente:
+    r = models.Recurrente(
         nombre=payload.nombre, monto=payload.monto, moneda=payload.moneda,
         frecuencia=payload.frecuencia, vencimiento=payload.vencimiento,
         estado=payload.estado, logo_url=payload.logo_url,
-        position=_next_position(db, models.Suscripcion),
+        dia_mes=payload.dia_mes, auto_create=payload.auto_create,
+        position=_next_position(db, models.Recurrente),
     )
-    db.add(s); db.commit(); db.refresh(s)
-    return s
+    db.add(r); db.commit(); db.refresh(r)
+    return r
 
 
-def update_suscripcion(db: Session, sid: int, payload: schemas.SuscripcionUpdate) -> Optional[models.Suscripcion]:
-    s = db.get(models.Suscripcion, sid)
-    if not s:
+def update_recurrente(db: Session, rid: int, payload: schemas.RecurrenteUpdate) -> Optional[models.Recurrente]:
+    r = db.get(models.Recurrente, rid)
+    if not r:
         return None
     data = payload.model_dump(exclude_unset=True)
     for k, v in data.items():
-        setattr(s, k, v)
-    db.commit(); db.refresh(s)
-    return s
+        setattr(r, k, v)
+    db.commit(); db.refresh(r)
+    return r
 
 
-def delete_suscripcion(db: Session, sid: int) -> bool:
-    s = db.get(models.Suscripcion, sid)
-    if not s:
+def delete_recurrente(db: Session, rid: int) -> bool:
+    r = db.get(models.Recurrente, rid)
+    if not r:
         return False
-    db.delete(s); db.commit()
+    db.delete(r); db.commit()
     return True
 
 
-def reorder_suscripciones(db: Session, ids: list[int]) -> None:
-    for pos, sid in enumerate(ids):
-        s = db.get(models.Suscripcion, sid)
-        if s:
-            s.position = pos
+def reorder_recurrentes(db: Session, ids: list[int]) -> None:
+    for pos, rid in enumerate(ids):
+        r = db.get(models.Recurrente, rid)
+        if r:
+            r.position = pos
     db.commit()
+
+
+def run_recurrentes(db: Session) -> list[dict]:
+    """Crea una transacción por cada recurrente activa con auto_create=True
+    cuyo día de débito ya pasó en el mes actual y aún no fue procesada."""
+    today = date.today()
+    current_month = today.strftime("%m%y")
+
+    candidatas = db.query(models.Recurrente).filter(
+        models.Recurrente.estado == "activo",
+        models.Recurrente.auto_create == True,
+        models.Recurrente.dia_mes.isnot(None),
+    ).all()
+
+    created = []
+    for r in candidatas:
+        if r.last_run_month == current_month:
+            continue
+        if today.day < r.dia_mes:
+            continue
+        last_day = monthrange(today.year, today.month)[1]
+        tx_day = min(r.dia_mes, last_day)
+        tx_date = today.replace(day=tx_day)
+        payload = schemas.TransactionCreate(
+            type="g",
+            amount=r.monto,
+            currency=r.moneda,
+            cat="Recurrentes",
+            medio="",
+            desc=r.nombre,
+            date=tx_date,
+        )
+        tx = create_transaction(db, payload, source="cron")
+        r.last_run_month = current_month
+        db.commit()
+        created.append(serialize_tx(tx))
+    return created
 
 
 # ── Months ───────────────────────────────────────────────────

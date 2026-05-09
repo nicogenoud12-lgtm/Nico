@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { C } from '../theme.js';
 import { fmtMoney, fmtDate } from '../utils/format.js';
 
-export default function TxRow({ tx, cats, onEdit, onDelete }) {
+export default function TxRow({ tx, cats, onClick }) {
   const [hovered, setHovered] = useState(false);
   const list = tx.type === 'i' ? cats.ingresos : cats.gastos;
   const cat = list.find(c => c.name === tx.cat);
@@ -12,13 +12,15 @@ export default function TxRow({ tx, cats, onEdit, onDelete }) {
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={onClick ? () => onClick(tx) : undefined}
       style={{
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '11px 8px',
         borderRadius: 8,
-        background: hovered ? C.surface2 : 'transparent',
+        background: hovered && onClick ? C.surface2 : 'transparent',
         transition: 'background .15s',
         margin: '0 -8px',
+        cursor: onClick ? 'pointer' : 'default',
       }}
     >
       <div style={{
@@ -33,10 +35,18 @@ export default function TxRow({ tx, cats, onEdit, onDelete }) {
         <div style={{ fontSize: 14, fontWeight: 500, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {tx.desc || tx.cat}
         </div>
-        <div style={{ fontSize: 12, color: C.text3, marginTop: 1 }}>
-          {tx.cat}
-          {tx.medio ? ` · ${tx.medio}` : ''}
-          {tx.cuota_num && tx.cuota_total ? ` · cuota ${tx.cuota_num}/${tx.cuota_total}` : ''}
+        <div style={{ fontSize: 12, color: C.text3, marginTop: 1, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+          <span>{tx.cat}{tx.medio ? ` · ${tx.medio}` : ''}</span>
+          {tx.cuota_num && tx.cuota_total && (
+            <span style={{
+              fontSize: 10, fontWeight: 700, lineHeight: 1,
+              color: C.accent, background: C.accentBg,
+              padding: '2px 5px', borderRadius: 4,
+              letterSpacing: '.02em',
+            }}>
+              {tx.cuota_num}/{tx.cuota_total}
+            </span>
+          )}
         </div>
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -45,26 +55,6 @@ export default function TxRow({ tx, cats, onEdit, onDelete }) {
         </div>
         <div style={{ fontSize: 11, color: C.text3, marginTop: 1 }}>{fmtDate(tx.date)}</div>
       </div>
-      {(onEdit || onDelete) && (
-        <div style={{
-          display: 'flex', gap: 4, flexShrink: 0,
-          opacity: hovered ? 1 : 0,
-          transition: 'opacity .15s',
-        }}>
-          {onEdit && (
-            <button
-              onClick={() => onEdit(tx)}
-              style={{ background: 'none', border: 'none', color: C.text3, fontSize: 14, cursor: 'pointer', padding: '2px 4px' }}
-            >✎</button>
-          )}
-          {onDelete && (
-            <button
-              onClick={() => onDelete(tx)}
-              style={{ background: 'none', border: 'none', color: C.red, fontSize: 14, cursor: 'pointer', padding: '2px 4px' }}
-            >✕</button>
-          )}
-        </div>
-      )}
     </div>
   );
 }

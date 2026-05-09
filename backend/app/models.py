@@ -1,6 +1,6 @@
 from datetime import datetime, date
 
-from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, Integer, String, Float, Date, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -46,9 +46,10 @@ class Tarjeta(Base):
     vence = Column(String, nullable=False, default="")
     color_idx = Column(Integer, nullable=False, default=0)
     position = Column(Integer, nullable=False, default=0)
+    logo_url = Column(String, nullable=True)
 
 
-class Suscripcion(Base):
+class Recurrente(Base):
     __tablename__ = "suscripciones"
 
     id = Column(Integer, primary_key=True)
@@ -60,6 +61,9 @@ class Suscripcion(Base):
     estado = Column(String, nullable=False, default="activo")  # activo | inactivo
     logo_url = Column(String, nullable=True)
     position = Column(Integer, nullable=False, default=0)
+    dia_mes = Column(Integer, nullable=True)                          # 1-31
+    auto_create = Column(Boolean, nullable=False, default=False)
+    last_run_month = Column(String, nullable=True)                    # MMYY
 
 
 class Transaction(Base):

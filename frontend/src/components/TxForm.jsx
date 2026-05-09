@@ -2,9 +2,21 @@ import React, { useState, useMemo } from 'react';
 import { C, s } from '../theme.js';
 import { todayStr } from '../utils/format.js';
 
-export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
+function toRawAmount(n) {
+  if (n == null) return '';
+  return String(Math.abs(n)).replace('.', ',');
+}
+
+function formatDisplayAmount(raw) {
+  if (!raw) return '';
+  const [intPart, decPart] = raw.split(',');
+  const formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return decPart !== undefined ? formatted + ',' + decPart : formatted;
+}
+
+export default function TxForm({ cats, mediums, onSave, onCancel, onDelete, initial }) {
   const [type, setType] = useState(initial?.type || 'g');
-  const [amount, setAmount] = useState(initial?.amount != null ? String(Math.abs(initial.amount)) : '');
+  const [amount, setAmount] = useState(() => toRawAmount(initial?.amount));
   const [currency, setCurrency] = useState(initial?.currency || 'ARS');
   const [cat, setCat] = useState(initial?.cat || '');
   const [medio, setMedio] = useState(initial?.medio || '');
@@ -23,9 +35,25 @@ export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
     if (cat && !newList.find(c => c.name === cat)) setCat('');
   };
 
+  const handleAmountChange = (e) => {
+    let raw = e.target.value;
+    raw = raw.replace(/\./g, '');
+    raw = raw.replace(/[^0-9,]/g, '');
+    const parts = raw.split(',');
+    if (parts.length > 2) raw = parts[0] + ',' + parts.slice(1).join('');
+    setAmount(raw);
+  };
+
+  const handleAmountBeforeInput = (e) => {
+    if (e.data === '.') {
+      e.preventDefault();
+      if (!amount.includes(',')) setAmount(amount + ',');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const n = Math.abs(parseFloat(amount));
+    const n = Math.abs(parseFloat(amount.replace(',', '.')));
     if (!n) { setError('El importe debe ser mayor a 0'); return; }
     if (!cat) { setError('Seleccioná una categoría'); return; }
     if (!date) { setError('Seleccioná una fecha'); return; }
@@ -71,11 +99,12 @@ export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
         <div style={{ display: 'flex', gap: 8 }}>
           <input
             style={{ ...s.input, flex: 1 }}
-            type="number" step="any"
+            type="text"
+            inputMode="decimal"
             placeholder="0"
-            value={amount}
-            onChange={e => setAmount(e.target.value)}
-            autoFocus
+            value={formatDisplayAmount(amount)}
+            onChange={handleAmountChange}
+            onBeforeInput={handleAmountBeforeInput}
           />
           <select
             style={{ ...s.select, width: 80 }}
@@ -141,6 +170,20 @@ export default function TxForm({ cats, mediums, onSave, onCancel, initial }) {
           {saving ? '…' : (initial ? 'Guardar' : 'Agregar')}
         </button>
       </div>
+
+      {initial && onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          style={{
+            background: 'transparent', border: `1px solid ${C.red}40`,
+            color: C.red, padding: '9px', borderRadius: 8,
+            fontFamily: 'inherit', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+          }}
+        >
+          Eliminar
+        </button>
+      )}
     </form>
   );
 }

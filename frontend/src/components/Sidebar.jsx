@@ -6,8 +6,9 @@ const NAV_ITEMS = [
   { id: 'gastos', label: 'Gastos', icon: '↓' },
   { id: 'ingresos', label: 'Ingresos', icon: '↑' },
   { id: 'tarjetas', label: 'Tarjetas', icon: '▪' },
-  { id: 'suscripciones', label: 'Suscripciones', icon: '↻' },
+  { id: 'recurrentes', label: 'Recurrentes', icon: '↻' },
   { id: 'anual', label: 'Anual', icon: '▦' },
+  { id: 'inversiones', label: 'Inversiones', icon: '◈' },
   { id: 'ajustes', label: 'Ajustes', icon: '⚙' },
 ];
 

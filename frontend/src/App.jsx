@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { C } from './theme.js';
+import { usePullToRefresh } from './hooks/usePullToRefresh.js';
 import { dateToMonthId, todayStr, sortMonthIdsDesc } from './utils/format.js';
 import { listTransactions } from './api/transactions.js';
 import { listCategories, listMediums } from './api/categories.js';
 import { listTarjetas } from './api/tarjetas.js';
-import { listSuscripciones } from './api/suscripciones.js';
+import { listRecurrentes } from './api/recurrentes.js';
 
 import SidebarDesktop from './components/SidebarDesktop.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -14,8 +15,9 @@ import ScreenMovimientos from './screens/ScreenMovimientos.jsx';
 import ScreenGastos from './screens/ScreenGastos.jsx';
 import ScreenIngresos from './screens/ScreenIngresos.jsx';
 import ScreenTarjetas from './screens/ScreenTarjetas.jsx';
-import ScreenSuscripciones from './screens/ScreenSuscripciones.jsx';
+import ScreenRecurrentes from './screens/ScreenRecurrentes.jsx';
 import ScreenAnual from './screens/ScreenAnual.jsx';
+import ScreenInversiones from './screens/ScreenInversiones.jsx';
 import ScreenAjustes from './screens/ScreenAjustes.jsx';
 
 function useIsMobile() {
@@ -31,8 +33,15 @@ function useIsMobile() {
 export default function App() {
   const mobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [screen, setScreen] = useState('movimientos');
-  const [monthId, setMonthId] = useState(dateToMonthId(todayStr()));
+  const VALID_SCREENS = ['movimientos', 'gastos', 'ingresos', 'tarjetas', 'recurrentes', 'anual', 'inversiones', 'ajustes'];
+  const [screen, setScreen] = useState(() => {
+    const s = localStorage.getItem('nav_screen');
+    return VALID_SCREENS.includes(s) ? s : 'movimientos';
+  });
+  const [monthId, setMonthId] = useState(() => {
+    const m = localStorage.getItem('nav_month');
+    return m && /^\d{4}$/.test(m) ? m : dateToMonthId(todayStr());
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -40,20 +49,20 @@ export default function App() {
   const [rawCats, setRawCats] = useState([]);
   const [mediums, setMediums] = useState([]);
   const [tarjetas, setTarjetas] = useState([]);
-  const [suscripciones, setSuscripciones] = useState([]);
+  const [recurrentes, setRecurrentes] = useState([]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [t, c, m, tj, sb] = await Promise.all([
-        listTransactions(), listCategories(), listMediums(), listTarjetas(), listSuscripciones(),
+      const [t, c, m, tj, r] = await Promise.all([
+        listTransactions(), listCategories(), listMediums(), listTarjetas(), listRecurrentes(),
       ]);
       setTxs(t);
       setRawCats(c);
       setMediums(m);
       setTarjetas(tj);
-      setSuscripciones(sb);
+      setRecurrentes(r);
     } catch (e) {
       setError(e?.message || 'Error de conexión');
     } finally {
@@ -62,10 +71,13 @@ export default function App() {
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => { localStorage.setItem('nav_screen', screen); }, [screen]);
+  useEffect(() => { localStorage.setItem('nav_month', monthId); }, [monthId]);
 
   const cats = useMemo(() => ({
     gastos: rawCats.filter(c => c.kind === 'gasto'),
     ingresos: rawCats.filter(c => c.kind === 'ingreso'),
+    inversiones: rawCats.filter(c => c.kind === 'inversion'),
   }), [rawCats]);
 
   const allMonthIds = useMemo(() => {
@@ -78,9 +90,11 @@ export default function App() {
   const reloadCats = useCallback(() => listCategories().then(setRawCats), []);
   const reloadMediums = useCallback(() => listMediums().then(setMediums), []);
   const reloadTarjetas = useCallback(() => listTarjetas().then(setTarjetas), []);
-  const reloadSuscripciones = useCallback(() => listSuscripciones().then(setSuscripciones), []);
+  const reloadRecurrentes = useCallback(() => listRecurrentes().then(setRecurrentes), []);
 
   const onNav = useCallback((s) => { setScreen(s); setDrawerOpen(false); }, []);
+
+  const { pullY, refreshing: pullRefreshing, threshold } = usePullToRefresh(loadAll);
 
   if (loading) {
     return (
@@ -118,15 +132,17 @@ export default function App() {
         <ScreenTarjetas
           {...screenProps}
           onTarjetasChange={async () => { await reloadTarjetas(); await reloadMediums(); }}
+          onTxsChange={reloadTxs}
         />
       );
-      case 'suscripciones': return (
-        <ScreenSuscripciones
-          suscripciones={suscripciones}
-          onSuscripcionesChange={reloadSuscripciones}
+      case 'recurrentes': return (
+        <ScreenRecurrentes
+          recurrentes={recurrentes}
+          onRecurrentesChange={reloadRecurrentes}
         />
       );
       case 'anual': return <ScreenAnual {...screenProps} onNavigate={setScreen} />;
+      case 'inversiones': return <ScreenInversiones {...screenProps} onTxsChange={reloadTxs} />;
       case 'ajustes': return (
         <ScreenAjustes
           cats={cats} mediums={mediums}
@@ -147,8 +163,31 @@ export default function App() {
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
         {mobile && <MobileTopbar screen={screen} onMenu={() => setDrawerOpen(true)} />}
-        <div style={{ flex: 1, overflow: 'hidden' }}>
-          {renderScreen()}
+        <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+          {mobile && (pullY > 0 || pullRefreshing) && (
+            <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, zIndex: 50,
+              display: 'flex', justifyContent: 'center', alignItems: 'center',
+              height: pullRefreshing ? 44 : Math.min(pullY, 44),
+              overflow: 'hidden', transition: pullRefreshing ? 'none' : undefined,
+            }}>
+              <svg
+                width="22" height="22" viewBox="0 0 22 22"
+                style={{
+                  opacity: pullRefreshing ? 1 : pullY / threshold,
+                  animation: pullRefreshing ? 'ptr-spin 0.7s linear infinite' : 'none',
+                  transformOrigin: '50% 50%',
+                  transform: pullRefreshing ? undefined : `rotate(${(pullY / threshold) * 270}deg)`,
+                }}
+              >
+                <style>{`@keyframes ptr-spin { to { transform: rotate(360deg); } }`}</style>
+                <circle cx="11" cy="11" r="9" stroke={C.accent} strokeWidth="2.5" fill="none" strokeDasharray="40 20" />
+              </svg>
+            </div>
+          )}
+          <div style={{ height: '100%', transform: mobile && pullY > 0 ? `translateY(${Math.min(pullY, 44)}px)` : 'none', transition: pullY === 0 ? 'transform 0.2s' : 'none' }}>
+            {renderScreen()}
+          </div>
         </div>
       </div>
     </div>

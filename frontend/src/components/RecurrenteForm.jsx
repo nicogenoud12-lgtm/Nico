@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { C, s } from '../theme.js';
 
-export default function SuscripcionForm({ onSave, onCancel, initial }) {
+export default function RecurrenteForm({ onSave, onCancel, initial }) {
   const [nombre, setNombre] = useState(initial?.nombre || '');
   const [monto, setMonto] = useState(initial?.monto?.toString() || '');
   const [moneda, setMoneda] = useState(initial?.moneda || 'ARS');

@@ -9,34 +9,41 @@ import TxRow from '../components/TxRow.jsx';
 import Divider from '../components/Divider.jsx';
 import { createTransaction, updateTransaction, deleteTransaction } from '../api/transactions.js';
 
+const INV_COLOR = '#5a9cd4';
+
 function PctBadge({ pct }) {
   if (pct === null || pct === undefined) return <span style={{ fontSize: 11, color: C.text3 }}>—</span>;
-  const isGood = pct > 0;
-  const color = isGood ? C.green : C.red;
   const arrow = pct > 0 ? '↑' : '↓';
   return (
-    <span style={{ fontSize: 11, color, fontWeight: 600 }}>
+    <span style={{ fontSize: 11, color: C.text2, fontWeight: 600 }}>
       {arrow} {Math.abs(pct)}% vs mes ant.
     </span>
   );
 }
 
-export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthIds, setMonthId, onTxsChange }) {
+export default function ScreenInversiones({ txs, cats, mediums, monthId, allMonthIds, setMonthId, onTxsChange }) {
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editTx, setEditTx] = useState(null);
 
   const sorted = useMemo(() => sortMonthIdsDesc(allMonthIds), [allMonthIds]);
-  const monthTxs = useMemo(() => txs.filter(t => dateToMonthId(t.date) === monthId && t.type === 'i'), [txs, monthId]);
+  const monthTxs = useMemo(
+    () => txs.filter(t => dateToMonthId(t.date) === monthId && t.cat_kind === 'inversion'),
+    [txs, monthId]
+  );
 
   const prevMonthId = useMemo(() => {
     const idx = sorted.indexOf(monthId);
     return sorted[idx + 1] || null;
   }, [sorted, monthId]);
 
-  const prevTotal = useMemo(() =>
-    prevMonthId ? txs.filter(t => dateToMonthId(t.date) === prevMonthId && t.type === 'i').reduce((s, t) => s + t.amount, 0) : 0,
-    [txs, prevMonthId]);
+  const prevTotal = useMemo(
+    () => prevMonthId
+      ? txs.filter(t => dateToMonthId(t.date) === prevMonthId && t.cat_kind === 'inversion')
+          .reduce((s, t) => s + t.amount, 0)
+      : 0,
+    [txs, prevMonthId]
+  );
 
   const total = monthTxs.reduce((s, t) => s + t.amount, 0);
   const pct = pctChange(total, prevTotal);
@@ -48,15 +55,16 @@ export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthId
     });
     return Object.entries(map)
       .map(([name, value]) => {
-        const cat = cats.ingresos.find(c => c.name === name);
-        return { name, value, color: cat?.color || C.green };
+        const cat = cats.inversiones.find(c => c.name === name);
+        return { name, value, color: cat?.color || INV_COLOR };
       })
       .sort((a, b) => b.value - a.value);
   }, [monthTxs, cats]);
 
   const sortedTxs = useMemo(() =>
     [...monthTxs].sort((a, b) => b.date.localeCompare(a.date)),
-    [monthTxs]);
+    [monthTxs]
+  );
 
   const grouped = useMemo(() => {
     const byDate = {};
@@ -66,6 +74,14 @@ export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthId
     });
     return Object.entries(byDate).sort((a, b) => b[0].localeCompare(a[0]));
   }, [sortedTxs]);
+
+  // Cats override: TxForm muestra cats.gastos para type='g'.
+  // Le pasamos inversiones en ese slot para que el dropdown solo ofrezca
+  // categorías de inversión al registrar desde esta pantalla.
+  const catsForForm = useMemo(
+    () => ({ ...cats, gastos: cats.inversiones }),
+    [cats]
+  );
 
   const handleSave = async (data, cuotas = 1) => {
     if (editTx) {
@@ -151,7 +167,9 @@ export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthId
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 24, fontWeight: 700, color: C.green, marginBottom: 4 }}>{fmtARS(total)}</div>
+        <div style={{ fontSize: 24, fontWeight: 700, color: INV_COLOR, marginBottom: 4 }}>
+          {fmtARS(total)}
+        </div>
         <PctBadge pct={pct} />
       </div>
 
@@ -205,7 +223,7 @@ export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthId
           background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
           padding: '32px', textAlign: 'center', color: C.text3, fontSize: 14,
         }}>
-          Sin ingresos este mes
+          Sin inversiones este mes
         </div>
       )}
 
@@ -255,10 +273,15 @@ export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthId
       <div style={{ height: 80 }} />
 
       <FAB onClick={() => { setEditTx(null); setModalOpen(true); }} />
-      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditTx(null); }} title={editTx ? 'Editar ingreso' : 'Nuevo ingreso'}>
+      <Modal
+        open={modalOpen}
+        onClose={() => { setModalOpen(false); setEditTx(null); }}
+        title={editTx ? 'Editar inversión' : 'Nueva inversión'}
+      >
         <TxForm
-          cats={cats} mediums={mediums}
-          initial={editTx || { type: 'i' }}
+          cats={catsForForm}
+          mediums={mediums}
+          initial={editTx || { type: 'g', cat: cats.inversiones[0]?.name || 'Inversiones' }}
           onSave={handleSave}
           onCancel={() => { setModalOpen(false); setEditTx(null); }}
           onDelete={handleDelete}

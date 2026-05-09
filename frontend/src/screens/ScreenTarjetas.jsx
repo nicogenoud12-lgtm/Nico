@@ -4,8 +4,9 @@ import TarjetaCard from '../components/TarjetaCard.jsx';
 import TarjetaDetail from '../components/TarjetaDetail.jsx';
 import TarjetaForm from '../components/TarjetaForm.jsx';
 import Modal from '../components/Modal.jsx';
-import { fmtMoney, fmtDate, todayStr } from '../utils/format.js';
+import { fmtMoney, fmtDate, todayStr, dateToMonthId } from '../utils/format.js';
 import { createTarjeta, updateTarjeta, deleteTarjeta } from '../api/tarjetas.js';
+import { deleteTransaction } from '../api/transactions.js';
 
 const BANK_INITIALS = {
   galicia: 'G', santander: 'S', macro: 'M', bbva: 'B', icbc: 'I',
@@ -59,113 +60,212 @@ function HoverRow({ children, last }) {
 }
 
 function tarjetaForTx(tx, tarjetas) {
-  if (tx.tarjeta_id) {
-    return tarjetas.find(t => t.id === tx.tarjeta_id);
-  }
+  if (tx.tarjeta_id) return tarjetas.find(t => t.id === tx.tarjeta_id);
   return tarjetas.find(t => t.nombre === tx.medio);
 }
 
+// Clave que agrupa cuotas de una misma compra
+function cuotaGroupKey(tx) {
+  return `${tx.desc}|${tx.tarjeta_id ?? tx.medio}|${tx.cuota_total}`;
+}
+
+function TxRow({ tx, tarjetas, last, subtitle }) {
+  const tj = tarjetaForTx(tx, tarjetas);
+  return (
+    <HoverRow last={last}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {tj && <MiniCardBadge tarjeta={tj} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {tx.desc || tx.cat}
+          </div>
+          <div style={{ fontSize: 11, color: C.text3 }}>{subtitle}</div>
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: tx.type === 'i' ? C.green : C.text }}>
+          {fmtMoney(tx.amount, tx.currency || 'ARS')}
+        </div>
+      </div>
+    </HoverRow>
+  );
+}
+
 function UnifiedMovementsList({ tarjetas, txs }) {
+  const currentMonth = dateToMonthId(todayStr());
+
   const movements = useMemo(() => {
     const tarjetaIds = new Set(tarjetas.map(t => t.id));
     const tarjetaNames = new Set(tarjetas.map(t => t.nombre));
-    return txs
-      .filter(t =>
-        (t.tarjeta_id && tarjetaIds.has(t.tarjeta_id)) ||
-        (t.medio && tarjetaNames.has(t.medio))
-      )
+    const cardTxs = txs.filter(t =>
+      (t.tarjeta_id && tarjetaIds.has(t.tarjeta_id)) ||
+      (t.medio && tarjetaNames.has(t.medio))
+    );
+
+    // Para compras en cuotas mostrar solo la cuota del mes actual (o la más reciente pasada)
+    const cuotaGroups = {};
+    const singles = [];
+    for (const tx of cardTxs) {
+      if (tx.cuota_total > 1) {
+        const key = cuotaGroupKey(tx);
+        if (!cuotaGroups[key]) cuotaGroups[key] = [];
+        cuotaGroups[key].push(tx);
+      } else {
+        singles.push(tx);
+      }
+    }
+
+    const representatives = Object.values(cuotaGroups).map(group => {
+      const current = group.find(tx => dateToMonthId(tx.date) === currentMonth);
+      if (current) return current;
+      return group.filter(tx => tx.date <= todayStr())
+        .sort((a, b) => b.date.localeCompare(a.date))[0] || group[0];
+    });
+
+    return [...singles, ...representatives]
       .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 20);
-  }, [tarjetas, txs]);
+  }, [tarjetas, txs, currentMonth]);
 
   return (
-    <div style={{
-      background: C.surface, border: `1px solid ${C.border}`,
-      borderRadius: 12, overflow: 'hidden',
-    }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
       <PanelHeader title="Últimos movimientos" />
       {movements.length === 0 ? (
-        <div style={{ padding: '20px 14px', textAlign: 'center', color: C.text3, fontSize: 12 }}>
-          Sin movimientos
-        </div>
-      ) : (
-        movements.map((tx, i) => {
-          const tj = tarjetaForTx(tx, tarjetas);
-          return (
-            <HoverRow key={tx.id} last={i === movements.length - 1}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {tj && <MiniCardBadge tarjeta={tj} />}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {tx.desc || tx.cat}
-                  </div>
-                  <div style={{ fontSize: 11, color: C.text3 }}>
-                    {tj ? `vía ${tj.nombre} · ` : ''}{fmtDate(tx.date)}{tx.cuota_total > 1 ? ` · cuota ${tx.cuota_num}/${tx.cuota_total}` : ''}
-                  </div>
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: tx.type === 'i' ? C.green : C.text }}>
-                  {fmtMoney(tx.amount, tx.currency || 'ARS')}
-                </div>
-              </div>
-            </HoverRow>
-          );
-        })
-      )}
+        <div style={{ padding: '20px 14px', textAlign: 'center', color: C.text3, fontSize: 12 }}>Sin movimientos</div>
+      ) : movements.map((tx, i) => {
+        const tj = tarjetaForTx(tx, tarjetas);
+        const cuotaInfo = tx.cuota_total > 1 ? ` · cuota ${tx.cuota_num}/${tx.cuota_total}` : '';
+        return (
+          <TxRow
+            key={tx.id} tx={tx} tarjetas={tarjetas} last={i === movements.length - 1}
+            subtitle={`${tj ? `vía ${tj.nombre} · ` : ''}${fmtDate(tx.date)}${cuotaInfo}`}
+          />
+        );
+      })}
     </div>
   );
 }
 
-function UnifiedCuotasList({ tarjetas, txs }) {
+function UnifiedCuotasList({ tarjetas, txs, onTxsChange }) {
   const today = todayStr();
+  const [expandedKey, setExpandedKey] = useState(null);
 
-  const pending = useMemo(() => {
+  const groups = useMemo(() => {
     const tarjetaIds = new Set(tarjetas.map(t => t.id));
     const tarjetaNames = new Set(tarjetas.map(t => t.nombre));
-    return txs
-      .filter(t =>
-        ((t.tarjeta_id && tarjetaIds.has(t.tarjeta_id)) ||
-          (t.medio && tarjetaNames.has(t.medio)))
-        && t.cuota_total && t.cuota_total > 1
-        && t.date >= today
-      )
-      .sort((a, b) => a.date.localeCompare(b.date));
+    const pending = txs.filter(t =>
+      ((t.tarjeta_id && tarjetaIds.has(t.tarjeta_id)) || (t.medio && tarjetaNames.has(t.medio)))
+      && t.cuota_total > 1
+      && t.date >= today
+    );
+
+    const map = {};
+    for (const tx of pending) {
+      const key = cuotaGroupKey(tx);
+      if (!map[key]) map[key] = [];
+      map[key].push(tx);
+    }
+
+    return Object.entries(map).map(([key, cuotas]) => ({
+      key,
+      cuotas: cuotas.sort((a, b) => a.cuota_num - b.cuota_num),
+      total: cuotas.reduce((s, t) => s + Math.abs(t.amount), 0),
+    })).sort((a, b) => a.cuotas[0].date.localeCompare(b.cuotas[0].date));
   }, [tarjetas, txs, today]);
 
-  const totalRest = pending.reduce((s, t) => s + Math.abs(t.amount), 0);
+  const totalRest = groups.reduce((s, g) => s + g.total, 0);
 
   return (
-    <div style={{
-      background: C.surface, border: `1px solid ${C.border}`,
-      borderRadius: 12, overflow: 'hidden',
-    }}>
-      <PanelHeader title={`Cuotas pendientes${pending.length ? ` · ${fmtMoney(totalRest)}` : ''}`} />
-      {pending.length === 0 ? (
-        <div style={{ padding: '20px 14px', textAlign: 'center', color: C.text3, fontSize: 12 }}>
-          Sin cuotas pendientes
-        </div>
-      ) : (
-        pending.map((tx, i) => {
-          const tj = tarjetaForTx(tx, tarjetas);
-          return (
-            <HoverRow key={tx.id} last={i === pending.length - 1}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {tj && <MiniCardBadge tarjeta={tj} />}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {tx.desc || tx.cat}
-                  </div>
-                  <div style={{ fontSize: 11, color: C.text3 }}>
-                    {tj ? `vía ${tj.nombre} · ` : ''}{fmtDate(tx.date)} · cuota {tx.cuota_num}/{tx.cuota_total}
-                  </div>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
+      <PanelHeader title={`Cuotas pendientes${groups.length ? ` · ${fmtMoney(totalRest)}` : ''}`} />
+      {groups.length === 0 ? (
+        <div style={{ padding: '20px 14px', textAlign: 'center', color: C.text3, fontSize: 12 }}>Sin cuotas pendientes</div>
+      ) : groups.map((group, gi) => {
+        const first = group.cuotas[0];
+        const tj = tarjetaForTx(first, tarjetas);
+        const isExpanded = expandedKey === group.key;
+        const isLast = gi === groups.length - 1;
+
+        return (
+          <div key={group.key}>
+            {/* Fila principal — click expande */}
+            <div
+              onClick={() => setExpandedKey(isExpanded ? null : group.key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 14px',
+                borderBottom: isLast && !isExpanded ? 'none' : `1px solid ${C.border}`,
+                cursor: 'pointer',
+                background: isExpanded ? C.surface2 : 'transparent',
+                transition: 'background .15s',
+              }}
+            >
+              {tj && <MiniCardBadge tarjeta={tj} />}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {first.desc || first.cat}
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>
-                  {fmtMoney(tx.amount, tx.currency || 'ARS')}
+                <div style={{ fontSize: 11, color: C.text3 }}>
+                  {tj ? `vía ${tj.nombre} · ` : ''}cuota {first.cuota_num}/{first.cuota_total} · {group.cuotas.length} pendiente{group.cuotas.length > 1 ? 's' : ''}
                 </div>
               </div>
-            </HoverRow>
-          );
-        })
-      )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{fmtMoney(first.amount, first.currency || 'ARS')}</div>
+                  <div style={{ fontSize: 10, color: C.text3 }}>total {fmtMoney(group.total)}</div>
+                </div>
+                <div style={{ fontSize: 12, color: C.text3, transition: 'transform .2s', transform: isExpanded ? 'rotate(180deg)' : 'none' }}>▾</div>
+              </div>
+            </div>
+
+            {/* Cuotas expandidas */}
+            {isExpanded && (
+              <>
+                {group.cuotas.map((tx, ci) => (
+                  <div
+                    key={tx.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '8px 14px 8px 36px',
+                      borderBottom: `1px solid ${C.border}`,
+                      background: C.surface2,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, color: C.text2 }}>
+                        Cuota {tx.cuota_num}/{tx.cuota_total} · {fmtDate(tx.date)}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>
+                      {fmtMoney(tx.amount, tx.currency || 'ARS')}
+                    </div>
+                  </div>
+                ))}
+                <div style={{
+                  padding: '8px 14px',
+                  borderBottom: isLast ? 'none' : `1px solid ${C.border}`,
+                  background: C.surface2,
+                }}>
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm(`¿Eliminar las ${group.cuotas.length} cuotas pendientes?`)) return;
+                      for (const tx of group.cuotas) await deleteTransaction(tx.id);
+                      setExpandedKey(null);
+                      await onTxsChange();
+                    }}
+                    style={{
+                      width: '100%', padding: '7px 0',
+                      background: C.redBg, border: `1px solid ${C.red}40`,
+                      borderRadius: 6, color: C.red,
+                      fontFamily: 'inherit', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >
+                    Eliminar {group.cuotas.length} cuotas
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -180,7 +280,7 @@ function useIsMobile() {
   return mobile;
 }
 
-export default function ScreenTarjetas({ tarjetas, txs, allMonthIds, onTarjetasChange }) {
+export default function ScreenTarjetas({ tarjetas, txs, allMonthIds, onTarjetasChange, onTxsChange }) {
   const [selected, setSelected] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -239,7 +339,7 @@ export default function ScreenTarjetas({ tarjetas, txs, allMonthIds, onTarjetasC
       display: 'flex', flexDirection: 'column', gap: 16,
     }}>
       <UnifiedMovementsList tarjetas={tarjetas} txs={txs} />
-      <UnifiedCuotasList tarjetas={tarjetas} txs={txs} />
+      <UnifiedCuotasList tarjetas={tarjetas} txs={txs} onTxsChange={onTxsChange} />
     </div>
   );
 

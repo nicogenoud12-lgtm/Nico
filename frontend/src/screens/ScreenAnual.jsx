@@ -125,6 +125,15 @@ function MiniBar({ pct, label }) {
   );
 }
 
+function MobileMetric({ label, value, color, bold = false }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <span style={{ fontSize: 10, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: bold ? 700 : 500, color }}>{value}</span>
+    </div>
+  );
+}
+
 function VariationChip({ pct }) {
   if (pct === null || pct === undefined) {
     return <span style={{ fontSize: 11, color: C.text3 }}>—</span>;
@@ -361,11 +370,12 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
     const result = months12.map(id => {
       const monthTxs = txs.filter(t => dateToMonthId(t.date) === id);
       const ing = monthTxs.filter(t => t.type === 'i').reduce((s, t) => s + t.amount, 0);
-      const gas = monthTxs.filter(t => t.type === 'g').reduce((s, t) => s + t.amount, 0);
+      const gas = monthTxs.filter(t => t.type === 'g' && t.cat_kind !== 'inversion').reduce((s, t) => s + t.amount, 0);
+      const inv = monthTxs.filter(t => t.cat_kind === 'inversion').reduce((s, t) => s + t.amount, 0);
       const net = ing - gas;
       const pctAhorro = ing > 0 ? (net / ing) * 100 : 0;
-      return { id, ing, gas, net, pctAhorro };
-    }).filter(d => d.ing > 0 || d.gas > 0);
+      return { id, ing, gas, inv, net, pctAhorro };
+    }).filter(d => d.ing > 0 || d.gas > 0 || d.inv > 0);
 
     result.forEach((d, i) => {
       const prev = result[i - 1];
@@ -396,7 +406,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
   const kpis = useMemo(() => {
     if (!kpiMonth) {
       return {
-        ing: 0, gas: 0, net: 0, pctAhorro: 0,
+        ing: 0, gas: 0, inv: 0, net: 0, pctAhorro: 0,
         varIng: null, varGas: null, varNet: null,
         label: '',
       };
@@ -408,6 +418,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
     return {
       ing: kpiMonth.ing,
       gas: kpiMonth.gas,
+      inv: kpiMonth.inv,
       net: kpiMonth.net,
       pctAhorro: kpiMonth.pctAhorro,
       varIng, varGas, varNet,
@@ -441,11 +452,12 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
   const ytd = useMemo(() => {
     const totalIng = data.reduce((s, d) => s + d.ing, 0);
     const totalGas = data.reduce((s, d) => s + d.gas, 0);
+    const totalInv = data.reduce((s, d) => s + d.inv, 0);
     const netAcum = totalIng - totalGas;
     const nonZeroIng = data.filter(d => d.ing > 0);
     const pctAhorroProm = nonZeroIng.length > 0 ? nonZeroIng.reduce((s, d) => s + d.pctAhorro, 0) / nonZeroIng.length : 0;
 
-    return { totalIng, totalGas, netAcum, pctAhorroProm };
+    return { totalIng, totalGas, totalInv, netAcum, pctAhorroProm };
   }, [data]);
 
   const chartData = mode === 'mensual' ? data : runningSum(data);
@@ -530,12 +542,11 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
               maxProgress={maxKpi}
             />
             <KpiCard
-              label={`Ahorro · ${kpis.label}`}
-              value={kpis.pctAhorro.toFixed(1) + '%'}
-              color={C.accent}
-              progress={kpis.pctAhorro}
-              maxProgress={100}
-              isPercentage={true}
+              label={`Inversión · ${kpis.label}`}
+              value={kpis.inv}
+              color="#5a9cd4"
+              progress={kpis.inv}
+              maxProgress={Math.max(maxKpi, kpis.inv || 1)}
             />
           </div>
 
@@ -593,27 +604,52 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
             <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', padding: '10px 16px', borderBottom: `1px solid ${C.border}` }}>
               Detalle por mes
             </div>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: mobile ? '1fr' : 'repeat(6, 1fr)',
-              gap: 0,
-              borderBottom: `1px solid ${C.border}`,
-            }}>
-              {['Mes', 'Ingresos', 'Gastos', 'Neto', '% Ahorro', 'Variación'].map(h => (
-                !mobile || h === 'Mes' ? (
+            {!mobile && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(6, 1fr)',
+                gap: 0,
+                borderBottom: `1px solid ${C.border}`,
+              }}>
+                {['Mes', 'Ingresos', 'Gastos', 'Neto', '% Ahorro', 'Variación'].map(h => (
                   <div key={h} style={{ padding: '10px 16px', borderRight: h !== 'Variación' ? `1px solid ${C.border}` : 'none' }}>
                     <span style={{ fontSize: 10, fontWeight: 600, color: C.text3 }}>{h}</span>
                   </div>
-                ) : null
-              ))}
-            </div>
-            {[...data].reverse().map((d, i) => (
+                ))}
+              </div>
+            )}
+            {[...data].reverse().map((d, i) => mobile ? (
+              <div
+                key={d.id}
+                onClick={() => handleClickMonth(d.id)}
+                style={{
+                  padding: '12px 14px',
+                  borderBottom: i < data.length - 1 ? `1px solid ${C.border}` : 'none',
+                  background: d.id === monthId ? C.surface2 : 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 8 }}>
+                  {monthIdLabel(d.id)}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
+                  <MobileMetric label="Ingreso" value={fmtARS(d.ing)} color={C.green} />
+                  <MobileMetric label="Gasto" value={fmtARS(d.gas)} color={C.red} />
+                  <MobileMetric label="Neto" value={fmtARS(d.net)} color={d.net >= 0 ? C.green : C.red} bold />
+                  <MobileMetric label="Ahorro" value={d.ing > 0 ? d.pctAhorro.toFixed(1) + '%' : '—'} color={C.text} />
+                  <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Variación</span>
+                    <VariationChip pct={d.variation} />
+                  </div>
+                </div>
+              </div>
+            ) : (
               <div
                 key={d.id}
                 onClick={() => handleClickMonth(d.id)}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: mobile ? '1fr' : 'repeat(6, 1fr)',
+                  gridTemplateColumns: 'repeat(6, 1fr)',
                   gap: 0,
                   padding: '11px 16px',
                   borderBottom: i < data.length - 1 ? `1px solid ${C.border}` : 'none',
@@ -719,6 +755,14 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
                   </div>
                   <div style={{ fontSize: 16, color: C.red, fontWeight: 700, marginTop: 4 }}>
                     {fmtARS(ytd.totalGas)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                    Total inversiones
+                  </div>
+                  <div style={{ fontSize: 16, color: '#5a9cd4', fontWeight: 700, marginTop: 4 }}>
+                    {fmtARS(ytd.totalInv)}
                   </div>
                 </div>
                 <div style={{ paddingTop: 8, borderTop: `1px solid ${C.border}` }}>

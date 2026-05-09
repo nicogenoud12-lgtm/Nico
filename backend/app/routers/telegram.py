@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+from calendar import monthrange
 from datetime import datetime, timedelta, date as date_cls
 
 logger = logging.getLogger(__name__)
@@ -73,19 +74,46 @@ def _clear_pending(db: Session, chat_id: int) -> None:
         db.delete(p); db.commit()
 
 
-def _persist(db: Session, result: dict):
+def _persist(db: Session, result: dict, tarjetas: list):
     tx_type = result.get("tx_type") or "g"
     raw_amt = abs(float(result.get("amt") or 0))
-    amt_signed = raw_amt if tx_type == "i" else -raw_amt
-    payload = schemas.TransactionCreate(
-        date=date_cls.fromisoformat(result.get("date") or date_cls.today().isoformat()),
-        desc=result.get("desc") or result.get("cat") or "",
-        cat=result.get("cat") or "",
-        medio=result.get("medio") or "",
-        amount=amt_signed,
-        type=tx_type,
+    cuotas = max(1, min(int(result.get("cuotas") or 1), 48))
+    medio = (result.get("medio") or "Contado").strip()
+
+    # Resolver tarjeta_id si el medio coincide con una tarjeta del usuario
+    medio_lower = medio.lower()
+    tarjeta_id = next(
+        (t.id for t in tarjetas if t.nombre.lower() == medio_lower), None
     )
-    return crud.create_transaction(db, payload, source="telegram")
+
+    base_date = date_cls.fromisoformat(result.get("date") or date_cls.today().isoformat())
+    amt_per_cuota = round(raw_amt / cuotas, 2)
+    first_tx = None
+    for i in range(cuotas):
+        if i == 0:
+            d = base_date
+        else:
+            new_month = (base_date.month - 1 + i) % 12 + 1
+            new_year = base_date.year + (base_date.month - 1 + i) // 12
+            d = base_date.replace(
+                year=new_year, month=new_month,
+                day=min(base_date.day, monthrange(new_year, new_month)[1]),
+            )
+        payload = schemas.TransactionCreate(
+            date=d,
+            desc=result.get("desc") or result.get("cat") or "",
+            cat=result.get("cat") or "",
+            medio=medio,
+            amount=amt_per_cuota,
+            type=tx_type,
+            cuota_num=i + 1 if cuotas > 1 else None,
+            cuota_total=cuotas if cuotas > 1 else None,
+            tarjeta_id=tarjeta_id,
+        )
+        tx = crud.create_transaction(db, payload, source="telegram")
+        if first_tx is None:
+            first_tx = tx
+    return first_tx
 
 
 @router.post("/webhook", status_code=200)
@@ -124,11 +152,12 @@ async def telegram_webhook(
         except json.JSONDecodeError:
             history = []
 
-    # ── Cargar cats / medios / reglas / txs recientes desde la DB ──
+    # ── Cargar cats / medios / tarjetas / reglas / txs recientes desde la DB ──
     cats = crud.list_categories(db)
     cats_gasto = [c.name for c in cats if c.kind == "gasto"]
     cats_ingreso = [c.name for c in cats if c.kind == "ingreso"]
     mediums = [m.name for m in crud.list_mediums(db)]
+    tarjetas = crud.list_tarjetas(db)
     bot_rules = [
         {"keyword": r.keyword, "cat": r.cat, "tx_type": r.tx_type}
         for r in crud.list_bot_rules(db)
@@ -187,7 +216,7 @@ async def telegram_webhook(
         await send_message(chat_id, reply)
         return {"ok": True, "intent": "create", "asking": missing[0]}
 
-    tx = _persist(db, result)
+    tx = _persist(db, result, tarjetas)
     _clear_pending(db, chat_id)
     await send_message(chat_id, reply)
     return {"ok": True, "intent": "create", "tx_id": tx.id}

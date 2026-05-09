@@ -7,6 +7,7 @@ import Modal from '../components/Modal.jsx';
 import TxForm from '../components/TxForm.jsx';
 import TxRow from '../components/TxRow.jsx';
 import Divider from '../components/Divider.jsx';
+import CuotaDetailModal from '../components/CuotaDetailModal.jsx';
 import { createTransaction, updateTransaction, deleteTransaction } from '../api/transactions.js';
 
 function PctBadge({ pct }) {
@@ -25,9 +26,10 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editTx, setEditTx] = useState(null);
+  const [cuotaTx, setCuotaTx] = useState(null);
 
   const sorted = useMemo(() => sortMonthIdsDesc(allMonthIds), [allMonthIds]);
-  const monthTxs = useMemo(() => txs.filter(t => dateToMonthId(t.date) === monthId && t.type === 'g'), [txs, monthId]);
+  const monthTxs = useMemo(() => txs.filter(t => dateToMonthId(t.date) === monthId && t.type === 'g' && t.cat_kind !== 'inversion'), [txs, monthId]);
 
   const prevMonthId = useMemo(() => {
     const idx = sorted.indexOf(monthId);
@@ -35,7 +37,7 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
   }, [sorted, monthId]);
 
   const prevTotal = useMemo(() =>
-    prevMonthId ? txs.filter(t => dateToMonthId(t.date) === prevMonthId && t.type === 'g').reduce((s, t) => s + t.amount, 0) : 0,
+    prevMonthId ? txs.filter(t => dateToMonthId(t.date) === prevMonthId && t.type === 'g' && t.cat_kind !== 'inversion').reduce((s, t) => s + t.amount, 0) : 0,
     [txs, prevMonthId]);
 
   const total = monthTxs.reduce((s, t) => s + t.amount, 0);
@@ -90,15 +92,22 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
     await onTxsChange();
   };
 
-  const handleDelete = async (tx) => {
+  const handleDelete = async () => {
+    if (!editTx) return;
     if (!window.confirm('¿Eliminar movimiento?')) return;
-    await deleteTransaction(tx.id);
+    await deleteTransaction(editTx.id);
+    setModalOpen(false);
+    setEditTx(null);
     await onTxsChange();
   };
 
-  const handleEdit = (tx) => {
-    setEditTx(tx);
-    setModalOpen(true);
+  const handleRowClick = (tx) => {
+    if (tx.cuota_total && tx.cuota_total > 1) {
+      setCuotaTx(tx);
+    } else {
+      setEditTx(tx);
+      setModalOpen(true);
+    }
   };
 
   const displayIdx = hoveredIdx !== null ? hoveredIdx : (bycat.length > 0 ? 0 : null);
@@ -238,8 +247,7 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
                       <TxRow
                         tx={tx}
                         cats={cats}
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
+                        onClick={handleRowClick}
                       />
                     </div>
                   );
@@ -259,8 +267,10 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
           initial={editTx || { type: 'g' }}
           onSave={handleSave}
           onCancel={() => { setModalOpen(false); setEditTx(null); }}
+          onDelete={handleDelete}
         />
       </Modal>
+      <CuotaDetailModal open={!!cuotaTx} tx={cuotaTx} allTxs={txs} onClose={() => setCuotaTx(null)} />
     </div>
   );
 }
