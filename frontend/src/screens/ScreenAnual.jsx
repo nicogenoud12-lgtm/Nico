@@ -157,7 +157,6 @@ function ComboChart({ data, mode, onClickMonth }) {
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [tooltip, setTooltip] = useState(null);
   const containerRef = useRef(null);
-  const lastTouchRef = useRef(false);
 
   const rawMax = Math.max(...data.flatMap(d => [d.ing, d.gas]), 1);
   const maxVal = Math.ceil(rawMax / 100000) * 100000;
@@ -175,11 +174,18 @@ function ComboChart({ data, mode, onClickMonth }) {
     setHoveredIdx(i);
   };
 
-  const handleLeave = () => { setHoveredIdx(null); setTooltip(null); };
+  const touchActiveRef = useRef(false);
+
+  const handleLeave = () => {
+    if (touchActiveRef.current) return;
+    setHoveredIdx(null);
+    setTooltip(null);
+  };
 
   const handleTouchStart = (e, i) => {
-    e.stopPropagation();
-    lastTouchRef.current = true;
+    e.preventDefault();    // evita click sintético y mouse events
+    e.stopPropagation();   // evita que handleContainerTouch se dispare
+    touchActiveRef.current = true;
     const touch = e.touches[0];
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
@@ -187,7 +193,11 @@ function ComboChart({ data, mode, onClickMonth }) {
     setHoveredIdx(i);
   };
 
-  const handleContainerTouch = () => { setTooltip(null); setHoveredIdx(null); };
+  const handleContainerTouch = () => {
+    touchActiveRef.current = false;
+    setTooltip(null);
+    setHoveredIdx(null);
+  };
 
   return (
     <div ref={containerRef} onTouchStart={handleContainerTouch} style={{
@@ -276,25 +286,8 @@ function ComboChart({ data, mode, onClickMonth }) {
                 key={d.id}
                 onMouseMove={e => handleHover(e, i)}
                 onMouseLeave={handleLeave}
-<<<<<<< HEAD
-                onClick={() => onClickMonth(d.id)}
-                onTouchStart={e => {
-                  e.preventDefault();
-                  if (!containerRef.current) return;
-                  const touch = e.touches[0];
-                  const rect = containerRef.current.getBoundingClientRect();
-                  setTooltip({ x: touch.clientX - rect.left, y: touch.clientY - rect.top, d: data[i] });
-                  setHoveredIdx(i);
-                }}
-                onTouchEnd={() => setTimeout(() => { setTooltip(null); setHoveredIdx(null); }, 1800)}
-                onTouchCancel={() => { setTooltip(null); setHoveredIdx(null); }}
-=======
                 onTouchStart={e => handleTouchStart(e, i)}
-                onClick={() => {
-                  if (lastTouchRef.current) { lastTouchRef.current = false; return; }
-                  onClickMonth(d.id);
-                }}
->>>>>>> 02438cf (Tres mejoras UI mobile: gráfico, recurrentes y tarjetas)
+                onClick={() => onClickMonth(d.id)}
                 style={{ cursor: 'pointer' }}
               >
                 {/* invisible hit area */}
@@ -369,17 +362,6 @@ function ComboChart({ data, mode, onClickMonth }) {
             </text>
           );
         })}
-<<<<<<< HEAD
-
-        {/* Legend — centered in the 600px viewBox */}
-        <circle cx={192} cy={height - padding.bottom + 34} r="5" fill={C.green} />
-        <text x={201} y={height - padding.bottom + 38} fontSize="11" fill={C.text2}>Ingresos</text>
-        <circle cx={286} cy={height - padding.bottom + 34} r="5" fill={C.red} />
-        <text x={295} y={height - padding.bottom + 38} fontSize="11" fill={C.text2}>Gastos</text>
-        <line x1={360} y1={height - padding.bottom + 34} x2={378} y2={height - padding.bottom + 34} stroke="#60a5fa" strokeWidth="2.5" />
-        <text x={382} y={height - padding.bottom + 38} fontSize="11" fill={C.text2}>Neto</text>
-=======
->>>>>>> 02438cf (Tres mejoras UI mobile: gráfico, recurrentes y tarjetas)
       </svg>
 
       {/* Legend */}
