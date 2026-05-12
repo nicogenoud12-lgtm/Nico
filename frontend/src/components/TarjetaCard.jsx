@@ -30,8 +30,8 @@ export default function TarjetaCard({ tarjeta, onClick }) {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,.7)', fontWeight: 500 }}>
-          {tarjeta.banco}
+        <span style={{ fontSize: 13, color: 'rgba(255,255,255,.9)', fontWeight: 700, letterSpacing: '.05em' }}>
+          {tarjeta.emisor || ''}
         </span>
         <TarjetaBankLogo banco={tarjeta.banco} logoUrl={tarjeta.logo_url} size={48} />
       </div>

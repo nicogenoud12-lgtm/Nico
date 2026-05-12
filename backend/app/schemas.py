@@ -54,6 +54,7 @@ class MediumRead(MediumBase):
 class TarjetaBase(BaseModel):
     nombre: str
     banco: str = ""
+    emisor: Optional[str] = None
     ultimos4: str = ""
     cierre: str = ""
     vence: str = ""
@@ -69,6 +70,7 @@ class TarjetaCreate(TarjetaBase):
 class TarjetaUpdate(BaseModel):
     nombre: Optional[str] = None
     banco: Optional[str] = None
+    emisor: Optional[str] = None
     ultimos4: Optional[str] = None
     cierre: Optional[str] = None
     vence: Optional[str] = None

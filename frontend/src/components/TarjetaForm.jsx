@@ -4,6 +4,7 @@ import { C, s, CARD_COLORS } from '../theme.js';
 export default function TarjetaForm({ onSave, onCancel, initial }) {
   const [nombre, setNombre] = useState(initial?.nombre || '');
   const [banco, setBanco] = useState(initial?.banco || '');
+  const [emisor, setEmisor] = useState(initial?.emisor || '');
   const [ultimos4, setUltimos4] = useState(initial?.ultimos4 || '');
   const [cierre, setCierre] = useState(initial?.cierre || '');
   const [vence, setVence] = useState(initial?.vence || '');
@@ -17,7 +18,7 @@ export default function TarjetaForm({ onSave, onCancel, initial }) {
     setSaving(true);
     try {
       await onSave({
-        nombre, banco, ultimos4, cierre, vence,
+        nombre, banco, emisor, ultimos4, cierre, vence,
         color_idx: colorIdx,
         color_hex: colorHex || null,
         logo_url: logoUrl.trim() || null,
@@ -39,6 +40,31 @@ export default function TarjetaForm({ onSave, onCancel, initial }) {
       <div style={row}>
         <span style={lbl}>Banco</span>
         <input style={s.input} value={banco} onChange={e => setBanco(e.target.value)} placeholder="Ej: Galicia" />
+      </div>
+      <div style={row}>
+        <span style={lbl}>Emisor</span>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {['Visa', 'Mastercard', 'Cabal', 'Amex', 'Naranja X'].map(opt => (
+            <button
+              key={opt} type="button"
+              onClick={() => setEmisor(emisor === opt ? '' : opt)}
+              style={{
+                padding: '5px 12px', borderRadius: 6, border: `1px solid ${emisor === opt ? C.accent : C.border}`,
+                background: emisor === opt ? C.accentBg : 'transparent',
+                color: emisor === opt ? C.accent : C.text2,
+                fontFamily: 'inherit', fontSize: 13, cursor: 'pointer', fontWeight: emisor === opt ? 600 : 400,
+              }}
+            >
+              {opt}
+            </button>
+          ))}
+          <input
+            style={{ ...s.input, flex: 1, minWidth: 80, padding: '5px 10px' }}
+            value={['Visa', 'Mastercard', 'Cabal', 'Amex', 'Naranja X'].includes(emisor) ? '' : emisor}
+            onChange={e => setEmisor(e.target.value)}
+            placeholder="Otro…"
+          />
+        </div>
       </div>
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ ...row, flex: 1 }}>

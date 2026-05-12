@@ -108,6 +108,8 @@ def _migrate(conn) -> None:
         conn.exec_driver_sql("ALTER TABLE tarjetas ADD COLUMN logo_url TEXT")
     if "color_hex" not in tarj_cols:
         conn.exec_driver_sql("ALTER TABLE tarjetas ADD COLUMN color_hex TEXT")
+    if "emisor" not in tarj_cols:
+        conn.exec_driver_sql("ALTER TABLE tarjetas ADD COLUMN emisor TEXT")
 
 
 def init_db() -> None:
