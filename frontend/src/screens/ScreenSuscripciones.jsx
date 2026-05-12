@@ -141,22 +141,56 @@ export default function ScreenSuscripciones({ suscripciones, onSuscripcionesChan
           <div style={{ fontSize: 40, marginBottom: 12 }}>🔁</div>
           <div>No hay suscripciones</div>
         </div>
-      ) : (
-        <div style={s.card({ overflow: 'hidden' })}>
-          {suscripciones.map((sub, i) => (
-            <SubRow
-              key={sub.id}
-              sub={sub}
-              dolar={dolar}
-              dolarLoading={dolarLoading}
-              dolarError={dolarError}
-              last={i === suscripciones.length - 1}
-              onEdit={() => handleEdit(sub)}
-              onDelete={() => handleDelete(sub)}
-            />
-          ))}
-        </div>
-      )}
+      ) : (() => {
+        const activas = suscripciones.filter(sub => sub.estado === 'activo');
+        const inactivas = suscripciones.filter(sub => sub.estado !== 'activo');
+        return (
+          <>
+            {activas.length > 0 && (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+                  Activas
+                </div>
+                <div style={{ ...s.card({ overflow: 'hidden' }), marginBottom: 16 }}>
+                  {activas.map((sub, i) => (
+                    <SubRow
+                      key={sub.id}
+                      sub={sub}
+                      dolar={dolar}
+                      dolarLoading={dolarLoading}
+                      dolarError={dolarError}
+                      last={i === activas.length - 1}
+                      onEdit={() => handleEdit(sub)}
+                      onDelete={() => handleDelete(sub)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+            {inactivas.length > 0 && (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 8 }}>
+                  Inactivas
+                </div>
+                <div style={s.card({ overflow: 'hidden' })}>
+                  {inactivas.map((sub, i) => (
+                    <SubRow
+                      key={sub.id}
+                      sub={sub}
+                      dolar={dolar}
+                      dolarLoading={dolarLoading}
+                      dolarError={dolarError}
+                      last={i === inactivas.length - 1}
+                      onEdit={() => handleEdit(sub)}
+                      onDelete={() => handleDelete(sub)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        );
+      })()}
 
       <div style={{ height: 40 }} />
 
@@ -193,20 +227,10 @@ function SubRow({ sub, dolar, dolarLoading, dolarError, last, onEdit, onDelete }
       <LogoCircle url={sub.logo_url} nombre={sub.nombre} />
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div>
           <div style={{ fontSize: 14, fontWeight: 600, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {sub.nombre}
           </div>
-          <span style={{
-            fontSize: 10, fontWeight: 600,
-            color: isActive ? C.green : C.text2,
-            background: isActive ? C.greenBg : 'transparent',
-            border: isActive ? 'none' : `1px solid ${C.border}`,
-            padding: '2px 6px', borderRadius: 4,
-            textTransform: 'uppercase', letterSpacing: '.04em',
-          }}>
-            {isActive ? 'Activo' : 'Inactivo'}
-          </span>
         </div>
         <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>
           {sub.frecuencia === 'mensual' ? 'Mensual' : 'Anual'}

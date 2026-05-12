@@ -149,7 +149,7 @@ function VariationChip({ pct }) {
 
 function ComboChart({ data, mode, onClickMonth }) {
   const width = 600;
-  const height = 250;
+  const height = 280;
   const padding = { top: 16, right: 20, bottom: 50, left: 60 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
@@ -264,6 +264,16 @@ function ComboChart({ data, mode, onClickMonth }) {
                 onMouseMove={e => handleHover(e, i)}
                 onMouseLeave={handleLeave}
                 onClick={() => onClickMonth(d.id)}
+                onTouchStart={e => {
+                  e.preventDefault();
+                  if (!containerRef.current) return;
+                  const touch = e.touches[0];
+                  const rect = containerRef.current.getBoundingClientRect();
+                  setTooltip({ x: touch.clientX - rect.left, y: touch.clientY - rect.top, d: data[i] });
+                  setHoveredIdx(i);
+                }}
+                onTouchEnd={() => setTimeout(() => { setTooltip(null); setHoveredIdx(null); }, 1800)}
+                onTouchCancel={() => { setTooltip(null); setHoveredIdx(null); }}
                 style={{ cursor: 'pointer' }}
               >
                 {/* invisible hit area */}
@@ -338,13 +348,13 @@ function ComboChart({ data, mode, onClickMonth }) {
           );
         })}
 
-        {/* Legend — separated from x-axis labels */}
-        <circle cx={padding.left + 80} cy={height - padding.bottom + 36} r="4" fill={C.green} />
-        <text x={padding.left + 90} y={height - padding.bottom + 40} fontSize="10" fill={C.text2}>Ingresos</text>
-        <circle cx={padding.left + 180} cy={height - padding.bottom + 36} r="4" fill={C.red} />
-        <text x={padding.left + 190} y={height - padding.bottom + 40} fontSize="10" fill={C.text2}>Gastos</text>
-        <line x1={padding.left + 260} y1={height - padding.bottom + 36} x2={padding.left + 278} y2={height - padding.bottom + 36} stroke="#60a5fa" strokeWidth="2" />
-        <text x={padding.left + 286} y={height - padding.bottom + 40} fontSize="10" fill={C.text2}>Neto</text>
+        {/* Legend — centered in the 600px viewBox */}
+        <circle cx={192} cy={height - padding.bottom + 34} r="5" fill={C.green} />
+        <text x={201} y={height - padding.bottom + 38} fontSize="11" fill={C.text2}>Ingresos</text>
+        <circle cx={286} cy={height - padding.bottom + 34} r="5" fill={C.red} />
+        <text x={295} y={height - padding.bottom + 38} fontSize="11" fill={C.text2}>Gastos</text>
+        <line x1={360} y1={height - padding.bottom + 34} x2={378} y2={height - padding.bottom + 34} stroke="#60a5fa" strokeWidth="2.5" />
+        <text x={382} y={height - padding.bottom + 38} fontSize="11" fill={C.text2}>Neto</text>
       </svg>
     </div>
   );
