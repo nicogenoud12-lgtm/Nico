@@ -102,10 +102,12 @@ def _migrate(conn) -> None:
         if name not in sus_cols:
             conn.exec_driver_sql(f"ALTER TABLE suscripciones ADD COLUMN {name} {decl}")
 
-    # 5. Agregar logo_url a tarjetas
+    # 5. Agregar logo_url y color_hex a tarjetas
     tarj_cols = {row[1] for row in conn.exec_driver_sql("PRAGMA table_info(tarjetas)").fetchall()}
     if "logo_url" not in tarj_cols:
         conn.exec_driver_sql("ALTER TABLE tarjetas ADD COLUMN logo_url TEXT")
+    if "color_hex" not in tarj_cols:
+        conn.exec_driver_sql("ALTER TABLE tarjetas ADD COLUMN color_hex TEXT")
 
 
 def init_db() -> None:

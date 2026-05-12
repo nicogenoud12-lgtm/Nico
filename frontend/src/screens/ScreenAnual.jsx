@@ -390,7 +390,7 @@ function SavingsDonut({ ing, gas, net, pctAhorro }) {
 
 function SummaryRow({ icon, label, value, color }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 12, borderBottom: `1px solid ${C.border}` }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 12, paddingBottom: 12, borderBottom: `1px solid ${C.border}` }}>
       <div style={{
         width: 32,
         height: 32,
@@ -787,14 +787,6 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
                     color={C.red}
                   />
                 ) : null}
-                <div>
-                  <div style={{ fontSize: 10, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', paddingBottom: 12, borderBottom: `1px solid ${C.border}` }}>
-                    Ingreso promedio
-                  </div>
-                  <div style={{ fontSize: 13, color: C.text, fontWeight: 600, marginTop: 12 }}>
-                    {fmtARS(summary.avgIng)}
-                  </div>
-                </div>
               </div>
             </div>
 

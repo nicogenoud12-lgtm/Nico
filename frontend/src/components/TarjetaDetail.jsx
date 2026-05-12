@@ -18,7 +18,9 @@ export default function TarjetaDetail({ tarjeta, txs, allMonthIds, onEdit, onDel
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <TarjetaCard tarjeta={tarjeta} />
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <TarjetaCard tarjeta={tarjeta} />
+      </div>
 
       <div style={{ display: 'flex', gap: 12 }}>
         <button

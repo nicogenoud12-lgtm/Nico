@@ -4,7 +4,9 @@ import TarjetaBankLogo from './TarjetaBankLogo.jsx';
 
 export default function TarjetaCard({ tarjeta, onClick }) {
   const [hovered, setHovered] = useState(false);
-  const [c1, c2] = CARD_COLORS[tarjeta.color_idx % CARD_COLORS.length];
+  const [c1, c2] = tarjeta.color_hex
+    ? [tarjeta.color_hex, tarjeta.color_hex]
+    : CARD_COLORS[tarjeta.color_idx % CARD_COLORS.length];
 
   return (
     <div
