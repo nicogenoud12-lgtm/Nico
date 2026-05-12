@@ -169,11 +169,12 @@ async def parse_telegram_message(
             "responseMimeType": "application/json",
             "responseSchema": RESPONSE_SCHEMA,
             "temperature": 0.4,
+            "thinkingConfig": {"thinkingBudget": 1024},
         },
     }
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=45.0) as client:
             resp = await client.post(
                 url,
                 params={"key": settings.GEMINI_API_KEY},
@@ -181,7 +182,7 @@ async def parse_telegram_message(
             )
             resp.raise_for_status()
             data = resp.json()
-    except (httpx.HTTPError, httpx.TimeoutException) as e:
+    except (httpx.HTTPError, httpx.TimeoutException, httpx.NetworkError) as e:
         logger.error("[gemini] HTTP error: %s", e)
         return None
 
