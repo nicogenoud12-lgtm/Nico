@@ -141,22 +141,53 @@ export default function ScreenRecurrentes({ recurrentes, onRecurrentesChange }) 
           <div style={{ fontSize: 40, marginBottom: 12 }}>🔁</div>
           <div>No hay gastos recurrentes</div>
         </div>
-      ) : (
-        <div style={s.card({ overflow: 'hidden' })}>
-          {recurrentes.map((rec, i) => (
-            <RecRow
-              key={rec.id}
-              rec={rec}
-              dolar={dolar}
-              dolarLoading={dolarLoading}
-              dolarError={dolarError}
-              last={i === recurrentes.length - 1}
-              onEdit={() => handleEdit(rec)}
-              onDelete={() => handleDelete(rec)}
-            />
-          ))}
-        </div>
-      )}
+      ) : (() => {
+        const activos = recurrentes.filter(r => r.estado === 'activo');
+        const inactivos = recurrentes.filter(r => r.estado !== 'activo');
+        return (
+          <>
+            <div style={s.card({ overflow: 'hidden' })}>
+              {activos.map((rec, i) => (
+                <RecRow
+                  key={rec.id}
+                  rec={rec}
+                  dolar={dolar}
+                  dolarLoading={dolarLoading}
+                  dolarError={dolarError}
+                  last={i === activos.length - 1}
+                  onEdit={() => handleEdit(rec)}
+                  onDelete={() => handleDelete(rec)}
+                />
+              ))}
+            </div>
+            {inactivos.length > 0 && (
+              <>
+                <div style={{
+                  fontSize: 10, fontWeight: 600, color: C.text3,
+                  textTransform: 'uppercase', letterSpacing: '.06em',
+                  marginTop: 16, marginBottom: 6, paddingLeft: 2,
+                }}>
+                  Inactivos
+                </div>
+                <div style={s.card({ overflow: 'hidden' })}>
+                  {inactivos.map((rec, i) => (
+                    <RecRow
+                      key={rec.id}
+                      rec={rec}
+                      dolar={dolar}
+                      dolarLoading={dolarLoading}
+                      dolarError={dolarError}
+                      last={i === inactivos.length - 1}
+                      onEdit={() => handleEdit(rec)}
+                      onDelete={() => handleDelete(rec)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        );
+      })()}
 
       <div style={{ height: 40 }} />
 
@@ -193,20 +224,8 @@ function RecRow({ rec, dolar, dolarLoading, dolarError, last, onEdit, onDelete }
       <LogoCircle url={rec.logo_url} nombre={rec.nombre} />
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {rec.nombre}
-          </div>
-          <span style={{
-            fontSize: 10, fontWeight: 600,
-            color: isActive ? C.green : C.text2,
-            background: isActive ? C.greenBg : 'transparent',
-            border: isActive ? 'none' : `1px solid ${C.border}`,
-            padding: '2px 6px', borderRadius: 4,
-            textTransform: 'uppercase', letterSpacing: '.04em',
-          }}>
-            {isActive ? 'Activo' : 'Inactivo'}
-          </span>
+        <div style={{ fontSize: 14, fontWeight: 600, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {rec.nombre}
         </div>
         <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>
           {rec.frecuencia === 'mensual' ? 'Mensual' : 'Anual'}

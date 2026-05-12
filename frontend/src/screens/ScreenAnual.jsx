@@ -149,14 +149,15 @@ function VariationChip({ pct }) {
 
 function ComboChart({ data, mode, onClickMonth }) {
   const width = 600;
-  const height = 280;
-  const padding = { top: 16, right: 20, bottom: 50, left: 60 };
+  const height = 220;
+  const padding = { top: 16, right: 20, bottom: 28, left: 60 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
   const [hoveredIdx, setHoveredIdx] = useState(null);
   const [tooltip, setTooltip] = useState(null);
   const containerRef = useRef(null);
+  const lastTouchRef = useRef(false);
 
   const rawMax = Math.max(...data.flatMap(d => [d.ing, d.gas]), 1);
   const maxVal = Math.ceil(rawMax / 100000) * 100000;
@@ -176,8 +177,20 @@ function ComboChart({ data, mode, onClickMonth }) {
 
   const handleLeave = () => { setHoveredIdx(null); setTooltip(null); };
 
+  const handleTouchStart = (e, i) => {
+    e.stopPropagation();
+    lastTouchRef.current = true;
+    const touch = e.touches[0];
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setTooltip({ x: touch.clientX - rect.left, y: touch.clientY - rect.top, d: data[i] });
+    setHoveredIdx(i);
+  };
+
+  const handleContainerTouch = () => { setTooltip(null); setHoveredIdx(null); };
+
   return (
-    <div ref={containerRef} style={{
+    <div ref={containerRef} onTouchStart={handleContainerTouch} style={{
       background: C.surface,
       border: `1px solid ${C.border}`,
       borderRadius: 12,
@@ -263,6 +276,7 @@ function ComboChart({ data, mode, onClickMonth }) {
                 key={d.id}
                 onMouseMove={e => handleHover(e, i)}
                 onMouseLeave={handleLeave}
+<<<<<<< HEAD
                 onClick={() => onClickMonth(d.id)}
                 onTouchStart={e => {
                   e.preventDefault();
@@ -274,6 +288,13 @@ function ComboChart({ data, mode, onClickMonth }) {
                 }}
                 onTouchEnd={() => setTimeout(() => { setTooltip(null); setHoveredIdx(null); }, 1800)}
                 onTouchCancel={() => { setTooltip(null); setHoveredIdx(null); }}
+=======
+                onTouchStart={e => handleTouchStart(e, i)}
+                onClick={() => {
+                  if (lastTouchRef.current) { lastTouchRef.current = false; return; }
+                  onClickMonth(d.id);
+                }}
+>>>>>>> 02438cf (Tres mejoras UI mobile: gráfico, recurrentes y tarjetas)
                 style={{ cursor: 'pointer' }}
               >
                 {/* invisible hit area */}
@@ -331,6 +352,7 @@ function ComboChart({ data, mode, onClickMonth }) {
                 fill="#60a5fa"
                 onMouseMove={e => handleHover(e, i)}
                 onMouseLeave={handleLeave}
+                onTouchStart={e => handleTouchStart(e, i)}
                 style={{ cursor: 'pointer' }}
               />
             );
@@ -342,11 +364,12 @@ function ComboChart({ data, mode, onClickMonth }) {
           const x = getX(i);
           const label = MONTH_NAMES[parseInt(d.id.slice(0, 2)) - 1] + " '" + d.id.slice(2);
           return (
-            <text key={`label-${d.id}`} x={x} y={height - padding.bottom + 18} fontSize="10" fill={C.text3} textAnchor="middle">
+            <text key={`label-${d.id}`} x={x} y={height - padding.bottom + 16} fontSize="10" fill={C.text3} textAnchor="middle">
               {label}
             </text>
           );
         })}
+<<<<<<< HEAD
 
         {/* Legend — centered in the 600px viewBox */}
         <circle cx={192} cy={height - padding.bottom + 34} r="5" fill={C.green} />
@@ -355,7 +378,25 @@ function ComboChart({ data, mode, onClickMonth }) {
         <text x={295} y={height - padding.bottom + 38} fontSize="11" fill={C.text2}>Gastos</text>
         <line x1={360} y1={height - padding.bottom + 34} x2={378} y2={height - padding.bottom + 34} stroke="#60a5fa" strokeWidth="2.5" />
         <text x={382} y={height - padding.bottom + 38} fontSize="11" fill={C.text2}>Neto</text>
+=======
+>>>>>>> 02438cf (Tres mejoras UI mobile: gráfico, recurrentes y tarjetas)
       </svg>
+
+      {/* Legend */}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 20, marginTop: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.green, flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: C.text2 }}>Ingresos</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.red, flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: C.text2 }}>Gastos</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{ width: 18, height: 2, background: '#60a5fa', flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: C.text2 }}>Neto</span>
+        </div>
+      </div>
     </div>
   );
 }
