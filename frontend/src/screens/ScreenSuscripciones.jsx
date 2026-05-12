@@ -180,12 +180,16 @@ function SubRow({ sub, dolar, dolarLoading, dolarError, last, onEdit, onDelete }
   const isActive = sub.estado === 'activo';
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 12,
-      padding: '14px 16px',
-      borderBottom: last ? 'none' : `1px solid ${C.border}`,
-      opacity: isActive ? 1 : 0.55,
-    }}>
+    <div
+      onClick={onEdit}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '14px 16px',
+        borderBottom: last ? 'none' : `1px solid ${C.border}`,
+        opacity: isActive ? 1 : 0.55,
+        cursor: 'pointer',
+      }}
+    >
       <LogoCircle url={sub.logo_url} nombre={sub.nombre} />
 
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -232,10 +236,11 @@ function SubRow({ sub, dolar, dolarLoading, dolarError, last, onEdit, onDelete }
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-        <button onClick={onEdit} style={s.btnIcon} title="Editar">✎</button>
-        <button onClick={onDelete} style={s.btnIcon} title="Eliminar">✕</button>
-      </div>
+      <button
+        onClick={e => { e.stopPropagation(); onDelete(); }}
+        style={s.btnIcon}
+        title="Eliminar"
+      >✕</button>
     </div>
   );
 }

@@ -142,14 +142,17 @@ export default function DraggableList({ items, onReorder, onEdit, onDelete, hasC
               </button>
             </div>
           ) : (
-            <div style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div
+              onClick={() => startEdit(i)}
+              style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+            >
               <span style={{ fontSize: 16, color: C.text3, cursor: 'grab', userSelect: 'none', flexShrink: 0 }}>⠿</span>
               {hasColor && <div style={{ width: 12, height: 12, borderRadius: 6, background: item.color, flexShrink: 0 }} />}
               <span style={{ flex: 1, fontSize: 14, color: C.text }}>{item.name}</span>
-              <div style={{ display: 'flex', gap: 2 }}>
-                <button onClick={() => startEdit(i)} style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', color: C.text3, padding: '2px 6px' }}>✎</button>
-                <button onClick={() => onDelete(i)} style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', color: C.red, padding: '2px 6px' }}>✕</button>
-              </div>
+              <button
+                onClick={e => { e.stopPropagation(); onDelete(i); }}
+                style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', color: C.red, padding: '2px 6px' }}
+              >✕</button>
             </div>
           )}
         </div>
