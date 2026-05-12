@@ -118,6 +118,24 @@ export default function DraggableList({ items, onReorder, onEdit, onDelete, hasC
                           }}
                         />
                       ))}
+                      {/* Custom color picker */}
+                      <div
+                        title="Color personalizado"
+                        style={{
+                          position: 'relative', width: 24, height: 24, borderRadius: 12,
+                          overflow: 'hidden', cursor: 'pointer', flexShrink: 0,
+                          background: 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)',
+                          outline: editVal.color && !COLOR_PALETTE.includes(editVal.color) ? `2px solid ${C.text}` : 'none',
+                          outlineOffset: 2,
+                        }}
+                      >
+                        <input
+                          type="color"
+                          value={editVal.color && !COLOR_PALETTE.includes(editVal.color) ? editVal.color : '#ffffff'}
+                          onChange={e => { setEditVal(v => ({ ...v, color: e.target.value })); setShowColorIdx(null); }}
+                          style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%', padding: 0, border: 'none' }}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>

@@ -8,6 +8,7 @@ export default function TarjetaForm({ onSave, onCancel, initial }) {
   const [cierre, setCierre] = useState(initial?.cierre || '');
   const [vence, setVence] = useState(initial?.vence || '');
   const [colorIdx, setColorIdx] = useState(initial?.color_idx ?? 0);
+  const [colorHex, setColorHex] = useState(initial?.color_hex || '');
   const [logoUrl, setLogoUrl] = useState(initial?.logo_url || '');
   const [saving, setSaving] = useState(false);
 
@@ -18,6 +19,7 @@ export default function TarjetaForm({ onSave, onCancel, initial }) {
       await onSave({
         nombre, banco, ultimos4, cierre, vence,
         color_idx: colorIdx,
+        color_hex: colorHex || null,
         logo_url: logoUrl.trim() || null,
       });
     } finally {
@@ -54,18 +56,36 @@ export default function TarjetaForm({ onSave, onCancel, initial }) {
       </div>
       <div style={row}>
         <span style={lbl}>Color</span>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           {CARD_COLORS.map(([c1], i) => (
             <div
               key={i}
-              onClick={() => setColorIdx(i)}
+              onClick={() => { setColorIdx(i); setColorHex(''); }}
               style={{
                 width: 28, height: 28, borderRadius: 8, background: c1, cursor: 'pointer',
-                outline: colorIdx === i ? `2px solid ${C.text}` : 'none',
+                outline: !colorHex && colorIdx === i ? `2px solid ${C.text}` : 'none',
                 outlineOffset: 2,
               }}
             />
           ))}
+          {/* Color personalizado */}
+          <div
+            title="Color personalizado"
+            style={{
+              position: 'relative', width: 28, height: 28, borderRadius: 8,
+              overflow: 'hidden', cursor: 'pointer', flexShrink: 0,
+              background: colorHex || 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)',
+              outline: colorHex ? `2px solid ${C.text}` : 'none',
+              outlineOffset: 2,
+            }}
+          >
+            <input
+              type="color"
+              value={colorHex || '#6366f1'}
+              onChange={e => setColorHex(e.target.value)}
+              style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%', padding: 0, border: 'none' }}
+            />
+          </div>
         </div>
       </div>
       <div style={row}>

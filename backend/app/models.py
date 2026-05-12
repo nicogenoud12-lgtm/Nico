@@ -45,6 +45,7 @@ class Tarjeta(Base):
     cierre = Column(String, nullable=False, default="")
     vence = Column(String, nullable=False, default="")
     color_idx = Column(Integer, nullable=False, default=0)
+    color_hex = Column(String, nullable=True)
     position = Column(Integer, nullable=False, default=0)
     logo_url = Column(String, nullable=True)
 

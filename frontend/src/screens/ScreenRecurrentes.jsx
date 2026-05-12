@@ -118,7 +118,7 @@ export default function ScreenRecurrentes({ recurrentes, onRecurrentesChange }) 
         gap: 12, flexWrap: 'wrap', marginBottom: 16,
       }}>
         <div style={s.h1}>Gastos Recurrentes</div>
-        <button onClick={handleAdd} style={s.btnPrimary}>+ Nueva Recurrente</button>
+        <button onClick={handleAdd} style={s.btnPrimary}>+ Nuevo Recurrente</button>
       </div>
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
