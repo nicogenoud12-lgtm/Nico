@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { CARD_COLORS } from '../theme.js';
 import TarjetaBankLogo from './TarjetaBankLogo.jsx';
+import visaLogo from '../assets/visa.svg';
+import mastercardLogo from '../assets/mastercard.svg';
+
+const EMISOR_LOGOS = { Visa: visaLogo, Mastercard: mastercardLogo };
 
 export default function TarjetaCard({ tarjeta, onClick }) {
   const [hovered, setHovered] = useState(false);
@@ -31,9 +35,20 @@ export default function TarjetaCard({ tarjeta, onClick }) {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-        <span style={{ fontSize: 13, color: 'rgba(255,255,255,.9)', fontWeight: 700, letterSpacing: '.05em' }}>
-          {tarjeta.emisor || ''}
-        </span>
+        {EMISOR_LOGOS[tarjeta.emisor] ? (
+          <img
+            src={EMISOR_LOGOS[tarjeta.emisor]}
+            alt={tarjeta.emisor}
+            style={{
+              height: tarjeta.emisor === 'Visa' ? 20 : 28,
+              filter: tarjeta.emisor === 'Visa' ? 'brightness(0) invert(1)' : 'none',
+            }}
+          />
+        ) : (
+          <span style={{ fontSize: 13, color: 'rgba(255,255,255,.9)', fontWeight: 700, letterSpacing: '.05em' }}>
+            {tarjeta.emisor || ''}
+          </span>
+        )}
         <TarjetaBankLogo banco={tarjeta.banco} logoUrl={tarjeta.logo_url} size={48} />
       </div>
       <div style={{ fontFamily: 'monospace', fontSize: 16, color: '#fff', letterSpacing: 3, marginBottom: 16 }}>

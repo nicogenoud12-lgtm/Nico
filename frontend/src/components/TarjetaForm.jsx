@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
 import { C, s, CARD_COLORS } from '../theme.js';
+import visaLogo from '../assets/visa.svg';
+import mastercardLogo from '../assets/mastercard.svg';
+
+const EMISORES = [
+  { value: 'Visa', logo: visaLogo },
+  { value: 'Mastercard', logo: mastercardLogo },
+  { value: 'Cabal', logo: null },
+];
 
 export default function TarjetaForm({ onSave, onCancel, initial }) {
   const [nombre, setNombre] = useState(initial?.nombre || '');
@@ -43,24 +51,31 @@ export default function TarjetaForm({ onSave, onCancel, initial }) {
       </div>
       <div style={row}>
         <span style={lbl}>Emisor</span>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {['Visa', 'Mastercard', 'Cabal', 'Amex', 'Naranja X'].map(opt => (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {EMISORES.map(({ value, logo }) => (
             <button
-              key={opt} type="button"
-              onClick={() => setEmisor(emisor === opt ? '' : opt)}
+              key={value} type="button"
+              onClick={() => setEmisor(emisor === value ? '' : value)}
               style={{
-                padding: '5px 12px', borderRadius: 6, border: `1px solid ${emisor === opt ? C.accent : C.border}`,
-                background: emisor === opt ? C.accentBg : 'transparent',
-                color: emisor === opt ? C.accent : C.text2,
-                fontFamily: 'inherit', fontSize: 13, cursor: 'pointer', fontWeight: emisor === opt ? 600 : 400,
+                padding: '6px 14px', borderRadius: 6,
+                border: `1px solid ${emisor === value ? C.accent : C.border}`,
+                background: emisor === value ? C.accentBg : C.surface2,
+                cursor: 'pointer', height: 38,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
-              {opt}
+              {logo ? (
+                <img src={logo} alt={value} style={{ height: value === 'Visa' ? 14 : 22 }} />
+              ) : (
+                <span style={{ color: emisor === value ? C.accent : C.text2, fontFamily: 'inherit', fontSize: 13, fontWeight: emisor === value ? 600 : 400 }}>
+                  {value}
+                </span>
+              )}
             </button>
           ))}
           <input
             style={{ ...s.input, flex: 1, minWidth: 80, padding: '5px 10px' }}
-            value={['Visa', 'Mastercard', 'Cabal', 'Amex', 'Naranja X'].includes(emisor) ? '' : emisor}
+            value={EMISORES.map(e => e.value).includes(emisor) ? '' : emisor}
             onChange={e => setEmisor(e.target.value)}
             placeholder="Otro…"
           />
