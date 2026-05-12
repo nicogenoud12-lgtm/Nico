@@ -149,10 +149,14 @@ function VariationChip({ pct }) {
 
 function ComboChart({ data, mode, onClickMonth }) {
   const width = 600;
-  const height = 220;
-  const padding = { top: 16, right: 20, bottom: 30, left: 60 };
+  const height = 250;
+  const padding = { top: 16, right: 20, bottom: 50, left: 60 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
+
+  const [hoveredIdx, setHoveredIdx] = useState(null);
+  const [tooltip, setTooltip] = useState(null);
+  const containerRef = useRef(null);
 
   const rawMax = Math.max(...data.flatMap(d => [d.ing, d.gas]), 1);
   const maxVal = Math.ceil(rawMax / 100000) * 100000;
@@ -161,18 +165,64 @@ function ComboChart({ data, mode, onClickMonth }) {
 
   const yTicks = [0, maxVal * 0.25, maxVal * 0.5, maxVal * 0.75, maxVal];
 
+  const getX = i => padding.left + (chartWidth / data.length) * i + chartWidth / (data.length * 2);
+
+  const handleHover = (e, i) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, d: data[i] });
+    setHoveredIdx(i);
+  };
+
+  const handleLeave = () => { setHoveredIdx(null); setTooltip(null); };
+
   return (
-    <div style={{
+    <div ref={containerRef} style={{
       background: C.surface,
       border: `1px solid ${C.border}`,
       borderRadius: 12,
       padding: '16px',
       marginBottom: 16,
       overflowX: 'auto',
+      position: 'relative',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Evolución mensual</span>
       </div>
+
+      {tooltip && (
+        <div style={{
+          position: 'absolute',
+          left: tooltip.x < (containerRef.current?.offsetWidth || 600) / 2 ? tooltip.x + 12 : tooltip.x - 168,
+          top: Math.max(tooltip.y - 55, 8),
+          background: C.surface2,
+          border: `1px solid ${C.border}`,
+          borderRadius: 8,
+          padding: '8px 12px',
+          fontSize: 12,
+          pointerEvents: 'none',
+          zIndex: 10,
+          boxShadow: '0 4px 12px rgba(0,0,0,.5)',
+          minWidth: 158,
+        }}>
+          <div style={{ fontWeight: 700, marginBottom: 6, color: C.text }}>
+            {MONTH_NAMES[parseInt(tooltip.d.id.slice(0, 2)) - 1] + " '" + tooltip.d.id.slice(2)}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+            <span style={{ color: C.text3 }}>Ingresos</span>
+            <span style={{ color: C.green, fontWeight: 600 }}>{fmtARS(tooltip.d.ing)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 3 }}>
+            <span style={{ color: C.text3 }}>Gastos</span>
+            <span style={{ color: C.red, fontWeight: 600 }}>{fmtARS(tooltip.d.gas)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 3 }}>
+            <span style={{ color: C.text3 }}>Neto</span>
+            <span style={{ color: '#60a5fa', fontWeight: 600 }}>{fmtARS(tooltip.d.net)}</span>
+          </div>
+        </div>
+      )}
+
       <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ minWidth: '100%' }}>
         <defs>
           <clipPath id="chartClip">
@@ -200,24 +250,37 @@ function ComboChart({ data, mode, onClickMonth }) {
         {/* X-axis */}
         <line x1={padding.left} y1={height - padding.bottom} x2={width - padding.right} y2={height - padding.bottom} stroke={C.border} strokeWidth="1" />
 
-        {/* Bars and line */}
         <g clipPath="url(#chartClip)">
+          {/* Bars */}
           {data.map((d, i) => {
-            const x = padding.left + (chartWidth / data.length) * i + chartWidth / (data.length * 2);
+            const x = getX(i);
             const ingH = (d.ing / maxVal) * chartHeight;
             const gasH = (d.gas / maxVal) * chartHeight;
+            const isHovered = hoveredIdx === i;
 
             return (
-              <g key={d.id}>
+              <g
+                key={d.id}
+                onMouseMove={e => handleHover(e, i)}
+                onMouseLeave={handleLeave}
+                onClick={() => onClickMonth(d.id)}
+                style={{ cursor: 'pointer' }}
+              >
+                {/* invisible hit area */}
+                <rect
+                  x={x - barWidth - barGap / 2 - 4}
+                  y={padding.top}
+                  width={barWidth * 2 + barGap + 8}
+                  height={chartHeight}
+                  fill="transparent"
+                />
                 <rect
                   x={x - barWidth - barGap / 2}
                   y={height - padding.bottom - ingH}
                   width={barWidth}
                   height={ingH}
                   fill={C.green}
-                  opacity="0.7"
-                  onClick={() => onClickMonth(d.id)}
-                  style={{ cursor: 'pointer' }}
+                  opacity={isHovered ? 1 : 0.7}
                 />
                 <rect
                   x={x - barGap / 2}
@@ -225,9 +288,7 @@ function ComboChart({ data, mode, onClickMonth }) {
                   width={barWidth}
                   height={gasH}
                   fill={C.red}
-                  opacity="0.7"
-                  onClick={() => onClickMonth(d.id)}
-                  style={{ cursor: 'pointer' }}
+                  opacity={isHovered ? 1 : 0.7}
                 />
               </g>
             );
@@ -236,10 +297,9 @@ function ComboChart({ data, mode, onClickMonth }) {
           {/* Net line */}
           <polyline
             points={data.map((d, i) => {
-              const x = padding.left + (chartWidth / data.length) * i + chartWidth / (data.length * 2);
+              const x = getX(i);
               const netH = (d.net / maxVal) * chartHeight;
-              const y = height - padding.bottom - netH;
-              return `${x},${y}`;
+              return `${x},${height - padding.bottom - netH}`;
             }).join(' ')}
             stroke="#60a5fa"
             strokeWidth="2"
@@ -249,18 +309,27 @@ function ComboChart({ data, mode, onClickMonth }) {
 
           {/* Net points */}
           {data.map((d, i) => {
-            const x = padding.left + (chartWidth / data.length) * i + chartWidth / (data.length * 2);
+            const x = getX(i);
             const netH = (d.net / maxVal) * chartHeight;
             const y = height - padding.bottom - netH;
+            const isHovered = hoveredIdx === i;
             return (
-              <circle key={`net-${d.id}`} cx={x} cy={y} r="4" fill="#60a5fa" />
+              <circle
+                key={`net-${d.id}`}
+                cx={x} cy={y}
+                r={isHovered ? 6 : 4}
+                fill="#60a5fa"
+                onMouseMove={e => handleHover(e, i)}
+                onMouseLeave={handleLeave}
+                style={{ cursor: 'pointer' }}
+              />
             );
           })}
         </g>
 
         {/* X-axis labels */}
         {data.map((d, i) => {
-          const x = padding.left + (chartWidth / data.length) * i + chartWidth / (data.length * 2);
+          const x = getX(i);
           const label = MONTH_NAMES[parseInt(d.id.slice(0, 2)) - 1] + " '" + d.id.slice(2);
           return (
             <text key={`label-${d.id}`} x={x} y={height - padding.bottom + 18} fontSize="10" fill={C.text3} textAnchor="middle">
@@ -269,19 +338,13 @@ function ComboChart({ data, mode, onClickMonth }) {
           );
         })}
 
-        {/* Legend below X-axis */}
-        <circle cx={padding.left + 80} cy={height - padding.bottom + 20} r="2" fill={C.green} />
-        <text x={padding.left + 90} y={height - padding.bottom + 24} fontSize="10" fill={C.text2}>
-          Ingresos
-        </text>
-        <circle cx={padding.left + 180} cy={height - padding.bottom + 20} r="2" fill={C.red} />
-        <text x={padding.left + 190} y={height - padding.bottom + 24} fontSize="10" fill={C.text2}>
-          Gastos
-        </text>
-        <line x1={padding.left + 260} y1={height - padding.bottom + 20} x2={padding.left + 270} y2={height - padding.bottom + 20} stroke="#60a5fa" strokeWidth="2" />
-        <text x={padding.left + 280} y={height - padding.bottom + 24} fontSize="10" fill={C.text2}>
-          Neto
-        </text>
+        {/* Legend — separated from x-axis labels */}
+        <circle cx={padding.left + 80} cy={height - padding.bottom + 36} r="4" fill={C.green} />
+        <text x={padding.left + 90} y={height - padding.bottom + 40} fontSize="10" fill={C.text2}>Ingresos</text>
+        <circle cx={padding.left + 180} cy={height - padding.bottom + 36} r="4" fill={C.red} />
+        <text x={padding.left + 190} y={height - padding.bottom + 40} fontSize="10" fill={C.text2}>Gastos</text>
+        <line x1={padding.left + 260} y1={height - padding.bottom + 36} x2={padding.left + 278} y2={height - padding.bottom + 36} stroke="#60a5fa" strokeWidth="2" />
+        <text x={padding.left + 286} y={height - padding.bottom + 40} fontSize="10" fill={C.text2}>Neto</text>
       </svg>
     </div>
   );
