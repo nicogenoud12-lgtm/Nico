@@ -55,10 +55,7 @@ export default function TarjetaCard({ tarjeta, onClick }) {
         •••• •••• •••• {tarjeta.ultimos4 || '••••'}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,.6)', marginBottom: 2 }}>TITULAR</div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{tarjeta.nombre}</div>
-        </div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{tarjeta.nombre}</div>
         <div style={{ textAlign: 'right' }}>
           {tarjeta.cierre && (
             <div>
