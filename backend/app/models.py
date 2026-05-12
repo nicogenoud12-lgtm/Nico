@@ -44,6 +44,7 @@ class Tarjeta(Base):
     ultimos4 = Column(String, nullable=False, default="")
     cierre = Column(String, nullable=False, default="")
     vence = Column(String, nullable=False, default="")
+    emisor = Column(String, nullable=True)
     color_idx = Column(Integer, nullable=False, default=0)
     color_hex = Column(String, nullable=True)
     position = Column(Integer, nullable=False, default=0)
