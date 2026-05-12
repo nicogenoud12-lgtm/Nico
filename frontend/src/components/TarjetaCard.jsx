@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { CARD_COLORS } from '../theme.js';
 import TarjetaBankLogo from './TarjetaBankLogo.jsx';
-import visaLogo from '../assets/visa.svg';
-import mastercardLogo from '../assets/mastercard.svg';
 
-const EMISOR_LOGOS = { Visa: visaLogo, Mastercard: mastercardLogo };
+const EMISOR_LOGOS = { Visa: '/visa.svg', Mastercard: '/mastercard.svg' };
 
 export default function TarjetaCard({ tarjeta, onClick }) {
   const [hovered, setHovered] = useState(false);

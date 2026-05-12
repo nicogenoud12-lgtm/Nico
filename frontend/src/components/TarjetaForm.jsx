@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { C, s, CARD_COLORS } from '../theme.js';
-import visaLogo from '../assets/visa.svg';
-import mastercardLogo from '../assets/mastercard.svg';
 
 const EMISORES = [
-  { value: 'Visa', logo: visaLogo },
-  { value: 'Mastercard', logo: mastercardLogo },
+  { value: 'Visa', logo: '/visa.svg' },
+  { value: 'Mastercard', logo: '/mastercard.svg' },
   { value: 'Cabal', logo: null },
 ];
 
