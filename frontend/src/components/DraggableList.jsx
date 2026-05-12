@@ -131,10 +131,31 @@ export default function DraggableList({ items, onReorder, onEdit, onDelete, hasC
                       >
                         <input
                           type="color"
-                          value={editVal.color && !COLOR_PALETTE.includes(editVal.color) ? editVal.color : '#ffffff'}
+                          value={editVal.color && /^#[0-9a-fA-F]{6}$/.test(editVal.color) ? editVal.color : '#ffffff'}
                           onChange={e => { setEditVal(v => ({ ...v, color: e.target.value })); setShowColorIdx(null); }}
                           style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%', padding: 0, border: 'none' }}
                         />
+                      </div>
+                      {/* Hex text input */}
+                      <div
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 5, borderTop: `1px solid ${C.border}`, paddingTop: 6 }}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <input
+                          type="text"
+                          value={editVal.color || ''}
+                          onChange={e => {
+                            const v = e.target.value;
+                            if (/^#?[0-9a-fA-F]{0,6}$/.test(v))
+                              setEditVal(ev => ({ ...ev, color: v && !v.startsWith('#') ? '#' + v : v }));
+                          }}
+                          placeholder="#rrggbb"
+                          maxLength={7}
+                          style={{ flex: 1, fontSize: 11, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text, padding: '3px 6px', fontFamily: 'monospace', outline: 'none' }}
+                        />
+                        {/^#[0-9a-fA-F]{6}$/.test(editVal.color || '') && (
+                          <div style={{ width: 16, height: 16, borderRadius: 3, background: editVal.color, border: `1px solid ${C.border2}`, flexShrink: 0 }} />
+                        )}
                       </div>
                     </div>
                   )}
