@@ -113,6 +113,24 @@ export default function TarjetaForm({ onSave, onCancel, initial }) {
             />
           </div>
         </div>
+        {/* Hex input */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+          <input
+            type="text"
+            value={colorHex}
+            onChange={e => {
+              const v = e.target.value;
+              if (/^#?[0-9a-fA-F]{0,6}$/.test(v))
+                setColorHex(v && !v.startsWith('#') ? '#' + v : v);
+            }}
+            placeholder="#rrggbb"
+            maxLength={7}
+            style={{ ...s.input, padding: '5px 10px', fontFamily: 'monospace', fontSize: 13 }}
+          />
+          {/^#[0-9a-fA-F]{6}$/.test(colorHex) && (
+            <div style={{ width: 28, height: 28, borderRadius: 6, background: colorHex, border: `1px solid ${C.border2}`, flexShrink: 0 }} />
+          )}
+        </div>
       </div>
       <div style={row}>
         <span style={lbl}>URL del logo (opcional)</span>
