@@ -287,18 +287,7 @@ function ComboChart({ data, mode, onClickMonth }) {
                 onMouseMove={e => handleHover(e, i)}
                 onMouseLeave={handleLeave}
                 onTouchStart={e => handleTouchStart(e, i)}
-                onClick={() => onClickMonth(d.id)}
-                onTouchStart={e => {
-                  e.preventDefault();
-                  if (!containerRef.current) return;
-                  const touch = e.touches[0];
-                  const rect = containerRef.current.getBoundingClientRect();
-                  setTooltip({ x: touch.clientX - rect.left, y: touch.clientY - rect.top, d: data[i] });
-                  setHoveredIdx(i);
-                }}
-                onTouchEnd={() => setTimeout(() => { setTooltip(null); setHoveredIdx(null); }, 1800)}
-                onTouchCancel={() => { setTooltip(null); setHoveredIdx(null); }}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: 'default' }}
               >
                 {/* invisible hit area */}
                 <rect
@@ -356,7 +345,7 @@ function ComboChart({ data, mode, onClickMonth }) {
                 onMouseMove={e => handleHover(e, i)}
                 onMouseLeave={handleLeave}
                 onTouchStart={e => handleTouchStart(e, i)}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: 'default' }}
               />
             );
           })}
