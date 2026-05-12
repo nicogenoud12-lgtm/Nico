@@ -358,7 +358,7 @@ export default function ScreenTarjetas({ tarjetas, txs, allMonthIds, onTarjetasC
           display: 'flex',
           flexDirection: mobile ? 'column' : 'row',
           gap: 20,
-          alignItems: 'flex-start',
+          alignItems: mobile ? 'stretch' : 'flex-start',
         }}>
           {cardsColumn}
           {listsColumn}
