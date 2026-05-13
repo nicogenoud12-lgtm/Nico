@@ -10,11 +10,16 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_WEBHOOK_SECRET: str = ""
     ALLOWED_TELEGRAM_USER_IDS: str = ""
+    TELEGRAM_BOT_OWNER_ID: int = 0  # user.id (tabla users) dueño del bot
 
     SEED_DEMO_TX: bool = False
 
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash"
+
+    JWT_SECRET: str = ""
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 días
 
     @property
     def cors_origins_list(self) -> list[str]:

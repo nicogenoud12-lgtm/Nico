@@ -1,9 +1,7 @@
 """
 Webhook conversacional de Telegram con Gemini.
 
-- Si hay pending para el chat → reusa el historial de la conversación.
-- Cada llamada manda el historial + el nuevo mensaje a Gemini.
-- Gemini decide intent (create/delete/unknown) Y genera el texto de respuesta.
+El bot opera siempre en nombre del owner definido en TELEGRAM_BOT_OWNER_ID.
 """
 from __future__ import annotations
 
@@ -21,13 +19,13 @@ from .. import crud, messages, schemas
 from ..config import settings
 from ..database import get_db
 from ..gemini import parse_telegram_message
-from ..models import PendingTransaction
+from ..models import PendingTransaction, User
 from ..telegram_client import send_message
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
 PENDING_TTL_MIN = 30
-MAX_HISTORY_TURNS = 10  # último user+model = 2 turnos
+MAX_HISTORY_TURNS = 10
 
 
 def _validate_secret(x_telegram_bot_api_secret_token: str | None) -> None:
@@ -39,6 +37,15 @@ def _validate_secret(x_telegram_bot_api_secret_token: str | None) -> None:
 def _user_allowed(user_id: int) -> bool:
     allowed = settings.allowed_user_ids
     return not allowed or user_id in allowed
+
+
+def _get_bot_owner(db: Session) -> User:
+    if not settings.TELEGRAM_BOT_OWNER_ID:
+        raise HTTPException(503, "TELEGRAM_BOT_OWNER_ID no configurado")
+    user = db.get(User, settings.TELEGRAM_BOT_OWNER_ID)
+    if not user or not user.is_active:
+        raise HTTPException(503, "Bot owner no encontrado o inactivo")
+    return user
 
 
 def _get_pending(db: Session, chat_id: int) -> PendingTransaction | None:
@@ -74,13 +81,12 @@ def _clear_pending(db: Session, chat_id: int) -> None:
         db.delete(p); db.commit()
 
 
-def _persist(db: Session, result: dict, tarjetas: list):
+def _persist(db: Session, result: dict, tarjetas: list, owner_id: int):
     tx_type = result.get("tx_type") or "g"
     raw_amt = abs(float(result.get("amt") or 0))
     cuotas = max(1, min(int(result.get("cuotas") or 1), 48))
     medio = (result.get("medio") or "Contado").strip()
 
-    # Resolver tarjeta_id si el medio coincide con una tarjeta del usuario
     medio_lower = medio.lower()
     tarjeta_id = next(
         (t.id for t in tarjetas if t.nombre.lower() == medio_lower), None
@@ -110,7 +116,7 @@ def _persist(db: Session, result: dict, tarjetas: list):
             cuota_total=cuotas if cuotas > 1 else None,
             tarjeta_id=tarjeta_id,
         )
-        tx = crud.create_transaction(db, payload, source="telegram")
+        tx = crud.create_transaction(db, payload, user_id=owner_id, source="telegram")
         if first_tx is None:
             first_tx = tx
     return first_tx
@@ -142,7 +148,9 @@ async def telegram_webhook(
         await send_message(chat_id, "Mmm no tengo permiso para anotarte gastos a vos 🙅")
         return {"ok": True, "skipped": "user not allowed"}
 
-    # ── Recuperar historial si hay pending ────────────────────
+    owner = _get_bot_owner(db)
+    owner_id = owner.id
+
     pending = _get_pending(db, chat_id)
     history: list[dict] = []
     if pending:
@@ -152,19 +160,17 @@ async def telegram_webhook(
         except json.JSONDecodeError:
             history = []
 
-    # ── Cargar cats / medios / tarjetas / reglas / txs recientes desde la DB ──
-    cats = crud.list_categories(db)
+    cats = crud.list_categories(db, owner_id)
     cats_gasto = [c.name for c in cats if c.kind == "gasto"]
     cats_ingreso = [c.name for c in cats if c.kind == "ingreso"]
-    mediums = [m.name for m in crud.list_mediums(db)]
-    tarjetas = crud.list_tarjetas(db)
+    mediums = [m.name for m in crud.list_mediums(db, owner_id)]
+    tarjetas = crud.list_tarjetas(db, owner_id)
     bot_rules = [
         {"keyword": r.keyword, "cat": r.cat, "tx_type": r.tx_type}
         for r in crud.list_bot_rules(db)
     ]
-    recent = [crud.serialize_tx(t) for t in crud.list_transactions(db)[:10]]
+    recent = [crud.serialize_tx(t) for t in crud.list_transactions(db, owner_id)[:10]]
 
-    # ── Llamar a Gemini con historial ─────────────────────────
     result = await parse_telegram_message(
         text, cats_gasto, cats_ingreso, mediums, recent,
         bot_rules=bot_rules, history=history,
@@ -176,13 +182,11 @@ async def telegram_webhook(
     intent = result.get("intent", "unknown")
     reply = (result.get("reply") or "").strip() or messages.NOT_UNDERSTOOD_GENERIC
 
-    # ── intent: unknown ───────────────────────────────────────
     if intent == "unknown":
         _clear_pending(db, chat_id)
         await send_message(chat_id, reply)
         return {"ok": True, "intent": "unknown"}
 
-    # ── intent: learn ────────────────────────────────────────
     if intent == "learn":
         _clear_pending(db, chat_id)
         keyword = (result.get("rule_keyword") or "").strip()
@@ -194,17 +198,15 @@ async def telegram_webhook(
         await send_message(chat_id, reply)
         return {"ok": True, "intent": "learn", "keyword": keyword, "cat": cat}
 
-    # ── intent: delete ────────────────────────────────────────
     if intent == "delete":
         _clear_pending(db, chat_id)
         tx_id = result.get("tx_id")
-        if not tx_id or not crud.delete_transaction(db, tx_id):
+        if not tx_id or not crud.delete_transaction(db, tx_id, owner_id):
             await send_message(chat_id, messages.NOT_FOUND_DELETE)
             return {"ok": True, "intent": "delete", "error": "not_found"}
         await send_message(chat_id, reply)
         return {"ok": True, "intent": "delete", "tx_id": tx_id}
 
-    # ── intent: create ────────────────────────────────────────
     missing = result.get("missing") or []
     new_history = history + [
         {"role": "user", "text": text},
@@ -216,7 +218,7 @@ async def telegram_webhook(
         await send_message(chat_id, reply)
         return {"ok": True, "intent": "create", "asking": missing[0]}
 
-    tx = _persist(db, result, tarjetas)
+    tx = _persist(db, result, tarjetas, owner_id)
     _clear_pending(db, chat_id)
     await send_message(chat_id, reply)
     return {"ok": True, "intent": "create", "tx_id": tx.id}

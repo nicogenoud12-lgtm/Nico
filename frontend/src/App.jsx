@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { C } from './theme.js';
+import { useAuth } from './auth/AuthContext.jsx';
 import { usePullToRefresh } from './hooks/usePullToRefresh.js';
 import { dateToMonthId, todayStr, sortMonthIdsDesc } from './utils/format.js';
 import { listTransactions } from './api/transactions.js';
@@ -11,6 +12,7 @@ import SidebarDesktop from './components/SidebarDesktop.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import MobileTopbar from './components/MobileTopbar.jsx';
 
+import ScreenLogin from './screens/ScreenLogin.jsx';
 import ScreenMovimientos from './screens/ScreenMovimientos.jsx';
 import ScreenGastos from './screens/ScreenGastos.jsx';
 import ScreenIngresos from './screens/ScreenIngresos.jsx';
@@ -30,16 +32,21 @@ function useIsMobile() {
   return mobile;
 }
 
-export default function App() {
+// AppInner se monta solo cuando el usuario está autenticado.
+// Al hacer logout se desmonta, reseteando todo el estado local.
+function AppInner() {
+  const { user, logout } = useAuth();
+  const userId = user?.id;
   const mobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
+
   const VALID_SCREENS = ['movimientos', 'gastos', 'ingresos', 'tarjetas', 'recurrentes', 'anual', 'inversiones', 'ajustes'];
   const [screen, setScreen] = useState(() => {
-    const s = localStorage.getItem('nav_screen');
+    const s = localStorage.getItem(`nav_screen:${userId}`);
     return VALID_SCREENS.includes(s) ? s : 'movimientos';
   });
   const [monthId, setMonthId] = useState(() => {
-    const m = localStorage.getItem('nav_month');
+    const m = localStorage.getItem(`nav_month:${userId}`);
     return m && /^\d{4}$/.test(m) ? m : dateToMonthId(todayStr());
   });
   const [loading, setLoading] = useState(true);
@@ -71,8 +78,8 @@ export default function App() {
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
-  useEffect(() => { localStorage.setItem('nav_screen', screen); }, [screen]);
-  useEffect(() => { localStorage.setItem('nav_month', monthId); }, [monthId]);
+  useEffect(() => { localStorage.setItem(`nav_screen:${userId}`, screen); }, [screen, userId]);
+  useEffect(() => { localStorage.setItem(`nav_month:${userId}`, monthId); }, [monthId, userId]);
 
   const cats = useMemo(() => ({
     gastos: rawCats.filter(c => c.kind === 'gasto'),
@@ -121,10 +128,7 @@ export default function App() {
   const renderScreen = () => {
     switch (screen) {
       case 'movimientos': return (
-        <ScreenMovimientos
-          {...screenProps}
-          onTxsChange={reloadTxs}
-        />
+        <ScreenMovimientos {...screenProps} onTxsChange={reloadTxs} />
       );
       case 'gastos': return <ScreenGastos {...screenProps} onTxsChange={reloadTxs} />;
       case 'ingresos': return <ScreenIngresos {...screenProps} onTxsChange={reloadTxs} />;
@@ -136,10 +140,7 @@ export default function App() {
         />
       );
       case 'recurrentes': return (
-        <ScreenRecurrentes
-          recurrentes={recurrentes}
-          onRecurrentesChange={reloadRecurrentes}
-        />
+        <ScreenRecurrentes recurrentes={recurrentes} onRecurrentesChange={reloadRecurrentes} />
       );
       case 'anual': return <ScreenAnual {...screenProps} onNavigate={setScreen} />;
       case 'inversiones': return <ScreenInversiones {...screenProps} onTxsChange={reloadTxs} />;
@@ -148,6 +149,7 @@ export default function App() {
           cats={cats} mediums={mediums}
           onCatsChange={reloadCats}
           onMediumsChange={reloadMediums}
+          onLogout={logout}
         />
       );
       default: return null;
@@ -192,4 +194,19 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+export default function App() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: C.bg, color: C.text2, fontSize: 14, fontFamily: 'Inter, sans-serif' }}>
+        Cargando…
+      </div>
+    );
+  }
+
+  if (!user) return <ScreenLogin />;
+  return <AppInner />;
 }

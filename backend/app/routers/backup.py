@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import crud, models
+from ..auth import get_current_user
 from ..database import get_db
 
 router = APIRouter(prefix="/backup", tags=["backup"])
@@ -34,7 +35,7 @@ def _serialize_rec(r: models.Recurrente) -> dict:
 
 
 def _serialize_month(m: models.Month) -> dict:
-    return {"id": m.id, "label": m.label, "short": m.short, "saldo_inicial": m.saldo_inicial, "cuotas": m.cuotas}
+    return {"id": m.mmyy, "label": m.label, "short": m.short, "saldo_inicial": m.saldo_inicial, "cuotas": m.cuotas}
 
 
 def _serialize_tx_full(tx: models.Transaction) -> dict:
@@ -50,72 +51,101 @@ def _serialize_tx_full(tx: models.Transaction) -> dict:
 
 
 @router.get("/export")
-def export_backup(db: Session = Depends(get_db)):
+def export_backup(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     return {
         "version": 1,
         "exported_at": datetime.utcnow().isoformat() + "Z",
-        "categories": [_serialize_cat(c) for c in crud.list_categories(db)],
-        "mediums": [_serialize_med(m) for m in crud.list_mediums(db)],
-        "tarjetas": [_serialize_tarj(t) for t in crud.list_tarjetas(db)],
-        "recurrentes": [_serialize_rec(r) for r in crud.list_recurrentes(db)],
-        "months": [_serialize_month(m) for m in crud.list_months(db)],
-        "transactions": [_serialize_tx_full(t) for t in crud.list_transactions(db)],
+        "categories": [_serialize_cat(c) for c in crud.list_categories(db, user.id)],
+        "mediums": [_serialize_med(m) for m in crud.list_mediums(db, user.id)],
+        "tarjetas": [_serialize_tarj(t) for t in crud.list_tarjetas(db, user.id)],
+        "recurrentes": [_serialize_rec(r) for r in crud.list_recurrentes(db, user.id)],
+        "months": [_serialize_month(m) for m in crud.list_months(db, user.id)],
+        "transactions": [_serialize_tx_full(t) for t in crud.list_transactions(db, user.id)],
     }
 
 
 @router.post("/import")
-def import_backup(payload: dict, db: Session = Depends(get_db)):
+def import_backup(payload: dict, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     if payload.get("version") != 1:
         raise HTTPException(400, "Versión de backup no soportada")
     try:
-        # Borrar todo en orden inverso de FK
-        db.query(models.Transaction).delete()
-        db.query(models.Month).delete()
-        db.query(models.Recurrente).delete()
-        db.query(models.Tarjeta).delete()
-        db.query(models.Medium).delete()
-        db.query(models.Category).delete()
+        # Borrar datos existentes del usuario actual
+        db.query(models.Transaction).filter_by(user_id=user.id).delete()
+        db.query(models.Month).filter_by(user_id=user.id).delete()
+        db.query(models.Recurrente).filter_by(user_id=user.id).delete()
+        db.query(models.Tarjeta).filter_by(user_id=user.id).delete()
+        db.query(models.Medium).filter_by(user_id=user.id).delete()
+        db.query(models.Category).filter_by(user_id=user.id).delete()
         db.flush()
 
         for c in payload.get("categories", []):
             db.add(models.Category(
-                id=c.get("id"), name=c["name"], color=c.get("color", "#b0aaaa"),
+                name=c["name"], color=c.get("color", "#b0aaaa"),
                 kind=c.get("kind", "gasto"), position=c.get("position", 0),
+                user_id=user.id,
             ))
+        db.flush()
+
+        # Rebuild mediums y mapear ids viejos→nuevos para mantener FKs
+        med_map: dict[int, int] = {}
         for m in payload.get("mediums", []):
-            db.add(models.Medium(id=m.get("id"), name=m["name"], position=m.get("position", 0)))
+            new_m = models.Medium(name=m["name"], position=m.get("position", 0), user_id=user.id)
+            db.add(new_m)
+            db.flush()
+            if m.get("id"):
+                med_map[m["id"]] = new_m.id
+
+        cat_map: dict[int, int] = {}
+        db.flush()
+        cats_in_db = db.query(models.Category).filter_by(user_id=user.id).all()
+        # Mapear por nombre para FK de transactions (cat_id puede diferir)
+        cat_by_name = {c.name: c.id for c in cats_in_db}
+
+        tarj_map: dict[int, int] = {}
         for t in payload.get("tarjetas", []):
-            db.add(models.Tarjeta(
-                id=t.get("id"), nombre=t["nombre"], banco=t.get("banco", ""),
-                ultimos4=t.get("ultimos4", ""), cierre=t.get("cierre", ""),
-                vence=t.get("vence", ""), color_idx=t.get("color_idx", 0),
-                position=t.get("position", 0),
-                logo_url=t.get("logo_url"),
-            ))
+            new_t = models.Tarjeta(
+                nombre=t["nombre"], banco=t.get("banco", ""), ultimos4=t.get("ultimos4", ""),
+                cierre=t.get("cierre", ""), vence=t.get("vence", ""),
+                color_idx=t.get("color_idx", 0), position=t.get("position", 0),
+                logo_url=t.get("logo_url"), user_id=user.id,
+            )
+            db.add(new_t)
+            db.flush()
+            if t.get("id"):
+                tarj_map[t["id"]] = new_t.id
+
         for r in payload.get("recurrentes", []) or payload.get("suscripciones", []):
             db.add(models.Recurrente(
-                id=r.get("id"), nombre=r["nombre"], monto=r.get("monto", 0),
+                nombre=r["nombre"], monto=r.get("monto", 0),
                 moneda=r.get("moneda", "ARS"), frecuencia=r.get("frecuencia", "mensual"),
                 vencimiento=r.get("vencimiento"), estado=r.get("estado", "activo"),
                 logo_url=r.get("logo_url"), position=r.get("position", 0),
+                user_id=user.id,
             ))
+
         for mo in payload.get("months", []):
             db.add(models.Month(
-                id=mo["id"], label=mo.get("label", ""), short=mo.get("short", ""),
+                user_id=user.id, mmyy=mo["id"],
+                label=mo.get("label", ""), short=mo.get("short", ""),
                 saldo_inicial=mo.get("saldo_inicial", 0), cuotas=mo.get("cuotas", 0),
             ))
+
         for tx in payload.get("transactions", []):
             d = tx["date"]
             if isinstance(d, str):
                 d = date_type.fromisoformat(d)
             db.add(models.Transaction(
-                id=tx.get("id"), month=tx["month"], date=d, desc=tx.get("desc", ""),
-                cat_id=tx.get("cat_id"), medio_id=tx.get("medio_id"), tarjeta_id=tx.get("tarjeta_id"),
+                user_id=user.id,
+                month=tx["month"], date=d, desc=tx.get("desc", ""),
+                cat_id=cat_by_name.get(tx.get("cat", "")) if tx.get("cat") else tx.get("cat_id"),
+                medio_id=med_map.get(tx.get("medio_id", 0), tx.get("medio_id")),
+                tarjeta_id=tarj_map.get(tx.get("tarjeta_id", 0)) if tx.get("tarjeta_id") else None,
                 amt=tx.get("amount", tx.get("amt", 0)), type=tx.get("type", "g"),
                 currency=tx.get("currency", "ARS"),
                 cuota_num=tx.get("cuota_num"), cuota_total=tx.get("cuota_total"),
                 source=tx.get("source", "web"),
             ))
+
         db.commit()
     except Exception as e:
         db.rollback()
@@ -127,7 +157,7 @@ def import_backup(payload: dict, db: Session = Depends(get_db)):
             "categories": len(payload.get("categories", [])),
             "mediums": len(payload.get("mediums", [])),
             "tarjetas": len(payload.get("tarjetas", [])),
-            "suscripciones": len(payload.get("suscripciones", [])),
+            "suscripciones": len(payload.get("recurrentes", payload.get("suscripciones", []))),
             "months": len(payload.get("months", [])),
             "transactions": len(payload.get("transactions", [])),
         },
