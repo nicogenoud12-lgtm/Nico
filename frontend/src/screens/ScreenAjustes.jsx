@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { C, s } from '../theme.js';
+import { useAuth } from '../auth/AuthContext.jsx';
+import { authApi } from '../api/auth.js';
 import DraggableList from '../components/DraggableList.jsx';
-import Divider from '../components/Divider.jsx';
 import {
   createCategory, updateCategory, deleteCategory, reorderCategories,
   createMedium, updateMedium, deleteMedium, reorderMediums,
@@ -19,7 +20,137 @@ function Section({ title, children }) {
   );
 }
 
-export default function ScreenAjustes({ cats, mediums, onCatsChange, onMediumsChange }) {
+function SectionInvitations() {
+  const { user } = useAuth();
+  const [invitations, setInvitations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
+  const [note, setNote] = useState('');
+
+  const load = async () => {
+    try {
+      const res = await authApi.listInvitations();
+      setInvitations(res.data);
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    setCreating(true);
+    try {
+      await authApi.createInvitation(note.trim() || null);
+      setNote('');
+      await load();
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Error al crear invitación');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleCopy = (code, id) => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('¿Eliminar esta invitación?')) return;
+    try {
+      await authApi.deleteInvitation(id);
+      setInvitations(prev => prev.filter(i => i.id !== id));
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Error al eliminar');
+    }
+  };
+
+  const statusColor = (st) => st === 'disponible' ? C.green : st === 'usada' ? C.text2 : C.red;
+
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
+      {/* Crear nueva invitación */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <input
+          style={{ ...s.input, flex: 1 }}
+          placeholder="Nota (ej: para Nico)"
+          value={note}
+          onChange={e => setNote(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleCreate()}
+        />
+        <button
+          onClick={handleCreate}
+          disabled={creating}
+          style={{ ...s.btnPrimary, opacity: creating ? 0.6 : 1, whiteSpace: 'nowrap' }}
+        >
+          + Generar
+        </button>
+      </div>
+
+      {/* Lista */}
+      {loading ? (
+        <div style={{ fontSize: 13, color: C.text2 }}>Cargando…</div>
+      ) : invitations.length === 0 ? (
+        <div style={{ fontSize: 13, color: C.text3, textAlign: 'center', padding: '12px 0' }}>
+          No hay invitaciones todavía
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {invitations.map(inv => (
+            <div
+              key={inv.id}
+              style={{
+                background: C.surface2, borderRadius: 8, padding: '10px 12px',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <span style={{ fontSize: 12, fontFamily: 'monospace', color: C.text, wordBreak: 'break-all' }}>
+                    {inv.code}
+                  </span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 600, color: statusColor(inv.status),
+                    textTransform: 'uppercase', letterSpacing: '.04em', flexShrink: 0,
+                  }}>
+                    {inv.status}
+                  </span>
+                </div>
+                {inv.note && (
+                  <div style={{ fontSize: 11, color: C.text2 }}>{inv.note}</div>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                {inv.status === 'disponible' && (
+                  <button
+                    onClick={() => handleCopy(inv.code, inv.id)}
+                    style={{ ...s.btnGhost, fontSize: 11, padding: '5px 10px' }}
+                  >
+                    {copiedId === inv.id ? 'Copiado ✓' : 'Copiar'}
+                  </button>
+                )}
+                {inv.status !== 'usada' && (
+                  <button
+                    onClick={() => handleDelete(inv.id)}
+                    style={{ ...s.btnIcon, color: C.red, fontSize: 14 }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function ScreenAjustes({ cats, mediums, onCatsChange, onMediumsChange, onLogout }) {
+  const { user } = useAuth();
   const [backupStatus, setBackupStatus] = useState('');
   const [importing, setImporting] = useState(false);
 
@@ -47,7 +178,7 @@ export default function ScreenAjustes({ cats, mediums, onCatsChange, onMediumsCh
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      if (!window.confirm('Esto reemplazará todos los datos. ¿Continuar?')) return;
+      if (!window.confirm('Esto reemplazará todos tus datos. ¿Continuar?')) return;
       setImporting(true);
       setBackupStatus('Importando…');
       try {
@@ -114,6 +245,28 @@ export default function ScreenAjustes({ cats, mediums, onCatsChange, onMediumsCh
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: '16px' }}>
+
+      {/* Cuenta */}
+      <Section title="Cuenta">
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{user?.username}</div>
+            {user?.is_admin && (
+              <div style={{ fontSize: 11, color: C.accent, fontWeight: 600, marginTop: 2 }}>Admin</div>
+            )}
+          </div>
+          <button onClick={onLogout} style={{ ...s.btnGhost, fontSize: 13 }}>
+            Cerrar sesión
+          </button>
+        </div>
+      </Section>
+
+      {/* Invitaciones — solo admin */}
+      {user?.is_admin && (
+        <Section title="Invitaciones">
+          <SectionInvitations />
+        </Section>
+      )}
 
       <Section title="Backup">
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px' }}>

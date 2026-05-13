@@ -128,7 +128,7 @@ class RecurrenteRead(RecurrenteBase):
 
 # ── Month ────────────────────────────────────────────────────
 class MonthRead(BaseModel):
-    id: str
+    id: str = Field(alias="mmyy")
     label: str
     short: str
     saldoInicial: float = Field(alias="saldo_inicial")

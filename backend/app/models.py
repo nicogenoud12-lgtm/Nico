@@ -6,29 +6,57 @@ from sqlalchemy.orm import relationship
 from .database import Base
 
 
-class Category(Base):
-    __tablename__ = "categories"
-    __table_args__ = (UniqueConstraint("name", "kind", name="uq_categories_name_kind"),)
+class User(Base):
+    __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
+    username = Column(String, nullable=False, unique=True, index=True)
+    password_hash = Column(String, nullable=False)
+    is_admin = Column(Boolean, nullable=False, default=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class Invitation(Base):
+    __tablename__ = "invitations"
+
+    id = Column(Integer, primary_key=True)
+    code = Column(String, nullable=False, unique=True, index=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
+    used_at = Column(DateTime, nullable=True)
+    used_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    note = Column(String, nullable=True)
+
+
+class Category(Base):
+    __tablename__ = "categories"
+    __table_args__ = (UniqueConstraint("user_id", "name", "kind", name="uq_categories_user_name_kind"),)
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String, nullable=False)
     color = Column(String, nullable=False, default="#b0aaaa")
-    kind = Column(String, nullable=False, default="gasto")  # gasto | ingreso
+    kind = Column(String, nullable=False, default="gasto")  # gasto | ingreso | inversion
     position = Column(Integer, nullable=False, default=0)
 
 
 class Medium(Base):
     __tablename__ = "mediums"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_mediums_user_name"),)
 
     id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False, unique=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String, nullable=False)
     position = Column(Integer, nullable=False, default=0)
 
 
 class Month(Base):
     __tablename__ = "months"
 
-    id = Column(String, primary_key=True)  # MMYY, ej "0326"
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    mmyy = Column(String, primary_key=True)  # MMYY, ej "0326"
     label = Column(String, nullable=False)
     short = Column(String, nullable=False)
     saldo_inicial = Column(Float, nullable=False, default=0.0)
@@ -39,6 +67,7 @@ class Tarjeta(Base):
     __tablename__ = "tarjetas"
 
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     nombre = Column(String, nullable=False)
     banco = Column(String, nullable=False, default="")
     ultimos4 = Column(String, nullable=False, default="")
@@ -55,6 +84,7 @@ class Recurrente(Base):
     __tablename__ = "suscripciones"
 
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     nombre = Column(String, nullable=False)
     monto = Column(Float, nullable=False)
     moneda = Column(String, nullable=False, default="ARS")  # ARS | USD
@@ -72,6 +102,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     month = Column(String, nullable=False, index=True)
     date = Column(Date, nullable=False, index=True)
     desc = Column(String, nullable=False, default="")
