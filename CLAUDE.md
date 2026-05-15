@@ -1,11 +1,10 @@
 # Nico — App de Gastos
 
-Aplicación de finanzas personales con frontend web dark mode + bot de Telegram conversacional con Gemini.
+Aplicación de finanzas personales con frontend web dark mode + bot de Telegram conversacional con Gemini. Soporta múltiples usuarios con datos completamente aislados.
 
 ## Repositorio
 
 - **GitHub**: `nicogenoud12-lgtm/Nico`
-- **Rama de desarrollo**: `claude/refactor-html-app-6Qyuy`
 - **Rama default**: `main` (protegida — requiere PR para mergear, no push directo)
 
 ## Arquitectura
@@ -13,32 +12,44 @@ Aplicación de finanzas personales con frontend web dark mode + bot de Telegram 
 ```
 Nico/
 ├── frontend/        # Vite + React, dark mode, responsive
+│   └── src/
+│       ├── auth/            # AuthContext.jsx — manejo de sesión JWT
+│       ├── api/             # client.js, auth.js, transactions.js, etc.
+│       └── screens/         # ScreenLogin + 8 pantallas de la app
 ├── backend/         # FastAPI + SQLAlchemy + SQLite
 │   ├── app/
-│   │   ├── routers/ # categories, mediums, transactions, tarjetas,
-│   │   │            # suscripciones, backup, telegram, months
+│   │   ├── routers/         # auth, categories, mediums, transactions,
+│   │   │                    # tarjetas, recurrentes, backup, telegram, months
+│   │   ├── auth.py          # bcrypt hash + JWT HS256 + get_current_user dep
 │   │   ├── gemini.py        # cliente Gemini API (REST + httpx)
-│   │   ├── models.py        # Category, Medium, Transaction, Tarjeta,
-│   │   │                    # Suscripcion, PendingTransaction, BotRule
-│   │   ├── crud.py
+│   │   ├── models.py        # User, Invitation, Category, Medium, Transaction,
+│   │   │                    # Tarjeta, Recurrente, Month, PendingTransaction, BotRule
+│   │   ├── crud.py          # todas las funciones reciben user_id y filtran
 │   │   ├── database.py      # WAL mode + busy_timeout
-│   │   └── routers/telegram.py  # webhook conversacional
-│   └── .env                 # GEMINI_API_KEY, TELEGRAM_BOT_TOKEN, etc.
-├── docker-compose.yml
+│   │   └── config.py        # Settings con JWT_SECRET, TELEGRAM_BOT_OWNER_ID
+│   ├── alembic/versions/    # 001_inversion_kind, 002_multiuser_auth
+│   ├── scripts/
+│   │   └── set_admin_password.py  # CLI para setear password del admin
+│   └── .env                 # GEMINI_API_KEY, TELEGRAM_BOT_TOKEN, JWT_SECRET, etc.
+├── docker-compose.yml       # env_file: ./backend/.env
 └── CLAUDE.md
 ```
 
-### Frontend (6 pantallas)
+### Frontend (9 pantallas)
 
-- Movimientos · Gastos · Ingresos · Tarjetas · Suscripciones · Anual · Ajustes
+- **Login** (sin sesión) → tabs Entrar / Crear cuenta con código de invitación
+- **App** (con sesión): Movimientos · Gastos · Ingresos · Tarjetas · Suscripciones · Anual · Inversiones · Ajustes
 - Sidebar fijo desktop (≥768px) / hamburguesa drawer mobile
 - Theme tokens en `frontend/src/theme.js` (`C.bg`, `C.surface`, etc.)
 - API client base: `VITE_API_BASE_URL` → `https://apigastos.genoud-nube.com.ar`
+- Token JWT guardado en `localStorage('auth_token')`; axios lo inyecta en cada request
 
 ### Backend
 
-- **Endpoints CRUD**: `/categories`, `/mediums`, `/tarjetas`, `/suscripciones`, `/transactions`, `/months`
-- **Backup**: `GET /backup/export` y `POST /backup/import` (atómico)
+- **Auth**: `POST /auth/login`, `POST /auth/register`, `GET /auth/me`
+- **Invitaciones (admin)**: `GET/POST /auth/invitations`, `DELETE /auth/invitations/{id}`
+- **Endpoints CRUD** (todos requieren Bearer token): `/categories`, `/mediums`, `/tarjetas`, `/recurrentes`, `/transactions`, `/months`
+- **Backup**: `GET /backup/export` y `POST /backup/import` (scoped al usuario autenticado)
 - **Telegram**: `POST /telegram/webhook` (con header `X-Telegram-Bot-Api-Secret-Token`)
 
 ### Base de datos
@@ -46,55 +57,71 @@ Nico/
 SQLite en volumen Docker `backend_data`, con:
 - WAL mode (`PRAGMA journal_mode=WAL`) para escrituras concurrentes
 - `busy_timeout=5000` ms
-- Migraciones idempotentes en `init_db()` al startup
-- `Category` tiene UniqueConstraint compuesta `(name, kind)` — permite "Otros" gasto e ingreso a la vez
+- Migraciones vía Alembic (corren automáticamente al iniciar el contenedor)
+- `Category` tiene UniqueConstraint compuesta `(user_id, name, kind)`
+- `Medium` tiene UniqueConstraint `(user_id, name)`
+- `Month` tiene PK compuesta `(user_id, mmyy)` — serializado como `id` en el JSON para no romper el frontend
+- `Transaction`, `Category`, `Medium`, `Tarjeta`, `Recurrente` tienen `user_id FK → users.id ON DELETE CASCADE`
+- `PendingTransaction` y `BotRule` no tienen user_id (solo usa el bot, que es del owner)
+
+### Multi-usuario
+
+- Cada usuario tiene sus propias categorías, medios, tarjetas, suscripciones, transacciones y meses
+- **Signup por invitación**: el admin genera un código desde Ajustes → lo pasa al amigo → el amigo se registra con username + password + código
+- **Anti-IDOR**: todas las queries filtran por `user_id` del token; nunca se usa `db.get(Model, id)` sin filtrar
+- Al registrarse un usuario nuevo se le siembran las categorías/medios/meses default automáticamente
+- `localStorage` namespaciado por user_id: `nav_screen:{id}`, `nav_month:{id}`
 
 ## Bot de Telegram (con Gemini API)
 
 **No usa parser regex** — todo el entendimiento es vía Gemini.
+**Opera siempre en nombre del owner** definido en `TELEGRAM_BOT_OWNER_ID` (su user.id en tabla users).
 
 ### Flujo
 
-1. Webhook recibe mensaje
-2. Carga desde DB: cats (gasto + ingreso), medios, bot_rules, últimas 10 txs
-3. Recupera historial conversacional del `PendingTransaction` (formato multi-turno: `{"role": "user|model", "text": "..."}`)
+1. Webhook recibe mensaje → valida secret token + `ALLOWED_TELEGRAM_USER_IDS`
+2. Carga desde DB: cats/medios/tarjetas/bot_rules/últimas 10 txs del owner
+3. Recupera historial conversacional del `PendingTransaction`
 4. Llama a Gemini con system prompt + historial + nuevo mensaje
 5. Gemini devuelve JSON con `intent` ∈ {create, delete, learn, unknown} + `reply` natural
 6. Branch según intent:
-   - `create` completo → persiste tx, limpia pending, envía reply
-   - `create` con `missing` → guarda historial actualizado, envía reply pidiendo lo que falta
-   - `delete` → borra tx por `tx_id` de la lista de últimas
-   - `learn` → guarda regla en `bot_rules` (keyword normalizada lowercase + sin acentos)
-   - `unknown` → responde naturalmente (saludos, preguntas, etc.)
+   - `create` completo → persiste tx en nombre del owner, limpia pending
+   - `create` con `missing` → guarda historial, pide lo que falta
+   - `delete` → borra tx del owner por `tx_id`
+   - `learn` → guarda regla en `bot_rules`
+   - `unknown` → responde naturalmente
 
-### Reglas personalizadas (bot_rules)
+### Gemini — detalles técnicos
 
-Tabla SQLite con `keyword` (PK) → `cat` + `tx_type`. Inyectadas en cada prompt para que Gemini las aplique automáticamente.
+- Timeout: **45 segundos** (Gemini 2.5 Flash con thinking puede tardar 20-60s)
+- `thinkingConfig: {thinkingBudget: 1024}` — limita el thinking a ~1-3s sin perder calidad
+- `responseMimeType: "application/json"` + `responseSchema` (structured output)
+- Si Gemini falla → bot responde `GEMINI_ERROR`, no carga nada
 
-Ejemplo:
-- Usuario: "LUTOVA es comida" → `intent=learn`, regla guardada
-- Usuario: "lutova 5000 mp" → Gemini aplica la regla, crea gasto en Comida
-
-### Variables de entorno
+### Variables de entorno (`backend/.env`)
 
 ```
-GEMINI_API_KEY=AIza...
-GEMINI_MODEL=gemini-2.5-flash
+# DB
+DATABASE_URL=sqlite:////app/data/gastos.db
+
+# CORS
+CORS_ORIGINS=https://gastos.genoud-nube.com.ar,http://10.0.0.69:3000
+
+# Telegram
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_WEBHOOK_SECRET=...
 ALLOWED_TELEGRAM_USER_IDS=...
+TELEGRAM_BOT_OWNER_ID=1        # user.id del dueño del bot (tu usuario admin)
+
+# Gemini
+GEMINI_API_KEY=AIza...
+GEMINI_MODEL=gemini-2.5-flash
+
+# JWT
+JWT_SECRET=...                  # generar con: openssl rand -hex 32
+JWT_ALGORITHM=HS256
+JWT_EXPIRE_MINUTES=10080        # 7 días
 ```
-
-`docker-compose.yml` carga el `.env` del backend vía `env_file: - ./backend/.env`.
-
-## Decisiones técnicas
-
-- **Sin fallback regex**: si Gemini falla → bot responde `GEMINI_ERROR` y NO carga nada (predecible vs. fallback silencioso)
-- **Cats/medios desde DB**: Gemini recibe la lista actual del usuario en cada prompt
-- **`tx.cat`/`tx.medio` por nombre**: el frontend identifica por `name` (no por id/slug)
-- **Pending unificado**: `PendingTransaction.partial_json` guarda `{"history": [...]}` (lista de turnos), no un dict de campos parseados
-- **Schema response Gemini**: structured output con `responseSchema` (OpenAPI 3.0 subset, tipos UPPERCASE)
-- **`reply` siempre generado por Gemini**: nunca se usan templates hardcodeados (`messages.py` existe solo como fallback de errores)
 
 ## Deploy (CasaOS local)
 
@@ -105,6 +132,7 @@ ssh genoud@familia
 cd /home/genoud/Nico
 git pull origin main
 docker compose up -d --build
+# Alembic corre automáticamente al iniciar el contenedor
 ```
 
 URLs públicas (vía Cloudflare Tunnel):
@@ -112,9 +140,31 @@ URLs públicas (vía Cloudflare Tunnel):
 - API: https://apigastos.genoud-nube.com.ar
 - Webhook Telegram: https://apigastos.genoud-nube.com.ar/telegram/webhook
 
+### Primera vez (setup inicial post-migración)
+
+```bash
+# Setear contraseña del admin (solo la primera vez)
+docker compose exec -it backend python scripts/set_admin_password.py
+# Username: admin (Enter para default)
+# Contraseña: la que quieras (mín. 6 chars)
+```
+
+Después entrar a la app, ir a **Ajustes → Invitaciones** para generar códigos para otros usuarios.
+
+## Decisiones técnicas
+
+- **Auth**: JWT HS256 con `python-jose`, hashing con `bcrypt` directo (sin passlib — incompatibilidad con bcrypt 4.1+)
+- **Sin fallback regex en bot**: si Gemini falla → `GEMINI_ERROR`, no carga nada
+- **Cats/medios desde DB**: Gemini recibe la lista actual del usuario en cada prompt
+- **`tx.cat`/`tx.medio` por nombre**: el frontend identifica por `name` (no por id)
+- **Pending unificado**: `PendingTransaction.partial_json` guarda `{"history": [...]}` (lista de turnos)
+- **Schema response Gemini**: structured output con `responseSchema` (tipos UPPERCASE)
+- **`reply` siempre generado por Gemini**: `messages.py` solo como fallback de errores
+- **Cron recurrentes**: APScheduler itera sobre todos los usuarios activos a las 00:05
+
 ## Workflow de cambios
 
-1. Trabajar en `claude/refactor-html-app-6Qyuy`
-2. Commit + push a esa rama
+1. Crear rama nueva desde `main`
+2. Commit + push
 3. Crear PR a `main` vía GitHub MCP (no se puede push directo a main)
 4. Mergear PR → deployar al servidor con `git pull origin main && docker compose up -d --build`
