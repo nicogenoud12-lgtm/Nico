@@ -14,7 +14,12 @@ const BANK_INITIALS = {
 };
 
 function MiniCardBadge({ tarjeta }) {
-  const [c1, c2] = CARD_COLORS[tarjeta.color_idx % CARD_COLORS.length];
+  const [imgError, setImgError] = useState(false);
+  const validHex = tarjeta.color_hex && /^#[0-9a-fA-F]{6}$/.test(tarjeta.color_hex);
+  const [c1, c2] = validHex
+    ? [tarjeta.color_hex, tarjeta.color_hex]
+    : CARD_COLORS[tarjeta.color_idx % CARD_COLORS.length];
+  const showImg = tarjeta.logo_url && !imgError;
   const key = tarjeta.banco?.toLowerCase() || '';
   const initials = BANK_INITIALS[key] || (tarjeta.banco ? tarjeta.banco.slice(0, 2).toUpperCase() : '?');
   return (
@@ -22,9 +27,20 @@ function MiniCardBadge({ tarjeta }) {
       width: 38, height: 26, borderRadius: 5, flexShrink: 0,
       background: `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 9, fontWeight: 700, color: '#fff', letterSpacing: '-0.3px',
+      overflow: 'hidden',
     }}>
-      {initials}
+      {showImg ? (
+        <img
+          src={tarjeta.logo_url}
+          alt={tarjeta.banco || 'logo'}
+          onError={() => setImgError(true)}
+          style={{ width: 22, height: 22, objectFit: 'contain' }}
+        />
+      ) : (
+        <span style={{ fontSize: 9, fontWeight: 700, color: '#fff', letterSpacing: '-0.3px' }}>
+          {initials}
+        </span>
+      )}
     </div>
   );
 }
