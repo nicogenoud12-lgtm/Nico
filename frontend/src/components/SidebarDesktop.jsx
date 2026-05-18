@@ -1,16 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { C } from '../theme.js';
+import { NAV_ITEMS } from '../navItems.js';
 
-const NAV_ITEMS = [
-  { id: 'movimientos', label: 'Movimientos', icon: '↕' },
-  { id: 'gastos', label: 'Gastos', icon: '↓' },
-  { id: 'ingresos', label: 'Ingresos', icon: '↑' },
-  { id: 'tarjetas', label: 'Tarjetas', icon: '▪' },
-  { id: 'recurrentes', label: 'Recurrentes', icon: '↻' },
-  { id: 'anual', label: 'Anual', icon: '▦' },
-  { id: 'inversiones', label: 'Inversiones', icon: '◈' },
-  { id: 'ajustes', label: 'Ajustes', icon: '⚙' },
-];
+function NavIcon({ item, active }) {
+  const [err, setErr] = useState(false);
+  if (!err) {
+    return (
+      <img
+        src={`/icons/${item.id}.svg`}
+        alt=""
+        onError={() => setErr(true)}
+        style={{
+          width: 18, height: 18, flexShrink: 0,
+          filter: active ? 'brightness(0) invert(1)' : 'brightness(0) invert(0.55)',
+        }}
+      />
+    );
+  }
+  return (
+    <span style={{ fontSize: 16, width: 20, textAlign: 'center', flexShrink: 0 }}>
+      {item.icon}
+    </span>
+  );
+}
 
 export default function SidebarDesktop({ screen, onNav }) {
   return (
@@ -24,26 +36,29 @@ export default function SidebarDesktop({ screen, onNav }) {
         Gastos
       </div>
       <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-        {NAV_ITEMS.map(item => (
-          <button
-            key={item.id}
-            onClick={() => onNav(item.id)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '9px 12px', borderRadius: 8,
-              background: screen === item.id ? C.surface2 : 'transparent',
-              border: 'none',
-              color: screen === item.id ? C.text : C.text2,
-              fontFamily: 'inherit', fontSize: 14,
-              fontWeight: screen === item.id ? 600 : 400,
-              cursor: 'pointer', textAlign: 'left',
-              transition: 'background .15s, color .15s',
-            }}
-          >
-            <span style={{ fontSize: 16, width: 20, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
+        {NAV_ITEMS.map(item => {
+          const active = screen === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onNav(item.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '9px 12px', borderRadius: 8,
+                background: active ? C.surface2 : 'transparent',
+                border: 'none',
+                color: active ? C.text : C.text2,
+                fontFamily: 'inherit', fontSize: 14,
+                fontWeight: active ? 600 : 400,
+                cursor: 'pointer', textAlign: 'left',
+                transition: 'background .15s, color .15s',
+              }}
+            >
+              <NavIcon item={item} active={active} />
+              {item.label}
+            </button>
+          );
+        })}
       </nav>
     </div>
   );
