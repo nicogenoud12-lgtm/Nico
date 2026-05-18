@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { C } from '../theme.js';
 import { fmtMoney, fmtDate } from '../utils/format.js';
+import CatIconBadge from './CatIconBadge.jsx';
 
 export default function TxRow({ tx, cats, onClick }) {
   const [hovered, setHovered] = useState(false);
@@ -23,14 +24,7 @@ export default function TxRow({ tx, cats, onClick }) {
         cursor: onClick ? 'pointer' : 'default',
       }}
     >
-      <div style={{
-        width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-        background: color + '22',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'background .15s',
-      }}>
-        <div style={{ width: 10, height: 10, borderRadius: '50%', background: color }} />
-      </div>
+      <CatIconBadge cat={tx.cat} color={color} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 500, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {tx.desc || tx.cat}
