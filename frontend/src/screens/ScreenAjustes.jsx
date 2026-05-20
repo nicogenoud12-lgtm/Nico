@@ -20,6 +20,70 @@ function Section({ title, children }) {
   );
 }
 
+function SectionUsuarios() {
+  const { user: me } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    try {
+      const res = await authApi.listUsers();
+      setUsers(res.data);
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleDelete = async (u) => {
+    if (!window.confirm(`¿Eliminar la cuenta de "${u.username}"?\n\nEsto borrará TODOS sus datos (transacciones, categorías, medios, tarjetas, suscripciones). Esta acción no se puede deshacer.`)) return;
+    if (!window.confirm(`Confirmación final: ¿estás seguro de eliminar a "${u.username}" y todos sus datos?`)) return;
+    try {
+      await authApi.deleteUser(u.id);
+      setUsers(prev => prev.filter(x => x.id !== u.id));
+    } catch (err) {
+      alert(err?.response?.data?.detail || 'Error al eliminar usuario');
+    }
+  };
+
+  return (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
+      {loading ? (
+        <div style={{ padding: 16, fontSize: 13, color: C.text2 }}>Cargando…</div>
+      ) : users.map((u, i) => (
+        <div
+          key={u.id}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '12px 16px',
+            borderBottom: i < users.length - 1 ? `1px solid ${C.border}` : 'none',
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: u.id === me?.id ? 600 : 400, color: C.text }}>
+              {u.username}
+              {u.id === me?.id && <span style={{ fontSize: 11, color: C.text3, marginLeft: 6 }}>(vos)</span>}
+            </div>
+            <div style={{ fontSize: 11, color: C.text3, marginTop: 1, display: 'flex', gap: 6 }}>
+              {u.is_admin && <span style={{ color: C.accent, fontWeight: 600 }}>Admin</span>}
+              {!u.is_active && <span style={{ color: C.red }}>Inactivo</span>}
+            </div>
+          </div>
+          {u.id !== me?.id && (
+            <button
+              onClick={() => handleDelete(u)}
+              style={{ ...s.btnIcon, color: C.red, fontSize: 14 }}
+              title="Eliminar cuenta y todos sus datos"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SectionInvitations() {
   const { user } = useAuth();
   const [invitations, setInvitations] = useState([]);
@@ -261,11 +325,16 @@ export default function ScreenAjustes({ cats, mediums, onCatsChange, onMediumsCh
         </div>
       </Section>
 
-      {/* Invitaciones — solo admin */}
+      {/* Usuarios + Invitaciones — solo admin */}
       {user?.is_admin && (
-        <Section title="Invitaciones">
-          <SectionInvitations />
-        </Section>
+        <>
+          <Section title="Usuarios">
+            <SectionUsuarios />
+          </Section>
+          <Section title="Invitaciones">
+            <SectionInvitations />
+          </Section>
+        </>
       )}
 
       <Section title="Backup">
