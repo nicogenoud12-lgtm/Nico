@@ -91,6 +91,7 @@ function SectionInvitations() {
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [note, setNote] = useState('');
+  const [showUsed, setShowUsed] = useState(false);
 
   const load = async () => {
     try {
@@ -134,6 +135,54 @@ function SectionInvitations() {
 
   const statusColor = (st) => st === 'disponible' ? C.green : st === 'usada' ? C.text2 : C.red;
 
+  const available = invitations.filter(i => i.status === 'disponible');
+  const used = invitations.filter(i => i.status !== 'disponible');
+
+  const InvRow = ({ inv }) => (
+    <div
+      key={inv.id}
+      style={{
+        background: C.surface2, borderRadius: 8, padding: '10px 12px',
+        display: 'flex', alignItems: 'center', gap: 8,
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+          <span style={{ fontSize: 12, fontFamily: 'monospace', color: C.text, wordBreak: 'break-all' }}>
+            {inv.code}
+          </span>
+          <span style={{
+            fontSize: 10, fontWeight: 600, color: statusColor(inv.status),
+            textTransform: 'uppercase', letterSpacing: '.04em', flexShrink: 0,
+          }}>
+            {inv.status}
+          </span>
+        </div>
+        {inv.note && (
+          <div style={{ fontSize: 11, color: C.text2 }}>{inv.note}</div>
+        )}
+      </div>
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+        {inv.status === 'disponible' && (
+          <button
+            onClick={() => handleCopy(inv.code, inv.id)}
+            style={{ ...s.btnGhost, fontSize: 11, padding: '5px 10px' }}
+          >
+            {copiedId === inv.id ? 'Copiado ✓' : 'Copiar'}
+          </button>
+        )}
+        {inv.status !== 'usada' && (
+          <button
+            onClick={() => handleDelete(inv.id)}
+            style={{ ...s.btnIcon, color: C.red, fontSize: 14 }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
       {/* Crear nueva invitación */}
@@ -154,60 +203,43 @@ function SectionInvitations() {
         </button>
       </div>
 
-      {/* Lista */}
       {loading ? (
         <div style={{ fontSize: 13, color: C.text2 }}>Cargando…</div>
-      ) : invitations.length === 0 ? (
-        <div style={{ fontSize: 13, color: C.text3, textAlign: 'center', padding: '12px 0' }}>
-          No hay invitaciones todavía
-        </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {invitations.map(inv => (
-            <div
-              key={inv.id}
-              style={{
-                background: C.surface2, borderRadius: 8, padding: '10px 12px',
-                display: 'flex', alignItems: 'center', gap: 8,
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <span style={{ fontSize: 12, fontFamily: 'monospace', color: C.text, wordBreak: 'break-all' }}>
-                    {inv.code}
-                  </span>
-                  <span style={{
-                    fontSize: 10, fontWeight: 600, color: statusColor(inv.status),
-                    textTransform: 'uppercase', letterSpacing: '.04em', flexShrink: 0,
-                  }}>
-                    {inv.status}
-                  </span>
-                </div>
-                {inv.note && (
-                  <div style={{ fontSize: 11, color: C.text2 }}>{inv.note}</div>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                {inv.status === 'disponible' && (
-                  <button
-                    onClick={() => handleCopy(inv.code, inv.id)}
-                    style={{ ...s.btnGhost, fontSize: 11, padding: '5px 10px' }}
-                  >
-                    {copiedId === inv.id ? 'Copiado ✓' : 'Copiar'}
-                  </button>
-                )}
-                {inv.status !== 'usada' && (
-                  <button
-                    onClick={() => handleDelete(inv.id)}
-                    style={{ ...s.btnIcon, color: C.red, fontSize: 14 }}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
+        <>
+          {/* Disponibles */}
+          {available.length === 0 ? (
+            <div style={{ fontSize: 13, color: C.text3, textAlign: 'center', padding: '8px 0' }}>
+              No hay invitaciones disponibles
             </div>
-          ))}
-        </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {available.map(inv => <InvRow key={inv.id} inv={inv} />)}
+            </div>
+          )}
+
+          {/* Usadas/expiradas — colapsables */}
+          {used.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <button
+                onClick={() => setShowUsed(v => !v)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: 11, color: C.text3, fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', gap: 4, padding: '4px 0',
+                }}
+              >
+                <span style={{ transition: 'transform .2s', display: 'inline-block', transform: showUsed ? 'rotate(90deg)' : 'none' }}>▶</span>
+                {used.length} usada{used.length > 1 ? 's' : ''} / expirada{used.length > 1 ? 's' : ''}
+              </button>
+              {showUsed && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                  {used.map(inv => <InvRow key={inv.id} inv={inv} />)}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

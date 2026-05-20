@@ -234,4 +234,8 @@ def delete_user(
         if admin_count <= 1:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="No se puede eliminar el último admin")
     db.delete(user)
+    # Borrar la invitación que fue usada para crear esta cuenta
+    inv = db.query(models.Invitation).filter(models.Invitation.used_by == user_id).first()
+    if inv:
+        db.delete(inv)
     db.commit()
