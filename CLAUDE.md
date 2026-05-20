@@ -12,9 +12,18 @@ Aplicación de finanzas personales con frontend web dark mode + bot de Telegram 
 ```
 Nico/
 ├── frontend/        # Vite + React, dark mode, responsive
+│   ├── public/
+│   │   └── icons/
+│   │       ├── {id}.svg         # íconos del sidebar (movimientos, gastos, etc.)
+│   │       └── cat/{name}.svg   # íconos de categorías (comida, ocio, etc.)
 │   └── src/
 │       ├── auth/            # AuthContext.jsx — manejo de sesión JWT
 │       ├── api/             # client.js, auth.js, transactions.js, etc.
+│       ├── components/
+│       │   ├── CatIconBadge.jsx  # ícono SVG coloreado por categoría (mask-image)
+│       │   ├── SidebarDesktop.jsx / Sidebar.jsx  # usan navItems.js + NavIcon SVG
+│       │   └── TxRow.jsx         # usa CatIconBadge
+│       ├── navItems.js       # array NAV_ITEMS compartido entre ambos sidebars
 │       └── screens/         # ScreenLogin + 8 pantallas de la app
 ├── backend/         # FastAPI + SQLAlchemy + SQLite
 │   ├── app/
@@ -40,6 +49,8 @@ Nico/
 - **Login** (sin sesión) → tabs Entrar / Crear cuenta con código de invitación
 - **App** (con sesión): Movimientos · Gastos · Ingresos · Tarjetas · Suscripciones · Anual · Inversiones · Ajustes
 - Sidebar fijo desktop (≥768px) / hamburguesa drawer mobile
+- **Íconos del sidebar**: SVGs en `frontend/public/icons/{id}.svg` (movimientos, gastos, ingresos, tarjetas, recurrentes, anual, inversiones, ajustes). Si no existe el archivo → fallback a símbolo de texto. Activo: blanco; inactivo: gris (CSS filter).
+- **Íconos de categorías**: SVGs en `frontend/public/icons/cat/{name}.svg`, coloreados con el color de la categoría vía CSS `mask-image`. Mapeo nombre→archivo en `CatIconBadge.jsx`. Si no hay ícono → punto de color como fallback.
 - Theme tokens en `frontend/src/theme.js` (`C.bg`, `C.surface`, etc.)
 - API client base: `VITE_API_BASE_URL` → `https://apigastos.genoud-nube.com.ar`
 - Token JWT guardado en `localStorage('auth_token')`; axios lo inyecta en cada request
@@ -161,6 +172,13 @@ Después entrar a la app, ir a **Ajustes → Invitaciones** para generar código
 - **Schema response Gemini**: structured output con `responseSchema` (tipos UPPERCASE)
 - **`reply` siempre generado por Gemini**: `messages.py` solo como fallback de errores
 - **Cron recurrentes**: APScheduler itera sobre todos los usuarios activos a las 00:05
+- **Íconos SVG sidebar**: CSS `filter: brightness(0) invert(X)` sobre `<img>` — requiere SVGs monocromáticos
+- **Íconos SVG categorías**: CSS `mask-image` + `background-color` — el SVG define la forma, el color lo pone el background con el color de la categoría. Fallback a punto de color si no hay ícono mapeado.
+- **MiniCardBadge (tarjetas)**: muestra `logo_url` de la tarjeta si existe, sino iniciales de texto
+
+### Agregar ícono a una categoría nueva
+1. Poner el `.svg` (monocromático) en `frontend/public/icons/cat/`
+2. Agregar la entrada en `CAT_ICON_MAP` dentro de `frontend/src/components/CatIconBadge.jsx`
 
 ## Workflow de cambios
 
