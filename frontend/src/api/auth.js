@@ -21,4 +21,8 @@ export const authApi = {
     api.post('/auth/invitations', { note, expires_at }),
 
   deleteInvitation: (id) => api.delete(`/auth/invitations/${id}`),
+
+  listUsers: () => api.get('/auth/users'),
+
+  deleteUser: (id) => api.delete(`/auth/users/${id}`),
 };

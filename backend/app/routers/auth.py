@@ -207,3 +207,31 @@ def delete_invitation(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="No se puede eliminar una invitación ya usada")
     db.delete(inv)
     db.commit()
+
+
+@router.get("/users", response_model=list[UserRead])
+def list_users(
+    db: Session = Depends(get_db),
+    _admin: models.User = Depends(get_admin_user),
+):
+    return db.query(models.User).order_by(models.User.id).all()
+
+
+@router.delete("/users/{user_id}", status_code=204)
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_admin_user),
+):
+    if user_id == admin.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="No podés eliminar tu propia cuenta")
+    user = db.get(models.User, user_id)
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+    # Verificar que no sea el último admin
+    if user.is_admin:
+        admin_count = db.query(models.User).filter(models.User.is_admin == True, models.User.is_active == True).count()
+        if admin_count <= 1:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="No se puede eliminar el último admin")
+    db.delete(user)
+    db.commit()
