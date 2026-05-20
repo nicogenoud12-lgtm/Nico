@@ -19,12 +19,11 @@ log = logging.getLogger(__name__)
 # ── Datos iniciales por usuario ──────────────────────────────
 DEFAULT_CATEGORIES_GASTO = [
     ("Art. Higiene", "#80c8c0"), ("Combustible", "#d4876b"), ("Comida", "#e8b86d"),
-    ("Dólar", "#5bc87a"), ("Donación", "#a0c890"), ("Gimnasio", "#88c070"),
-    ("Impuestos", "#c8a080"), ("Muebles", "#c8904a"), ("Ocio", "#a78bda"),
-    ("Otros", "#b0aaaa"), ("PC", "#d470a0"), ("Peluquería", "#d0a8d0"),
-    ("Recurrentes", "#e88ba0"), ("Regalo", "#d490c0"), ("Ropa", "#f0c060"),
-    ("Salud", "#6bbf8e"), ("Suplementos", "#98d0a0"), ("Suscripciones", "#e8c060"),
-    ("Tarjeta", "#50c878"), ("Veterinaria", "#70a8d8"), ("Viajes", "#60b4b4"),
+    ("Gimnasio", "#88c070"), ("Impuestos", "#c8a080"), ("Ocio", "#a78bda"),
+    ("Otros", "#b0aaaa"), ("Peluquería", "#d0a8d0"), ("Recurrentes", "#e88ba0"),
+    ("Regalo", "#d490c0"), ("Ropa", "#f0c060"), ("Salud", "#6bbf8e"),
+    ("Suscripciones", "#e8c060"), ("Tarjeta", "#50c878"), ("Veterinaria", "#70a8d8"),
+    ("Viajes", "#60b4b4"),
 ]
 DEFAULT_CATEGORIES_INGRESO = [
     ("Ingresos", "#2d7a52"), ("Fábrica", "#2d7a52"),
