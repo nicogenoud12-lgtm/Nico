@@ -4,6 +4,7 @@ import Modal from '../components/Modal.jsx';
 import RecurrenteForm from '../components/RecurrenteForm.jsx';
 import { fmtARS, fmtUSD } from '../utils/format.js';
 import { createRecurrente, updateRecurrente, deleteRecurrente } from '../api/recurrentes.js';
+import { useHideAmounts } from '../HideAmountsContext.jsx';
 
 function LogoCircle({ url, nombre }) {
   const [errored, setErrored] = useState(false);
@@ -31,17 +32,18 @@ function LogoCircle({ url, nombre }) {
 
 function TotalCard({ label, monthly, annual, isUsd }) {
   const fmt = isUsd ? fmtUSD : fmtARS;
+  const { hidden } = useHideAmounts();
   return (
     <div style={s.card({ padding: 16, flex: 1, minWidth: 220 })}>
       <div style={s.label}>{label}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
         <div>
           <div style={{ fontSize: 11, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Mensual</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: C.text }}>{fmt(monthly)}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: C.text }}>{hidden ? '••••' : fmt(monthly)}</div>
         </div>
         <div>
           <div style={{ fontSize: 11, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Anual</div>
-          <div style={{ fontSize: 16, fontWeight: 600, color: C.text2 }}>{fmt(annual)}</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: C.text2 }}>{hidden ? '••••' : fmt(annual)}</div>
         </div>
       </div>
     </div>
@@ -209,6 +211,7 @@ export default function ScreenRecurrentes({ recurrentes, onRecurrentesChange }) 
 function RecRow({ rec, dolar, dolarLoading, dolarError, last, onEdit, onDelete }) {
   const isUsd = rec.moneda === 'USD';
   const isActive = rec.estado === 'activo';
+  const { hidden } = useHideAmounts();
 
   return (
     <div
@@ -237,10 +240,10 @@ function RecRow({ rec, dolar, dolarLoading, dolarError, last, onEdit, onDelete }
         {isUsd ? (
           <>
             <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
-              {fmtUSD(rec.monto)}
+              {hidden ? '••••' : fmtUSD(rec.monto)}
             </div>
             <div style={{ fontSize: 11, color: C.text3, marginTop: 2, lineHeight: 1.4 }}>
-              {dolarLoading ? 'Cargando…' :
+              {hidden ? null : dolarLoading ? 'Cargando…' :
                dolarError || !dolar ? '-' :
                <>
                  <div>Of: {fmtARS(rec.monto * dolar.oficial)}</div>
@@ -250,7 +253,7 @@ function RecRow({ rec, dolar, dolarLoading, dolarError, last, onEdit, onDelete }
           </>
         ) : (
           <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
-            {fmtARS(rec.monto)}
+            {hidden ? '••••' : fmtARS(rec.monto)}
           </div>
         )}
       </div>

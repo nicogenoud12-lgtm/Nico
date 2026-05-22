@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { C } from '../theme.js';
 import Modal from './Modal.jsx';
 import { fmtMoney, fmtDate, todayStr } from '../utils/format.js';
+import { useHideAmounts } from '../HideAmountsContext.jsx';
 
 export default function CuotaDetailModal({ open, tx, allTxs, onClose }) {
   const cuotas = useMemo(() => {
@@ -12,6 +13,8 @@ export default function CuotaDetailModal({ open, tx, allTxs, onClose }) {
       .filter(t => t.cuota_total > 1 && key(t) === k)
       .sort((a, b) => a.cuota_num - b.cuota_num);
   }, [tx, allTxs]);
+
+  const { hidden } = useHideAmounts();
 
   if (!tx) return null;
 
@@ -32,7 +35,7 @@ export default function CuotaDetailModal({ open, tx, allTxs, onClose }) {
         }}>
           <div style={{ flex: 1, textAlign: 'center' }}>
             <div style={{ fontSize: 10, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Total</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{fmtMoney(total)}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{hidden ? '••••' : fmtMoney(total)}</div>
           </div>
           <div style={{ width: 1, background: C.border }} />
           <div style={{ flex: 1, textAlign: 'center' }}>
@@ -75,7 +78,7 @@ export default function CuotaDetailModal({ open, tx, allTxs, onClose }) {
                   <div style={{ fontSize: 11, color: C.text3 }}>{fmtDate(c.date)}</div>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: isCurrent ? C.accent : C.text }}>
-                  {fmtMoney(c.amount, c.currency || 'ARS')}
+                  {hidden ? '••••' : fmtMoney(c.amount, c.currency || 'ARS')}
                 </div>
                 {isPast && (
                   <div style={{ fontSize: 11, color: C.green }}>✓</div>

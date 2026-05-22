@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 import { C } from '../theme.js';
 import { dateToMonthId, monthIdLabel, fmtARS, pctChange } from '../utils/format.js';
 import DonutChart from '../components/DonutChart.jsx';
+import { useHideAmounts } from '../HideAmountsContext.jsx';
 
 const MONTH_IDS = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -73,7 +74,8 @@ function useIsMobile() {
 
 function KpiCard({ label, value, color, deltaPct, deltaLabel, progress, maxProgress, isPercentage }) {
   const progressPct = maxProgress > 0 ? (progress / maxProgress) * 100 : 0;
-  const displayValue = isPercentage ? value : fmtARS(value);
+  const { hidden } = useHideAmounts();
+  const displayValue = isPercentage ? value : (hidden ? '••••' : fmtARS(value));
   return (
     <div style={{
       background: C.surface,
@@ -147,7 +149,7 @@ function VariationChip({ pct }) {
   );
 }
 
-function ComboChart({ data, mode, onClickMonth }) {
+function ComboChart({ data, mode, onClickMonth, hidden }) {
   const width = 600;
   const height = 220;
   const padding = { top: 16, right: 20, bottom: 28, left: 60 };
@@ -233,15 +235,15 @@ function ComboChart({ data, mode, onClickMonth }) {
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
             <span style={{ color: C.text3 }}>Ingresos</span>
-            <span style={{ color: C.green, fontWeight: 600 }}>{fmtARS(tooltip.d.ing)}</span>
+            <span style={{ color: C.green, fontWeight: 600 }}>{hidden ? '••••' : fmtARS(tooltip.d.ing)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 3 }}>
             <span style={{ color: C.text3 }}>Gastos</span>
-            <span style={{ color: C.red, fontWeight: 600 }}>{fmtARS(tooltip.d.gas)}</span>
+            <span style={{ color: C.red, fontWeight: 600 }}>{hidden ? '••••' : fmtARS(tooltip.d.gas)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 3 }}>
             <span style={{ color: C.text3 }}>Neto</span>
-            <span style={{ color: '#60a5fa', fontWeight: 600 }}>{fmtARS(tooltip.d.net)}</span>
+            <span style={{ color: '#60a5fa', fontWeight: 600 }}>{hidden ? '••••' : fmtARS(tooltip.d.net)}</span>
           </div>
         </div>
       )}
@@ -383,6 +385,7 @@ function ComboChart({ data, mode, onClickMonth }) {
 }
 
 function SavingsDonut({ ing, gas, net, pctAhorro }) {
+  const { hidden } = useHideAmounts();
   const data = [
     { name: 'Ahorro', value: net, color: C.green },
     { name: 'Gasto', value: gas, color: C.red },
@@ -412,7 +415,7 @@ function SavingsDonut({ ing, gas, net, pctAhorro }) {
           <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.color }} />
             <span style={{ flex: 1, fontSize: 11, color: C.text2 }}>{item.name}</span>
-            <span style={{ fontSize: 11, color: C.text, fontWeight: 600 }}>{fmtARS(item.value)}</span>
+            <span style={{ fontSize: 11, color: C.text, fontWeight: 600 }}>{hidden ? '••••' : fmtARS(item.value)}</span>
           </div>
         ))}
       </div>
@@ -451,6 +454,7 @@ function SummaryRow({ icon, label, value, color }) {
 export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
   const dashboardRef = useRef(null);
   const [hoveredIdx, setHoveredIdx] = useState(null);
+  const { hidden } = useHideAmounts();
   const [selectedYear, setSelectedYear] = useState(() => {
     const current = new Date().getFullYear().toString();
     return current;
@@ -686,7 +690,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
                 </button>
               </div>
             </div>
-            <ComboChart data={chartData} mode={mode} onClickMonth={handleClickMonth} />
+            <ComboChart data={chartData} mode={mode} onClickMonth={handleClickMonth} hidden={hidden} />
           </div>
 
           {/* Data Table */}
@@ -728,9 +732,9 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
                   {monthIdLabel(d.id)}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px' }}>
-                  <MobileMetric label="Ingreso" value={fmtARS(d.ing)} color={C.green} />
-                  <MobileMetric label="Gasto" value={fmtARS(d.gas)} color={C.red} />
-                  <MobileMetric label="Neto" value={fmtARS(d.net)} color={d.net >= 0 ? C.green : C.red} bold />
+                  <MobileMetric label="Ingreso" value={hidden ? '••••' : fmtARS(d.ing)} color={C.green} />
+                  <MobileMetric label="Gasto" value={hidden ? '••••' : fmtARS(d.gas)} color={C.red} />
+                  <MobileMetric label="Neto" value={hidden ? '••••' : fmtARS(d.net)} color={d.net >= 0 ? C.green : C.red} bold />
                   <MobileMetric label="Ahorro" value={d.ing > 0 ? d.pctAhorro.toFixed(1) + '%' : '—'} color={C.text} />
                   <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
                     <span style={{ fontSize: 10, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Variación</span>
@@ -759,13 +763,13 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
                   {monthIdLabel(d.id)}
                 </span>
                 <span style={{ fontSize: 13, color: C.green, borderRight: `1px solid ${C.border}`, paddingRight: 12 }}>
-                  {fmtARS(d.ing)}
+                  {hidden ? '••••' : fmtARS(d.ing)}
                 </span>
                 <span style={{ fontSize: 13, color: C.red, borderRight: `1px solid ${C.border}`, paddingRight: 12 }}>
-                  {fmtARS(d.gas)}
+                  {hidden ? '••••' : fmtARS(d.gas)}
                 </span>
                 <span style={{ fontSize: 13, color: d.net >= 0 ? C.green : C.red, fontWeight: 600, borderRight: `1px solid ${C.border}`, paddingRight: 12 }}>
-                  {fmtARS(d.net)}
+                  {hidden ? '••••' : fmtARS(d.net)}
                 </span>
                 <span style={{ fontSize: 13, color: C.text, borderRight: `1px solid ${C.border}`, paddingRight: 12 }}>
                   {d.ing > 0 ? d.pctAhorro.toFixed(1) + '%' : '—'}
@@ -833,7 +837,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
                     Total ingresos
                   </div>
                   <div style={{ fontSize: 16, color: C.green, fontWeight: 700, marginTop: 4 }}>
-                    {fmtARS(ytd.totalIng)}
+                    {hidden ? '••••' : fmtARS(ytd.totalIng)}
                   </div>
                 </div>
                 <div>
@@ -841,7 +845,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
                     Total gastos
                   </div>
                   <div style={{ fontSize: 16, color: C.red, fontWeight: 700, marginTop: 4 }}>
-                    {fmtARS(ytd.totalGas)}
+                    {hidden ? '••••' : fmtARS(ytd.totalGas)}
                   </div>
                 </div>
                 <div>
@@ -849,7 +853,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
                     Total inversiones
                   </div>
                   <div style={{ fontSize: 16, color: '#5a9cd4', fontWeight: 700, marginTop: 4 }}>
-                    {fmtARS(ytd.totalInv)}
+                    {hidden ? '••••' : fmtARS(ytd.totalInv)}
                   </div>
                 </div>
                 <div style={{ paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
@@ -857,7 +861,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
                     Neto acumulado
                   </div>
                   <div style={{ fontSize: 16, color: ytd.netAcum >= 0 ? C.green : C.red, fontWeight: 700, marginTop: 4 }}>
-                    {fmtARS(ytd.netAcum)}
+                    {hidden ? '••••' : fmtARS(ytd.netAcum)}
                   </div>
                 </div>
                 <div>

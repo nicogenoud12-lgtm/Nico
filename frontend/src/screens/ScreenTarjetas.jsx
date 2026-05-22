@@ -7,6 +7,7 @@ import Modal from '../components/Modal.jsx';
 import { fmtMoney, fmtDate, todayStr, dateToMonthId } from '../utils/format.js';
 import { createTarjeta, updateTarjeta, deleteTarjeta } from '../api/tarjetas.js';
 import { deleteTransaction } from '../api/transactions.js';
+import { useHideAmounts } from '../HideAmountsContext.jsx';
 
 const BANK_INITIALS = {
   galicia: 'G', santander: 'S', macro: 'M', bbva: 'B', icbc: 'I',
@@ -87,6 +88,7 @@ function cuotaGroupKey(tx) {
 
 function TxRow({ tx, tarjetas, last, subtitle }) {
   const tj = tarjetaForTx(tx, tarjetas);
+  const { hidden } = useHideAmounts();
   return (
     <HoverRow last={last}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -98,7 +100,7 @@ function TxRow({ tx, tarjetas, last, subtitle }) {
           <div style={{ fontSize: 11, color: C.text3 }}>{subtitle}</div>
         </div>
         <div style={{ fontSize: 13, fontWeight: 600, color: tx.type === 'i' ? C.green : C.text }}>
-          {fmtMoney(tx.amount, tx.currency || 'ARS')}
+          {hidden ? '••••' : fmtMoney(tx.amount, tx.currency || 'ARS')}
         </div>
       </div>
     </HoverRow>
@@ -163,6 +165,7 @@ function UnifiedMovementsList({ tarjetas, txs }) {
 function UnifiedCuotasList({ tarjetas, txs, onTxsChange }) {
   const today = todayStr();
   const [expandedKey, setExpandedKey] = useState(null);
+  const { hidden } = useHideAmounts();
 
   const groups = useMemo(() => {
     const tarjetaIds = new Set(tarjetas.map(t => t.id));
@@ -191,7 +194,7 @@ function UnifiedCuotasList({ tarjetas, txs, onTxsChange }) {
 
   return (
     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
-      <PanelHeader title={`Cuotas pendientes${groups.length ? ` · ${fmtMoney(totalRest)}` : ''}`} />
+      <PanelHeader title={`Cuotas pendientes${groups.length ? ` · ${hidden ? '••••' : fmtMoney(totalRest)}` : ''}`} />
       {groups.length === 0 ? (
         <div style={{ padding: '20px 14px', textAlign: 'center', color: C.text3, fontSize: 12 }}>Sin cuotas pendientes</div>
       ) : groups.map((group, gi) => {
@@ -225,8 +228,8 @@ function UnifiedCuotasList({ tarjetas, txs, onTxsChange }) {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{fmtMoney(first.amount, first.currency || 'ARS')}</div>
-                  <div style={{ fontSize: 10, color: C.text3 }}>total {fmtMoney(group.total)}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{hidden ? '••••' : fmtMoney(first.amount, first.currency || 'ARS')}</div>
+                  <div style={{ fontSize: 10, color: C.text3 }}>total {hidden ? '••••' : fmtMoney(group.total)}</div>
                 </div>
                 <div style={{ fontSize: 12, color: C.text3, transition: 'transform .2s', transform: isExpanded ? 'rotate(180deg)' : 'none' }}>▾</div>
               </div>
@@ -251,7 +254,7 @@ function UnifiedCuotasList({ tarjetas, txs, onTxsChange }) {
                       </div>
                     </div>
                     <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>
-                      {fmtMoney(tx.amount, tx.currency || 'ARS')}
+                      {hidden ? '••••' : fmtMoney(tx.amount, tx.currency || 'ARS')}
                     </div>
                   </div>
                 ))}

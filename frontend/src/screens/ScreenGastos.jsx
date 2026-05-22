@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { C, s } from '../theme.js';
 import { dateToMonthId, sortMonthIdsDesc, pctChange, fmtARS, monthIdLabel } from '../utils/format.js';
+import { useHideAmounts } from '../HideAmountsContext.jsx';
 import DonutChart from '../components/DonutChart.jsx';
 import FAB from '../components/FAB.jsx';
 import Modal from '../components/Modal.jsx';
@@ -110,6 +111,7 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
     }
   };
 
+  const { hidden } = useHideAmounts();
   const displayIdx = hoveredIdx !== null ? hoveredIdx : (bycat.length > 0 ? 0 : null);
   const displayItem = displayIdx !== null ? bycat[displayIdx] : null;
   const hoveredCatName = hoveredIdx !== null ? bycat[hoveredIdx]?.name : null;
@@ -126,7 +128,7 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
           </span>
         </div>
         <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 1 }}>
-          {fmtARS(displayItem.value)}
+          {hidden ? '••••' : fmtARS(displayItem.value)}
         </div>
         <div style={{ fontSize: 12, color: C.text3, fontWeight: 600 }}>
           {pctOf.toFixed(1)}%
@@ -157,7 +159,7 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 24, fontWeight: 700, color: C.text, marginBottom: 4 }}>{fmtARS(total)}</div>
+        <div style={{ fontSize: 24, fontWeight: 700, color: C.text, marginBottom: 4 }}>{hidden ? '••••' : fmtARS(total)}</div>
         <PctBadge pct={pct} />
       </div>
 

@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { C } from '../theme.js';
 import { fmtMoney, fmtDate } from '../utils/format.js';
 import CatIconBadge from './CatIconBadge.jsx';
+import { useHideAmounts } from '../HideAmountsContext.jsx';
 
 export default function TxRow({ tx, cats, onClick }) {
   const [hovered, setHovered] = useState(false);
+  const { hidden } = useHideAmounts();
   const list = tx.type === 'i' ? cats.ingresos : cats.gastos;
   const cat = list.find(c => c.name === tx.cat);
   const color = cat?.color || (tx.type === 'i' ? C.green : C.red);
@@ -45,7 +47,7 @@ export default function TxRow({ tx, cats, onClick }) {
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: tx.type === 'i' ? C.green : C.text }}>
-          {tx.type === 'i' ? '+' : ''}{fmtMoney(tx.amount, tx.currency || 'ARS')}
+          {hidden ? '••••' : `${tx.type === 'i' ? '+' : ''}${fmtMoney(tx.amount, tx.currency || 'ARS')}`}
         </div>
         <div style={{ fontSize: 11, color: C.text3, marginTop: 1 }}>{fmtDate(tx.date)}</div>
       </div>
