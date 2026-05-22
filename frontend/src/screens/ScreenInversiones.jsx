@@ -24,10 +24,14 @@ function PctBadge({ pct }) {
 
 export default function ScreenInversiones({ txs, cats, mediums, monthId, allMonthIds, setMonthId, onTxsChange }) {
   const [hoveredIdx, setHoveredIdx] = useState(null);
+  const [selectedCat, setSelectedCat] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editTx, setEditTx] = useState(null);
 
   const sorted = useMemo(() => sortMonthIdsDesc(allMonthIds), [allMonthIds]);
+
+  React.useEffect(() => { setSelectedCat(null); }, [monthId]);
+
   const monthTxs = useMemo(
     () => txs.filter(t => dateToMonthId(t.date) === monthId && t.cat_kind === 'inversion'),
     [txs, monthId]
@@ -68,13 +72,22 @@ export default function ScreenInversiones({ txs, cats, mediums, monthId, allMont
   );
 
   const grouped = useMemo(() => {
+    const base = selectedCat ? sortedTxs.filter(t => t.cat === selectedCat) : sortedTxs;
     const byDate = {};
-    sortedTxs.forEach(t => {
+    base.forEach(t => {
       byDate[t.date] = byDate[t.date] || [];
       byDate[t.date].push(t);
     });
     return Object.entries(byDate).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [sortedTxs]);
+  }, [sortedTxs, selectedCat]);
+
+  const selectedIdx = selectedCat !== null ? bycat.findIndex(c => c.name === selectedCat) : null;
+
+  const handleSelectCat = (idx) => {
+    const name = bycat[idx]?.name;
+    setSelectedCat(prev => prev === name ? null : name);
+    setHoveredIdx(null);
+  };
 
   // Cats override: TxForm muestra cats.gastos para type='g'.
   // Le pasamos inversiones en ese slot para que el dropdown solo ofrezca
@@ -122,22 +135,21 @@ export default function ScreenInversiones({ txs, cats, mediums, monthId, allMont
   };
 
   const { hidden } = useHideAmounts();
-  const hoveredCatName = hoveredIdx !== null ? bycat[hoveredIdx]?.name : null;
 
   const renderCenter = () => {
-    if (hoveredIdx !== null && bycat[hoveredIdx]) {
-      const item = bycat[hoveredIdx];
-      const pctOf = total > 0 ? (item.value / total) * 100 : 0;
+    const activeItem = hoveredIdx !== null ? bycat[hoveredIdx] : (selectedCat ? bycat.find(c => c.name === selectedCat) : null);
+    if (activeItem) {
+      const pctOf = total > 0 ? (activeItem.value / total) * 100 : 0;
       return (
         <div style={{ textAlign: 'center', maxWidth: 130 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 3 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.color }} />
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: activeItem.color }} />
             <span style={{ fontSize: 11, color: C.text2, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 100 }}>
-              {item.name}
+              {activeItem.name}
             </span>
           </div>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 1 }}>
-            {hidden ? '••••' : fmtARS(item.value)}
+            {hidden ? '••••' : fmtARS(activeItem.value)}
           </div>
           <div style={{ fontSize: 12, color: C.text3, fontWeight: 600 }}>
             {pctOf.toFixed(1)}%
@@ -193,29 +205,34 @@ export default function ScreenInversiones({ txs, cats, mediums, monthId, allMont
             thickness={32}
             hoveredIdx={hoveredIdx}
             onHover={setHoveredIdx}
+            selectedIdx={selectedIdx}
+            onClickSlice={handleSelectCat}
             renderCenter={renderCenter}
           />
           <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column', gap: 2 }}>
             {bycat.map((item, i) => {
               const pctOf = total > 0 ? (item.value / total) * 100 : 0;
               const isHovered = hoveredIdx === i;
-              const isDimmed = hoveredIdx !== null && !isHovered;
+              const isSelected = selectedCat === item.name;
+              const isDimmed = selectedCat !== null ? !isSelected : (hoveredIdx !== null && !isHovered);
               return (
                 <div
                   key={item.name}
-                  onMouseEnter={() => setHoveredIdx(i)}
-                  onMouseLeave={() => setHoveredIdx(null)}
+                  onMouseEnter={() => !selectedCat && setHoveredIdx(i)}
+                  onMouseLeave={() => !selectedCat && setHoveredIdx(null)}
+                  onClick={() => handleSelectCat(i)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: '7px 10px', borderRadius: 7,
-                    background: isHovered ? C.surface2 : 'transparent',
-                    opacity: isDimmed ? 0.4 : 1,
-                    transition: 'background .15s, opacity .15s',
+                    background: isSelected || isHovered ? C.surface2 : 'transparent',
+                    opacity: isDimmed ? 0.3 : 1,
+                    transition: 'background .15s, opacity .2s',
                     cursor: 'pointer',
+                    borderLeft: isSelected ? `3px solid ${item.color}` : '3px solid transparent',
                   }}
                 >
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: 13, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <span style={{ flex: 1, fontSize: 13, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isSelected ? 600 : 400 }}>
                     {item.name}
                   </span>
                   <span style={{ fontSize: 13, color: C.text2, fontWeight: 600, flexShrink: 0 }}>
@@ -241,8 +258,19 @@ export default function ScreenInversiones({ txs, cats, mediums, monthId, allMont
             fontSize: 11, fontWeight: 600, color: C.text3,
             textTransform: 'uppercase', letterSpacing: '.06em',
             margin: '24px 4px 10px',
+            display: 'flex', alignItems: 'center', gap: 8,
           }}>
-            Movimientos del mes
+            {selectedCat ? (
+              <>
+                <span>{selectedCat}</span>
+                <button
+                  onClick={() => setSelectedCat(null)}
+                  style={{ background: C.surface2, border: 'none', borderRadius: 4, color: C.text3, fontSize: 10, fontWeight: 700, padding: '2px 6px', cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  ✕ Todos
+                </button>
+              </>
+            ) : 'Movimientos del mes'}
           </div>
           <div style={{
             background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
@@ -260,18 +288,9 @@ export default function ScreenInversiones({ txs, cats, mediums, monthId, allMont
                     weekday: 'short', day: 'numeric', month: 'short',
                   })}
                 </div>
-                {dayTxs.map(tx => {
-                  const isDimmed = hoveredCatName !== null && tx.cat !== hoveredCatName;
-                  return (
-                    <div key={tx.id} style={{ opacity: isDimmed ? 0.35 : 1, transition: 'opacity .15s' }}>
-                      <TxRow
-                        tx={tx}
-                        cats={cats}
-                        onClick={handleRowClick}
-                      />
-                    </div>
-                  );
-                })}
+                {dayTxs.map(tx => (
+                  <TxRow key={tx.id} tx={tx} cats={cats} onClick={handleRowClick} />
+                ))}
               </React.Fragment>
             ))}
           </div>

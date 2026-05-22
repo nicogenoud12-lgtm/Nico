@@ -9,6 +9,8 @@ export default function DonutChart({
   renderCenter,
   hoveredIdx: controlledHover,
   onHover,
+  selectedIdx,
+  onClickSlice,
 }) {
   const [internalHover, setInternalHover] = useState(null);
   const hoveredIdx = controlledHover !== undefined ? controlledHover : internalHover;
@@ -31,6 +33,7 @@ export default function DonutChart({
 
   const cx = size / 2;
   const cy = size / 2;
+  const hasSelection = selectedIdx !== null && selectedIdx !== undefined;
 
   return (
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
@@ -39,21 +42,26 @@ export default function DonutChart({
         {[...slices].reverse().map((s, ri) => {
           const i = slices.length - 1 - ri;
           const isHovered = hoveredIdx === i;
-          const isDimmed = hoveredIdx !== null && hoveredIdx !== undefined && !isHovered;
+          const isSelected = selectedIdx === i;
+          const isDimmed = hasSelection
+            ? !isSelected
+            : (hoveredIdx !== null && hoveredIdx !== undefined && !isHovered);
+          const isActive = hasSelection ? isSelected : isHovered;
           return (
             <circle
               key={i}
               cx={cx} cy={cy} r={r}
               fill="none"
               stroke={s.color}
-              strokeWidth={isHovered ? thickness + 5 : thickness}
+              strokeWidth={isActive ? thickness + 5 : thickness}
               strokeDasharray={`${s.len} ${circ - s.len}`}
               strokeDashoffset={-s.offset}
               transform={`rotate(-90 ${cx} ${cy})`}
-              opacity={isDimmed ? 0.35 : 1}
-              style={{ transition: 'stroke-width .15s, opacity .15s', cursor: 'pointer' }}
-              onMouseEnter={() => setHover(i)}
-              onMouseLeave={() => setHover(null)}
+              opacity={isDimmed ? 0.25 : 1}
+              style={{ transition: 'stroke-width .15s, opacity .2s', cursor: 'pointer' }}
+              onMouseEnter={() => !hasSelection && setHover(i)}
+              onMouseLeave={() => !hasSelection && setHover(null)}
+              onClick={() => onClickSlice?.(i)}
             />
           );
         })}
