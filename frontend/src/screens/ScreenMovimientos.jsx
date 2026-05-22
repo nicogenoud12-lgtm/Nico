@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { C, s } from '../theme.js';
 import { dateToMonthId, monthIdLabel, sortMonthIdsDesc, pctChange, fmtARS, fmtARSInt, fmtMoney } from '../utils/format.js';
 import TxRow from '../components/TxRow.jsx';
+import { useHideAmounts } from '../HideAmountsContext.jsx';
 import FAB from '../components/FAB.jsx';
 import Modal from '../components/Modal.jsx';
 import TxForm from '../components/TxForm.jsx';
@@ -32,6 +33,7 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
     window.addEventListener('resize', h);
     return () => window.removeEventListener('resize', h);
   }, []);
+  const { hidden } = useHideAmounts();
 
   const monthTxs = useMemo(() => txs.filter(t => dateToMonthId(t.date) === monthId), [txs, monthId]);
 
@@ -133,7 +135,7 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
         fontSize: mobile ? 14 : 18, fontWeight: 700, color: C.text, marginBottom: 4,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
-        {mobile ? fmtARSInt(value) : fmtARS(value)}
+        {hidden ? '••••' : (mobile ? fmtARSInt(value) : fmtARS(value))}
       </div>
       <PctBadge pct={pct} inverse={inverse} compact={mobile} />
     </div>

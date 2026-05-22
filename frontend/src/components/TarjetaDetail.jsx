@@ -3,8 +3,10 @@ import { C } from '../theme.js';
 import { MONTH_SHORT, dateToMonthId, fmtARS, sortMonthIdsDesc } from '../utils/format.js';
 import SparkBar from './SparkBar.jsx';
 import TarjetaCard from './TarjetaCard.jsx';
+import { useHideAmounts } from '../HideAmountsContext.jsx';
 
 export default function TarjetaDetail({ tarjeta, txs, allMonthIds, onEdit, onDelete, onClose }) {
+  const { hidden } = useHideAmounts();
   const cardTxs = txs.filter(t => t.tarjeta_id === tarjeta.id || t.medio === tarjeta.nombre);
 
   const last12 = sortMonthIdsDesc(allMonthIds).slice(0, 12).reverse();
@@ -49,7 +51,7 @@ export default function TarjetaDetail({ tarjeta, txs, allMonthIds, onEdit, onDel
         <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
           Total gastado (registrado)
         </div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: C.text }}>{fmtARS(total)}</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: C.text }}>{hidden ? '••••' : fmtARS(total)}</div>
       </div>
 
       {sparkData.length > 0 && (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { C } from './theme.js';
 import { useAuth } from './auth/AuthContext.jsx';
+import { HideAmountsProvider } from './HideAmountsContext.jsx';
 import { usePullToRefresh } from './hooks/usePullToRefresh.js';
 import { dateToMonthId, todayStr, sortMonthIdsDesc } from './utils/format.js';
 import { listTransactions } from './api/transactions.js';
@@ -208,5 +209,9 @@ export default function App() {
   }
 
   if (!user) return <ScreenLogin />;
-  return <AppInner />;
+  return (
+    <HideAmountsProvider>
+      <AppInner />
+    </HideAmountsProvider>
+  );
 }
