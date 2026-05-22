@@ -36,7 +36,8 @@ export default function DonutChart({
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', overflow: 'visible' }}>
         <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.surface2} strokeWidth={thickness} />
-        {slices.map((s, i) => {
+        {[...slices].reverse().map((s, ri) => {
+          const i = slices.length - 1 - ri;
           const isHovered = hoveredIdx === i;
           const isDimmed = hoveredIdx !== null && hoveredIdx !== undefined && !isHovered;
           return (

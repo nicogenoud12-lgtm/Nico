@@ -112,27 +112,33 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
   };
 
   const { hidden } = useHideAmounts();
-  const displayIdx = hoveredIdx !== null ? hoveredIdx : (bycat.length > 0 ? 0 : null);
-  const displayItem = displayIdx !== null ? bycat[displayIdx] : null;
   const hoveredCatName = hoveredIdx !== null ? bycat[hoveredIdx]?.name : null;
 
   const renderCenter = () => {
-    if (!displayItem) return null;
-    const pctOf = total > 0 ? (displayItem.value / total) * 100 : 0;
+    if (hoveredIdx !== null && bycat[hoveredIdx]) {
+      const item = bycat[hoveredIdx];
+      const pctOf = total > 0 ? (item.value / total) * 100 : 0;
+      return (
+        <div style={{ textAlign: 'center', maxWidth: 130 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 3 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.color }} />
+            <span style={{ fontSize: 11, color: C.text2, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 100 }}>
+              {item.name}
+            </span>
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 1 }}>
+            {hidden ? '••••' : fmtARS(item.value)}
+          </div>
+          <div style={{ fontSize: 12, color: C.text3, fontWeight: 600 }}>
+            {pctOf.toFixed(1)}%
+          </div>
+        </div>
+      );
+    }
     return (
-      <div style={{ textAlign: 'center', maxWidth: 130 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 3 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: displayItem.color }} />
-          <span style={{ fontSize: 11, color: C.text2, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 100 }}>
-            {displayItem.name}
-          </span>
-        </div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 1 }}>
-          {hidden ? '••••' : fmtARS(displayItem.value)}
-        </div>
-        <div style={{ fontSize: 12, color: C.text3, fontWeight: 600 }}>
-          {pctOf.toFixed(1)}%
-        </div>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 10, color: C.text3, marginBottom: 3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Total</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{hidden ? '••••' : fmtARS(total)}</div>
       </div>
     );
   };
