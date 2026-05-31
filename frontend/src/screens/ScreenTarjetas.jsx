@@ -8,6 +8,7 @@ import { fmtMoney, fmtDate, todayStr, dateToMonthId } from '../utils/format.js';
 import { createTarjeta, updateTarjeta, deleteTarjeta } from '../api/tarjetas.js';
 import { deleteTransaction } from '../api/transactions.js';
 import { useHideAmounts } from '../HideAmountsContext.jsx';
+import ImportResumen from '../components/ImportResumen.jsx';
 
 const BANK_INITIALS = {
   galicia: 'G', santander: 'S', macro: 'M', bbva: 'B', icbc: 'I',
@@ -299,10 +300,11 @@ function useIsMobile() {
   return mobile;
 }
 
-export default function ScreenTarjetas({ tarjetas, txs, allMonthIds, onTarjetasChange, onTxsChange }) {
+export default function ScreenTarjetas({ tarjetas, txs, cats, allMonthIds, onTarjetasChange, onTxsChange }) {
   const [selected, setSelected] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
   const mobile = useIsMobile();
 
   const handleAdd = async (data) => {
@@ -323,6 +325,24 @@ export default function ScreenTarjetas({ tarjetas, txs, allMonthIds, onTarjetasC
     setSelected(null);
     await onTarjetasChange();
   };
+
+  // REQUIREMENT: importar resumen de tarjeta en PDF (pantalla de revisión).
+  if (importing) {
+    return (
+      <ImportResumen
+        tarjetas={tarjetas}
+        cats={cats}
+        onClose={() => setImporting(false)}
+        onTxsChange={onTxsChange}
+      />
+    );
+  }
+
+  const importBtn = (
+    <button onClick={() => setImporting(true)} style={{ ...s.btnGhost, width: '100%', padding: '10px 0' }}>
+      Importar resumen (PDF)
+    </button>
+  );
 
   const addBtn = (
     <button
@@ -357,6 +377,7 @@ export default function ScreenTarjetas({ tarjetas, txs, allMonthIds, onTarjetasC
       flex: 1, minWidth: 0,
       display: 'flex', flexDirection: 'column', gap: 16,
     }}>
+      {importBtn}
       <UnifiedMovementsList tarjetas={tarjetas} txs={txs} />
       <UnifiedCuotasList tarjetas={tarjetas} txs={txs} onTxsChange={onTxsChange} />
     </div>

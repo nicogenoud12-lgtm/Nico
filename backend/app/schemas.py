@@ -192,6 +192,33 @@ class ReorderPayload(BaseModel):
     ids: list[int]
 
 
+# ── Import de resúmenes de tarjeta (PDF) ─────────────────────
+class ImportRow(BaseModel):
+    date: datetime.date
+    desc: str = ""
+    amount: float                       # ARS final (USD ya convertido por el cliente)
+    cat: str
+    cuota_num: Optional[int] = None
+    cuota_total: Optional[int] = None
+    origin_ref: str
+
+
+class ImportExtractResponse(BaseModel):
+    tarjeta_id: int
+    periodo: Optional[str] = None
+    rows: list[dict] = []
+
+
+class ImportConfirm(BaseModel):
+    tarjeta_id: int
+    rows: list[ImportRow] = []
+
+
+class ImportConfirmResult(BaseModel):
+    created: int
+    skipped: int
+
+
 # ── Backup ───────────────────────────────────────────────────
 class BackupPayload(BaseModel):
     version: int = 1

@@ -424,7 +424,7 @@ def list_transactions(db: Session, user_id: int) -> list[models.Transaction]:
 
 def create_transaction(
     db: Session, payload: schemas.TransactionCreate,
-    user_id: int, source: str = "web",
+    user_id: int, source: str = "web", origin_ref: str | None = None,
 ) -> models.Transaction:
     cat = _get_or_create_category(
         db, payload.cat,
@@ -442,11 +442,27 @@ def create_transaction(
         cuota_num=payload.cuota_num,
         cuota_total=payload.cuota_total,
         tarjeta_id=payload.tarjeta_id,
+        origin_ref=origin_ref,
     )
     db.add(tx)
     db.commit()
     db.refresh(tx)
     return tx
+
+
+def existing_origin_refs(db: Session, user_id: int, refs: list[str]) -> set[str]:
+    """REQUIREMENT: dedup de import — devuelve qué origin_refs ya existen para el usuario."""
+    if not refs:
+        return set()
+    rows = (
+        db.query(models.Transaction.origin_ref)
+        .filter(
+            models.Transaction.user_id == user_id,
+            models.Transaction.origin_ref.in_(refs),
+        )
+        .all()
+    )
+    return {r[0] for r in rows if r[0]}
 
 
 def update_transaction(
