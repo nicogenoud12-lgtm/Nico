@@ -16,7 +16,6 @@ from .. import crud, models, schemas, statement_import
 from ..auth import get_current_user
 from ..database import get_db
 from ..gemini import extract_statement
-from ..routers.months import ensure_month_exists
 
 logger = logging.getLogger(__name__)
 
@@ -98,8 +97,6 @@ def confirm(
         if row.origin_ref in existing:
             skipped += 1
             continue
-        month = crud._date_to_month(row.date)
-        ensure_month_exists(db, user.id, month)
         tx_in = schemas.TransactionCreate(
             date=row.date,
             desc=row.desc,
@@ -111,7 +108,7 @@ def confirm(
             cuota_num=row.cuota_num,
             cuota_total=row.cuota_total,
             tarjeta_id=tarjeta.id,
-            month=month,
+            # month lo deriva create_transaction desde date
         )
         crud.create_transaction(
             db, tx_in, user_id=user.id, source="import", origin_ref=row.origin_ref
