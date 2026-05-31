@@ -175,7 +175,9 @@ def expand_row(row: dict, tarjeta_id: int) -> list[dict]:
                 tarjeta_id, fecha, desc, currency, monto, j, cuota_total
             )
             out.append({
-                "date": add_months(fecha, j - cuota_num),
+                # En MP la fecha del resumen es la de COMPRA (cuota 1); la cuota j
+                # se factura en compra + (j-1) meses.
+                "date": add_months(fecha, j - 1),
                 "desc": stored_desc,
                 "cat": cat,
                 "amount": ars,

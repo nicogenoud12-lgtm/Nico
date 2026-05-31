@@ -226,8 +226,23 @@ def test_expand_cuota_crea_actual_y_siguientes():
 def test_expand_cuota_fechas_mensuales():
     out = expand_row(_row(), tarjeta_id=7)
     fechas = [r["date"] for r in out]
+    # _row: compra 27/04 = cuota 1; importando 3/6 → cuotas 3..6 = compra +2..+5 meses
     assert fechas == [
-        date(2026, 4, 27), date(2026, 5, 27), date(2026, 6, 27), date(2026, 7, 27)
+        date(2026, 6, 27), date(2026, 7, 27), date(2026, 8, 27), date(2026, 9, 27)
+    ]
+
+
+def test_expand_cuota_ancla_en_fecha_de_compra():
+    # Caso real reportado: compra 31/ene = cuota 1. Importando 4/6, deben crearse
+    # cuota 4 en abril, 5 en mayo, 6 en junio (NO en ene/feb/mar).
+    out = expand_row(_row(
+        date=date(2025, 1, 31), desc="KINDERLAND", amount=16665.0,
+        cuota_num=4, cuota_total=6, origin_ref="x",
+    ), tarjeta_id=7)
+    assert [(r["cuota_num"], r["date"]) for r in out] == [
+        (4, date(2025, 4, 30)),   # 31/abr no existe → 30
+        (5, date(2025, 5, 31)),
+        (6, date(2025, 6, 30)),
     ]
 
 
