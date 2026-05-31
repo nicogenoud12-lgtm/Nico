@@ -1,6 +1,7 @@
 """Cliente Gemini para parseo + generación de respuestas del bot de Telegram."""
 from __future__ import annotations
 
+import base64
 import json
 import logging
 from datetime import date, timedelta
@@ -207,5 +208,120 @@ async def parse_telegram_message(
         # Si hay cuotas y no se especificó tarjeta/medio, preguntar
         if int(result.get("cuotas") or 1) > 1 and not result.get("medio") and "medio" not in result["missing"]:
             result["missing"].append("medio")
+
+    return result
+
+
+# ── Importación de resúmenes de tarjeta en PDF ───────────────────
+# REQUIREMENT: extraer movimientos de resúmenes Mercado Pago / Ualá vía Gemini
+# (salida estructurada). El PDF se manda nativo como inline_data — sin parser.
+STATEMENT_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "periodo": {"type": "STRING"},
+        "movimientos": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "fecha": {"type": "STRING"},        # YYYY-MM-DD
+                    "descripcion": {"type": "STRING"},
+                    "monto": {"type": "NUMBER"},          # positivo
+                    "moneda": {"type": "STRING", "enum": ["ARS", "USD"]},
+                    "tipo": {
+                        "type": "STRING",
+                        "enum": ["consumo", "impuesto", "pago", "ajuste"],
+                    },
+                    "cuota_num": {"type": "INTEGER"},
+                    "cuota_total": {"type": "INTEGER"},
+                    "cat_sugerida": {"type": "STRING"},
+                },
+                "required": ["fecha", "descripcion", "monto", "moneda", "tipo"],
+            },
+        },
+    },
+    "required": ["movimientos"],
+}
+
+
+def _build_statement_prompt(cats_gasto: list[str], emisor_hint: str | None) -> str:
+    cats = ", ".join(cats_gasto) if cats_gasto else "(ninguna)"
+    hint = f"\nEl resumen es del emisor: {emisor_hint}." if emisor_hint else ""
+    return f"""Sos un extractor de resúmenes de tarjeta de crédito argentinos (Mercado Pago o Ualá).{hint}
+Devolvé TODOS los movimientos del resumen en JSON estructurado. Reglas:
+
+- "tipo":
+  * "consumo": una compra/consumo del titular.
+  * "impuesto": impuestos, percepciones, IVA, IIBB, impuesto de sellos, intereses de financiación, comisiones. (Todo lo que no sea una compra ni un pago/ajuste.)
+  * "pago": pagos del resumen, pagos anticipados, "su pago", acreditaciones de pago.
+  * "ajuste": ajustes, reembolsos, reintegros, devoluciones.
+- "fecha": SIEMPRE en formato YYYY-MM-DD. Convertí fechas tipo "5/abr" o "29 JUL 25" usando el año del período del resumen.
+- "monto": número POSITIVO, sin símbolo de moneda ni separadores de miles.
+- "moneda": "ARS" para la columna Pesos, "USD" para la columna Dólares.
+- Cuotas: si el consumo está en cuotas, completá "cuota_num" y "cuota_total".
+  * Mercado Pago: columna tipo "4 de 6" → cuota_num=4, cuota_total=6.
+  * Ualá: cuota embebida en la descripción tipo "(10/12)" → cuota_num=10, cuota_total=12.
+  * Cargá SOLO el monto de la cuota de ESTE período, nunca el total del plan.
+- "cat_sugerida": sugerí UNA categoría EXACTA de esta lista de gastos del usuario; si ninguna encaja, dejala vacía. Categorías: {cats}
+- No inventes movimientos. No incluyas totales, saldos ni resúmenes de cuenta como movimientos."""
+
+
+async def extract_statement(
+    pdf_bytes: bytes,
+    cats_gasto: list[str],
+    emisor_hint: str | None = None,
+) -> dict | None:
+    """Manda el PDF a Gemini y devuelve el dict crudo de movimientos (o None).
+
+    No persiste nada. No loguea el contenido del PDF ni del resultado.
+    """
+    if not settings.GEMINI_API_KEY:
+        logger.warning("[gemini] GEMINI_API_KEY no configurada")
+        return None
+
+    prompt = _build_statement_prompt(cats_gasto, emisor_hint)
+    pdf_b64 = base64.standard_b64encode(pdf_bytes).decode("ascii")
+
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models"
+        f"/{settings.GEMINI_MODEL}:generateContent"
+    )
+    body = {
+        "systemInstruction": {"parts": [{"text": prompt}]},
+        "contents": [{
+            "role": "user",
+            "parts": [
+                {"inline_data": {"mime_type": "application/pdf", "data": pdf_b64}},
+                {"text": "Extraé todos los movimientos de este resumen."},
+            ],
+        }],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": STATEMENT_SCHEMA,
+            "temperature": 0.1,
+            "thinkingConfig": {"thinkingBudget": 1024},
+        },
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            resp = await client.post(url, params={"key": settings.GEMINI_API_KEY}, json=body)
+            resp.raise_for_status()
+            data = resp.json()
+    except (httpx.HTTPError, httpx.TimeoutException, httpx.NetworkError) as e:
+        logger.error("[gemini] extract_statement HTTP error: %s", e)
+        return None
+
+    try:
+        content = data["candidates"][0]["content"]["parts"][0]["text"]
+        result = json.loads(content)
+    except (KeyError, IndexError, json.JSONDecodeError):
+        # No logueamos el contenido (datos personales del resumen).
+        logger.error("[gemini] extract_statement: respuesta inválida de Gemini")
+        return None
+
+    if not isinstance(result.get("movimientos"), list):
+        logger.error("[gemini] extract_statement: falta 'movimientos' en la respuesta")
+        return None
 
     return result

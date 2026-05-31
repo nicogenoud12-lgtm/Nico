@@ -114,7 +114,9 @@ class Transaction(Base):
     currency = Column(String, nullable=False, default="ARS")  # ARS | USD
     cuota_num = Column(Integer, nullable=True)
     cuota_total = Column(Integer, nullable=True)
-    source = Column(String, nullable=False, default="web")  # web | telegram
+    source = Column(String, nullable=False, default="web")  # web | telegram | import
+    # REQUIREMENT: referencia de origen para dedup al importar resúmenes en PDF
+    origin_ref = Column(String, nullable=True, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     category = relationship("Category", lazy="joined")
