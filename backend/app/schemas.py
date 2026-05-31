@@ -196,11 +196,13 @@ class ReorderPayload(BaseModel):
 class ImportRow(BaseModel):
     date: datetime.date
     desc: str = ""
-    amount: float                       # ARS final (USD ya convertido por el cliente)
+    amount: float                       # monto ORIGINAL del resumen (ARS o USD)
+    currency: str = "ARS"
     cat: str
     cuota_num: Optional[int] = None
     cuota_total: Optional[int] = None
     origin_ref: str
+    rate: Optional[float] = None        # cotización para filas en USD (USD→ARS)
 
 
 class ImportExtractResponse(BaseModel):

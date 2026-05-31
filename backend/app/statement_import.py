@@ -7,7 +7,9 @@ impuestos, parseo de cuota, cálculo de origin_ref para dedup).
 """
 from __future__ import annotations
 
+import calendar
 import re
+from datetime import date
 
 # REQUIREMENT: todos los impuestos/percepciones/IIBB/IVA/sello/intereses se
 # consolidan en UNA sola transacción con esta categoría (tipo gasto).
@@ -22,6 +24,15 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
 
 
+def add_months(d: date, n: int) -> date:
+    """Suma n meses a una fecha, recortando el día al último válido del mes."""
+    idx = d.month - 1 + n
+    year = d.year + idx // 12
+    month = idx % 12 + 1
+    day = min(d.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
+
+
 def compute_origin_ref(
     tarjeta_id: int,
     fecha: str | None,
@@ -33,13 +44,17 @@ def compute_origin_ref(
 ) -> str:
     """Referencia de origen estable de un consumo (datos ORIGINALES, pre-conversión).
 
-    Se calcula sobre el monto/moneda del resumen (no sobre el valor en ARS que
-    define el usuario) para que reimportar el mismo resumen sea idempotente.
+    Se calcula sobre los datos del resumen (no sobre el valor en ARS que define el
+    usuario) para que reimportar el mismo resumen sea idempotente.
+
+    Para CUOTAS la ref identifica la compra (tarjeta + fecha de compra + desc +
+    nro/total de cuota) y NO incluye el monto: así, cuando una cuota futura ya fue
+    proyectada y aparece en el resumen del mes siguiente, se detecta como
+    duplicada aunque el monto haya variado por intereses.
     """
-    return (
-        f"{tarjeta_id}|{fecha or ''}|{_slug(desc)}|{moneda}|{monto:.2f}"
-        f"|{cuota_num or ''}/{cuota_total or ''}"
-    )
+    if cuota_num and cuota_total and cuota_total > 1:
+        return f"{tarjeta_id}|{fecha or ''}|{_slug(desc)}|cuota|{cuota_num}/{cuota_total}"
+    return f"{tarjeta_id}|{fecha or ''}|{_slug(desc)}|{moneda}|{monto:.2f}"
 
 
 def impuestos_origin_ref(tarjeta_id: int, periodo: str | None) -> str:
@@ -123,3 +138,60 @@ def mark_duplicates(rows: list[dict], existing_refs: set[str]) -> list[dict]:
     for r in rows:
         r["duplicate"] = r.get("origin_ref") in existing_refs
     return rows
+
+
+def expand_row(row: dict, tarjeta_id: int) -> list[dict]:
+    """Expande una fila aprobada en las transacciones concretas a crear.
+
+    REQUIREMENT: al aprobar una cuota "N/total" se crea la cuota actual y TODAS
+    las siguientes (N..total) — nunca las anteriores. Cada cuota futura se fecha
+    un mes después de la previa y lleva su propio origin_ref, de modo que cuando
+    aparezca en el resumen del mes que viene se detecte como duplicada.
+
+    `row` trae los datos ORIGINALES del resumen (date, desc, amount, currency,
+    cuota_num, cuota_total, origin_ref) más las ediciones del usuario (cat y, para
+    filas en USD, rate). El monto en USD se convierte a ARS con la cotización.
+    """
+    fecha = row["date"]                       # datetime.date
+    desc = row.get("desc") or ""
+    currency = (row.get("currency") or "ARS").upper()
+    monto = float(row["amount"])
+    cat = row.get("cat") or "Otros"
+    rate = row.get("rate")
+    cuota_num = row.get("cuota_num")
+    cuota_total = row.get("cuota_total")
+
+    ars = monto * float(rate) if currency == "USD" and rate else monto
+    stored_desc = f"{desc} (US$ {monto:g})" if currency == "USD" else desc
+
+    is_cuota = bool(cuota_num and cuota_total and cuota_total > 1 and 1 <= cuota_num <= cuota_total)
+    out: list[dict] = []
+
+    if is_cuota:
+        for j in range(cuota_num, cuota_total + 1):
+            # La cuota actual reusa el origin_ref del extract (consistencia);
+            # las futuras se calculan con la misma fórmula de cuota.
+            ref = row["origin_ref"] if j == cuota_num else compute_origin_ref(
+                tarjeta_id, fecha, desc, currency, monto, j, cuota_total
+            )
+            out.append({
+                "date": add_months(fecha, j - cuota_num),
+                "desc": stored_desc,
+                "cat": cat,
+                "amount": ars,
+                "cuota_num": j,
+                "cuota_total": cuota_total,
+                "origin_ref": ref,
+            })
+    else:
+        out.append({
+            "date": fecha,
+            "desc": stored_desc,
+            "cat": cat,
+            "amount": ars,
+            "cuota_num": None,
+            "cuota_total": None,
+            "origin_ref": row["origin_ref"],
+        })
+
+    return out
