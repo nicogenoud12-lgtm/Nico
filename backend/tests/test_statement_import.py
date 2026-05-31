@@ -4,10 +4,14 @@ Las fixtures imitan la salida estructurada de Gemini para un resumen de
 Mercado Pago y uno de Ualá. Toda la lógica de negocio (filtrar pagos/ajustes,
 consolidar impuestos, parsear cuota, calcular dedup) se prueba acá.
 """
+from datetime import date
+
 from app import statement_import
 from app.statement_import import (
     IMPUESTOS_CAT,
+    add_months,
     compute_origin_ref,
+    expand_row,
     mark_duplicates,
     normalize_movimientos,
 )
@@ -177,3 +181,84 @@ def test_reimport_completo_marca_todo_como_duplicado():
     # Re-extraer el mismo resumen → mismos refs → todo duplicado.
     rows2 = mark_duplicates(normalize_movimientos(MP_RAW, tarjeta_id=7), existing)
     assert all(r["duplicate"] for r in rows2)
+
+
+def test_origin_ref_cuota_ignora_monto():
+    # Para cuotas el ref no incluye el monto (puede variar por intereses).
+    a = compute_origin_ref(7, "2026-04-05", "Adidas", "ARS", 41666.33, 4, 6)
+    b = compute_origin_ref(7, "2026-04-05", "Adidas", "ARS", 99999.99, 4, 6)
+    assert a == b
+
+
+# ── add_months ───────────────────────────────────────────────
+def test_add_months_simple():
+    assert add_months(date(2026, 4, 5), 2) == date(2026, 6, 5)
+
+
+def test_add_months_cruza_anio():
+    assert add_months(date(2026, 11, 15), 3) == date(2027, 2, 15)
+
+
+def test_add_months_recorta_fin_de_mes():
+    # 31/ene + 1 mes → 28/feb (no existe 31/feb)
+    assert add_months(date(2026, 1, 31), 1) == date(2026, 2, 28)
+
+
+# ── expand_row: cuota actual + siguientes ────────────────────
+def _row(**kw):
+    base = {
+        "date": date(2026, 4, 27), "desc": "MERCADOLIBRE", "amount": 51231.37,
+        "currency": "ARS", "cat": "Otros", "cuota_num": 3, "cuota_total": 6,
+        "origin_ref": "ref-actual", "rate": None,
+    }
+    base.update(kw)
+    return base
+
+
+def test_expand_cuota_crea_actual_y_siguientes():
+    out = expand_row(_row(), tarjeta_id=7)
+    # 3/6 → cuotas 3,4,5,6 (4 movimientos), nunca 1 ni 2.
+    nums = [r["cuota_num"] for r in out]
+    assert nums == [3, 4, 5, 6]
+    assert all(r["cuota_total"] == 6 for r in out)
+
+
+def test_expand_cuota_fechas_mensuales():
+    out = expand_row(_row(), tarjeta_id=7)
+    fechas = [r["date"] for r in out]
+    assert fechas == [
+        date(2026, 4, 27), date(2026, 5, 27), date(2026, 6, 27), date(2026, 7, 27)
+    ]
+
+
+def test_expand_cuota_actual_reusa_ref_y_futuras_distintas():
+    out = expand_row(_row(), tarjeta_id=7)
+    assert out[0]["origin_ref"] == "ref-actual"          # la actual reusa el ref
+    refs = [r["origin_ref"] for r in out]
+    assert len(set(refs)) == 4                            # todas distintas
+
+
+def test_expand_cuota_futura_ref_coincide_con_la_del_proximo_resumen():
+    # La cuota 4 que proyectamos ahora debe tener el MISMO ref que tendría la
+    # cuota 4 cuando aparezca en el resumen del mes que viene → no se duplica.
+    out = expand_row(_row(), tarjeta_id=7)
+    cuota4 = next(r for r in out if r["cuota_num"] == 4)
+    ref_proximo_resumen = compute_origin_ref(
+        7, date(2026, 4, 27), "MERCADOLIBRE", "ARS", 0, 4, 6
+    )
+    assert cuota4["origin_ref"] == ref_proximo_resumen
+
+
+def test_expand_consumo_simple_una_sola_tx():
+    out = expand_row(_row(cuota_num=None, cuota_total=None, origin_ref="x"), tarjeta_id=7)
+    assert len(out) == 1
+    assert out[0]["cuota_num"] is None
+
+
+def test_expand_usd_convierte_a_ars_y_anota_desc():
+    out = expand_row(_row(
+        desc="CLAUDE.AI", currency="USD", amount=20.0, rate=1200.0,
+        cuota_num=None, cuota_total=None, origin_ref="x",
+    ), tarjeta_id=7)
+    assert out[0]["amount"] == 24000.0
+    assert "US$ 20" in out[0]["desc"]

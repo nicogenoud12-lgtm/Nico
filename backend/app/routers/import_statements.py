@@ -87,33 +87,38 @@ def confirm(
         db, statement_import.IMPUESTOS_CAT, kind="gasto", user_id=user.id
     )
 
-    # Dedup defensivo: descartar lo que ya existía (aunque el cliente filtre).
-    refs = [r.origin_ref for r in payload.rows]
-    existing = crud.existing_origin_refs(db, user.id, refs)
+    # Cada fila aprobada se expande en la cuota actual + las siguientes (si aplica).
+    to_create: list[dict] = []
+    for row in payload.rows:
+        to_create.extend(statement_import.expand_row(row.model_dump(), tarjeta.id))
+
+    # Dedup defensivo: descartar lo que ya existía (cuotas futuras ya proyectadas,
+    # reimportación del mismo resumen, etc.).
+    existing = crud.existing_origin_refs(db, user.id, [r["origin_ref"] for r in to_create])
 
     created = 0
     skipped = 0
-    for row in payload.rows:
-        if row.origin_ref in existing:
+    for r in to_create:
+        if r["origin_ref"] in existing:
             skipped += 1
             continue
         tx_in = schemas.TransactionCreate(
-            date=row.date,
-            desc=row.desc,
-            cat=row.cat,
+            date=r["date"],
+            desc=r["desc"],
+            cat=r["cat"],
             medio=tarjeta.nombre,          # el medio queda fijado a la tarjeta elegida
-            amount=row.amount,
+            amount=r["amount"],
             type="g",
-            currency="ARS",                # USD ya viene convertido a ARS
-            cuota_num=row.cuota_num,
-            cuota_total=row.cuota_total,
+            currency="ARS",                # USD ya convertido a ARS en expand_row
+            cuota_num=r["cuota_num"],
+            cuota_total=r["cuota_total"],
             tarjeta_id=tarjeta.id,
             # month lo deriva create_transaction desde date
         )
         crud.create_transaction(
-            db, tx_in, user_id=user.id, source="import", origin_ref=row.origin_ref
+            db, tx_in, user_id=user.id, source="import", origin_ref=r["origin_ref"]
         )
-        existing.add(row.origin_ref)       # evita duplicar dentro del mismo lote
+        existing.add(r["origin_ref"])      # evita duplicar dentro del mismo lote
         created += 1
 
     return schemas.ImportConfirmResult(created=created, skipped=skipped)
