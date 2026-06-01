@@ -4,7 +4,7 @@ import Modal from './Modal.jsx';
 import { fmtMoney, fmtDate, todayStr } from '../utils/format.js';
 import { useHideAmounts } from '../HideAmountsContext.jsx';
 
-export default function CuotaDetailModal({ open, tx, allTxs, onClose }) {
+export default function CuotaDetailModal({ open, tx, allTxs, onClose, onEditSingle, onEditAll, onDeleteSingle, onDeleteAll }) {
   const cuotas = useMemo(() => {
     if (!tx || !tx.cuota_total) return [];
     const key = (t) => `${t.desc}|${t.tarjeta_id ?? t.medio}|${t.cuota_total}`;
@@ -93,6 +93,54 @@ export default function CuotaDetailModal({ open, tx, allTxs, onClose }) {
             Última cuota: {fmtDate(last.date)}
           </div>
         )}
+
+        {/* Acciones de edición */}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => onEditSingle?.(tx)}
+            style={{
+              flex: 1, padding: '10px', background: C.surface2,
+              border: `1px solid ${C.border}`, borderRadius: 8,
+              color: C.text2, fontFamily: 'inherit', fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            Editar cuota
+          </button>
+          <button
+            onClick={() => onEditAll?.(tx, cuotas)}
+            style={{
+              flex: 1, padding: '10px', background: C.surface2,
+              border: `1px solid ${C.border}`, borderRadius: 8,
+              color: C.text2, fontFamily: 'inherit', fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            Editar todas
+          </button>
+        </div>
+
+        {/* Acciones de eliminación */}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => onDeleteSingle?.(tx)}
+            style={{
+              flex: 1, padding: '10px', background: 'transparent',
+              border: `1px solid ${C.red}40`, borderRadius: 8,
+              color: C.red, fontFamily: 'inherit', fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            Eliminar cuota
+          </button>
+          <button
+            onClick={() => onDeleteAll?.(cuotas)}
+            style={{
+              flex: 1, padding: '10px', background: 'transparent',
+              border: `1px solid ${C.red}40`, borderRadius: 8,
+              color: C.red, fontFamily: 'inherit', fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            Eliminar todas
+          </button>
+        </div>
 
         <button onClick={onClose} style={{
           padding: '10px', background: C.surface2,
