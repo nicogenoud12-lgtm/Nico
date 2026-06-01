@@ -13,16 +13,23 @@ export default function ImportResumen({ tarjetas, cats, onClose, onTxsChange }) 
   const [rows, setRows] = useState(null);   // null = todavía no se extrajo
   const [result, setResult] = useState(null);
   const [showDups, setShowDups] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef(null);
 
   const catNames = useMemo(() => (cats?.gastos || []).map(c => c.name), [cats]);
 
   const handlePick = () => fileRef.current?.click();
 
-  const handleFile = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';            // permite re-elegir el mismo archivo
+  // Procesa el PDF elegido (input) o soltado (drag & drop desde el explorador).
+  const processFile = async (file) => {
     if (!file) return;
+    const isPdf = file.type === 'application/pdf'
+      || file.type === 'application/x-pdf'
+      || file.name?.toLowerCase().endsWith('.pdf');
+    if (!isPdf) {
+      setError('El archivo debe ser un PDF');
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
@@ -41,6 +48,29 @@ export default function ImportResumen({ tarjetas, cats, onClose, onTxsChange }) 
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFile = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';            // permite re-elegir el mismo archivo
+    processFile(file);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (loading || !tarjetaId) return;
+    processFile(e.dataTransfer.files?.[0]);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    if (!loading && tarjetaId && !dragOver) setDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragOver(false);
   };
 
   // Actualiza una fila por su índice original en el array `rows`.
@@ -141,11 +171,32 @@ export default function ImportResumen({ tarjetas, cats, onClose, onTxsChange }) 
             onChange={handleFile}
             style={{ display: 'none' }}
           />
-          <button onClick={handlePick} disabled={loading || !tarjetaId} style={{ ...s.btnPrimary, width: '100%' }}>
-            {loading ? 'Leyendo el resumen…' : 'Elegir PDF'}
-          </button>
+          <div
+            onClick={() => !loading && tarjetaId && handlePick()}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            style={{
+              border: `2px dashed ${dragOver ? C.accent : C.border}`,
+              background: dragOver ? C.accentBg : C.surface2,
+              borderRadius: 12,
+              padding: '28px 16px',
+              textAlign: 'center',
+              cursor: loading || !tarjetaId ? 'default' : 'pointer',
+              opacity: loading || !tarjetaId ? 0.6 : 1,
+              transition: 'border-color .15s, background .15s',
+            }}
+          >
+            <div style={{ fontSize: 28, marginBottom: 8 }}>📄</div>
+            <div style={{ fontSize: 14, color: C.text, fontWeight: 600 }}>
+              {loading ? 'Leyendo el resumen…' : 'Arrastrá el PDF acá o hacé clic para elegirlo'}
+            </div>
+            <div style={{ fontSize: 12, color: C.text3, marginTop: 6 }}>
+              Resumen de Mercado Pago o Ualá
+            </div>
+          </div>
           <div style={{ fontSize: 12, color: C.text3, marginTop: 10 }}>
-            Subí el resumen de Mercado Pago o Ualá. Vas a poder revisar todo antes de crear nada.
+            Vas a poder revisar todo antes de crear nada.
           </div>
           {error && <ErrorBox msg={error} />}
         </div>

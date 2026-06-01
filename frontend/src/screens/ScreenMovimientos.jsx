@@ -25,6 +25,7 @@ function PctBadge({ pct, inverse = false, compact = false }) {
 export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMonthIds, setMonthId, onTxsChange }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editTx, setEditTx] = useState(null);
+  const [editAllCuotas, setEditAllCuotas] = useState(null);
   const [filter, setFilter] = useState('all');
   const [cuotaTx, setCuotaTx] = useState(null);
   const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
@@ -76,7 +77,11 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
   }, [filteredTxs]);
 
   const handleSave = async (data, cuotas = 1) => {
-    if (editTx) {
+    if (editTx && editAllCuotas) {
+      await Promise.all(editAllCuotas.map(c => updateTransaction(c.id, {
+        ...data, date: c.date, cuota_num: c.cuota_num, cuota_total: c.cuota_total,
+      })));
+    } else if (editTx) {
       await updateTransaction(editTx.id, data);
     } else {
       const baseDate = new Date(data.date + 'T12:00:00');
@@ -95,6 +100,7 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
     }
     setModalOpen(false);
     setEditTx(null);
+    setEditAllCuotas(null);
     await onTxsChange();
   };
 
@@ -104,6 +110,7 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
     await deleteTransaction(editTx.id);
     setModalOpen(false);
     setEditTx(null);
+    setEditAllCuotas(null);
     await onTxsChange();
   };
 
@@ -114,6 +121,34 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
       setEditTx(tx);
       setModalOpen(true);
     }
+  };
+
+  const handleCuotaEditSingle = (tx) => {
+    setCuotaTx(null);
+    setEditTx(tx);
+    setEditAllCuotas(null);
+    setModalOpen(true);
+  };
+
+  const handleCuotaEditAll = (tx, cuotas) => {
+    setCuotaTx(null);
+    setEditTx(tx);
+    setEditAllCuotas(cuotas);
+    setModalOpen(true);
+  };
+
+  const handleCuotaDeleteSingle = async (tx) => {
+    if (!window.confirm('¿Eliminar esta cuota?')) return;
+    await deleteTransaction(tx.id);
+    setCuotaTx(null);
+    await onTxsChange();
+  };
+
+  const handleCuotaDeleteAll = async (cuotas) => {
+    if (!window.confirm(`¿Eliminar las ${cuotas.length} cuotas?`)) return;
+    await Promise.all(cuotas.map(c => deleteTransaction(c.id)));
+    setCuotaTx(null);
+    await onTxsChange();
   };
 
   // Movimientos permite registrar gastos puros e inversiones desde el mismo FAB.
@@ -217,16 +252,27 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
       </div>
 
       <FAB onClick={() => { setEditTx(null); setModalOpen(true); }} />
-      <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditTx(null); }} title={editTx ? 'Editar movimiento' : 'Nuevo movimiento'}>
+      <Modal
+        open={modalOpen}
+        onClose={() => { setModalOpen(false); setEditTx(null); setEditAllCuotas(null); }}
+        title={editTx ? (editAllCuotas ? 'Editar todas las cuotas' : 'Editar movimiento') : 'Nuevo movimiento'}
+      >
         <TxForm
           cats={catsForForm} mediums={mediums}
           initial={editTx}
           onSave={handleSave}
-          onCancel={() => { setModalOpen(false); setEditTx(null); }}
+          onCancel={() => { setModalOpen(false); setEditTx(null); setEditAllCuotas(null); }}
           onDelete={handleDelete}
         />
       </Modal>
-      <CuotaDetailModal open={!!cuotaTx} tx={cuotaTx} allTxs={txs} onClose={() => setCuotaTx(null)} />
+      <CuotaDetailModal
+        open={!!cuotaTx} tx={cuotaTx} allTxs={txs}
+        onClose={() => setCuotaTx(null)}
+        onEditSingle={handleCuotaEditSingle}
+        onEditAll={handleCuotaEditAll}
+        onDeleteSingle={handleCuotaDeleteSingle}
+        onDeleteAll={handleCuotaDeleteAll}
+      />
     </div>
   );
 }
