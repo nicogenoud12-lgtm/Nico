@@ -244,10 +244,11 @@ STATEMENT_SCHEMA = {
 }
 
 
-def _build_statement_prompt(cats_gasto: list[str], emisor_hint: str | None) -> str:
+def _build_statement_prompt(cats_gasto: list[str], emisor_hint: str | None, today: date) -> str:
     cats = ", ".join(cats_gasto) if cats_gasto else "(ninguna)"
     hint = f"\nEl resumen es del emisor: {emisor_hint}." if emisor_hint else ""
     return f"""Sos un extractor de resúmenes de tarjeta de crédito argentinos (Mercado Pago o Ualá).{hint}
+Hoy es {today.isoformat()}. El resumen que estás leyendo es reciente (de los últimos meses).
 Devolvé TODOS los movimientos del resumen en JSON estructurado. Reglas:
 
 - "tipo":
@@ -255,7 +256,10 @@ Devolvé TODOS los movimientos del resumen en JSON estructurado. Reglas:
   * "impuesto": impuestos, percepciones, IVA, IIBB, impuesto de sellos, intereses de financiación, comisiones. (Todo lo que no sea una compra ni un pago/ajuste.)
   * "pago": pagos del resumen, pagos anticipados, "su pago", acreditaciones de pago.
   * "ajuste": ajustes, reembolsos, reintegros, devoluciones.
-- "fecha": SIEMPRE en formato YYYY-MM-DD. Convertí fechas tipo "5/abr" o "29 JUL 25" usando el año del período del resumen.
+- "fecha": SIEMPRE en formato YYYY-MM-DD. Las fechas en el PDF suelen venir sin año (ej. "5/abr", "07/01", "31/ene") o con año de 2 dígitos ("29 JUL 25").
+  * INFERÍ el año usando como referencia que hoy es {today.isoformat()}: todo movimiento es del PASADO reciente, nunca del futuro.
+  * Elegí el año MÁS RECIENTE que haga que la fecha NO sea posterior a hoy. Ej: si hoy es {today.isoformat()} y la fecha es "07/01", es del {today.year} (no de años anteriores).
+  * Una compra en cuotas puede tener su fecha de origen hasta ~12 meses atrás, por lo que como mucho puede caer en el año anterior, pero JAMÁS asignes años viejos (2 o más años atrás) a un resumen reciente.
 - "monto": número POSITIVO, sin símbolo de moneda ni separadores de miles.
 - "moneda": "ARS" para la columna Pesos, "USD" para la columna Dólares.
 - Cuotas: si el consumo está en cuotas, completá "cuota_num" y "cuota_total".
@@ -279,7 +283,7 @@ async def extract_statement(
         logger.warning("[gemini] GEMINI_API_KEY no configurada")
         return None
 
-    prompt = _build_statement_prompt(cats_gasto, emisor_hint)
+    prompt = _build_statement_prompt(cats_gasto, emisor_hint, date.today())
     pdf_b64 = base64.standard_b64encode(pdf_bytes).decode("ascii")
 
     url = (
