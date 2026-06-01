@@ -232,10 +232,17 @@ export default function ImportResumen({ tarjetas, cats, onClose, onTxsChange }) 
             style={{ width: 18, height: 18, accentColor: C.accent, flexShrink: 0 }}
           />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {r.desc || r.cat}
-            </div>
-            <div style={{ fontSize: 11, color: C.text3, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              value={r.desc}
+              onChange={e => updateRow(i, { desc: e.target.value })}
+              placeholder={r.cat}
+              style={{
+                ...s.input, width: '100%', padding: '4px 6px', fontSize: 14,
+                fontWeight: 600, background: 'transparent', border: 'none',
+              }}
+            />
+            <div style={{ fontSize: 11, color: C.text3, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', paddingLeft: 6 }}>
               <span>{fmtDate(r.date)}</span>
               {isCuota && (
                 <span style={{ color: C.accent, background: C.accentBg, padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>
