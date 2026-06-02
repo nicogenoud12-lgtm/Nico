@@ -32,7 +32,8 @@ export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthId
 
   React.useEffect(() => { setSelectedCat(null); }, [monthId]);
 
-  const monthTxs = useMemo(() => txs.filter(t => dateToMonthId(t.date) === monthId && t.type === 'i'), [txs, monthId]);
+  // Pantalla en pesos: se excluyen las transacciones en USD (viven en el baúl de Dólares).
+  const monthTxs = useMemo(() => txs.filter(t => dateToMonthId(t.date) === monthId && t.type === 'i' && t.currency !== 'USD'), [txs, monthId]);
 
   const prevMonthId = useMemo(() => {
     const idx = sorted.indexOf(monthId);
@@ -40,7 +41,7 @@ export default function ScreenIngresos({ txs, cats, mediums, monthId, allMonthId
   }, [sorted, monthId]);
 
   const prevTotal = useMemo(() =>
-    prevMonthId ? txs.filter(t => dateToMonthId(t.date) === prevMonthId && t.type === 'i').reduce((s, t) => s + t.amount, 0) : 0,
+    prevMonthId ? txs.filter(t => dateToMonthId(t.date) === prevMonthId && t.type === 'i' && t.currency !== 'USD').reduce((s, t) => s + t.amount, 0) : 0,
     [txs, prevMonthId]);
 
   const total = monthTxs.reduce((s, t) => s + t.amount, 0);
