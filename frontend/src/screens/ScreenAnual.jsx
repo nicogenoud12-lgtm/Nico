@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { C } from '../theme.js';
-import { dateToMonthId, monthIdLabel, fmtARS, pctChange } from '../utils/format.js';
+import { dateToMonthId, monthIdLabel, fmtARS, pctChange, todayStr } from '../utils/format.js';
 import DonutChart from '../components/DonutChart.jsx';
 import { useHideAmounts } from '../HideAmountsContext.jsx';
 
@@ -488,19 +488,33 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
     return result;
   }, [txs, months12]);
 
-  const kpiMonth = useMemo(() => {
-    for (let i = data.length - 1; i >= 0; i--) {
-      if (data[i].ing > 0 || data[i].gas > 0) {
-        return { ...data[i], index: i };
-      }
+  // Mes de las tarjetas KPI: por defecto el mes actual (según la fecha de hoy).
+  const todayMonthId = useMemo(() => dateToMonthId(todayStr()), []);
+  const [kpiMonthId, setKpiMonthId] = useState(todayMonthId);
+
+  // Mantener el mes de KPIs dentro del año seleccionado: si cambia el año,
+  // usar el mes actual (si es el año en curso) o el último mes con datos.
+  useEffect(() => {
+    const yy = selectedYear.slice(2);
+    if (kpiMonthId.slice(2) === yy) return;
+    if (selectedYear === new Date().getFullYear().toString()) {
+      setKpiMonthId(todayMonthId);
+    } else {
+      setKpiMonthId(data.length ? data[data.length - 1].id : '12' + yy);
     }
-    return null;
-  }, [data]);
+  }, [selectedYear]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const kpiMonth = useMemo(() => {
+    const found = data.find(d => d.id === kpiMonthId);
+    if (found) return found;
+    // Mes sin actividad: KPIs en cero pero con el label del mes elegido.
+    return { id: kpiMonthId, ing: 0, gas: 0, inv: 0, net: 0, pctAhorro: 0, variation: null };
+  }, [data, kpiMonthId]);
 
   const prevKpiMonth = useMemo(() => {
-    if (!kpiMonth || kpiMonth.index === 0) return null;
-    return data[kpiMonth.index - 1];
-  }, [kpiMonth, data]);
+    const earlier = data.filter(d => d.id < kpiMonthId);
+    return earlier.length ? earlier[earlier.length - 1] : null;
+  }, [data, kpiMonthId]);
 
   const kpis = useMemo(() => {
     if (!kpiMonth) {
@@ -575,6 +589,24 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <span style={{ fontSize: 20, fontWeight: 700, color: C.text }}>Anual</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <select
+                value={kpiMonthId}
+                onChange={e => setKpiMonthId(e.target.value)}
+                title="Mes de las tarjetas"
+                style={{
+                  background: C.surface,
+                  color: C.text,
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 6,
+                  padding: '6px 10px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontFamily: 'Inter, sans-serif',
+                }}
+              >
+                {months12.map(id => <option key={id} value={id}>{monthIdLabel(id)}</option>)}
+              </select>
               <select
                 value={selectedYear}
                 onChange={e => setSelectedYear(e.target.value)}
