@@ -470,7 +470,8 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
 
   const data = useMemo(() => {
     const result = months12.map(id => {
-      const monthTxs = txs.filter(t => dateToMonthId(t.date) === id);
+      // Dashboard en pesos: se excluyen las transacciones en USD (baúl de Dólares).
+      const monthTxs = txs.filter(t => dateToMonthId(t.date) === id && t.currency !== 'USD');
       const ing = monthTxs.filter(t => t.type === 'i').reduce((s, t) => s + t.amount, 0);
       const gas = monthTxs.filter(t => t.type === 'g' && t.cat_kind !== 'inversion').reduce((s, t) => s + t.amount, 0);
       const inv = monthTxs.filter(t => t.cat_kind === 'inversion').reduce((s, t) => s + t.amount, 0);

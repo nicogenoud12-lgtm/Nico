@@ -36,7 +36,8 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
   // Reset filter when month changes
   React.useEffect(() => { setSelectedCat(null); }, [monthId]);
 
-  const monthTxs = useMemo(() => txs.filter(t => dateToMonthId(t.date) === monthId && t.type === 'g' && t.cat_kind !== 'inversion'), [txs, monthId]);
+  // Pantalla en pesos: se excluyen las transacciones en USD (viven en el baúl de Dólares).
+  const monthTxs = useMemo(() => txs.filter(t => dateToMonthId(t.date) === monthId && t.type === 'g' && t.cat_kind !== 'inversion' && t.currency !== 'USD'), [txs, monthId]);
 
   const prevMonthId = useMemo(() => {
     const idx = sorted.indexOf(monthId);
@@ -44,7 +45,7 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
   }, [sorted, monthId]);
 
   const prevTotal = useMemo(() =>
-    prevMonthId ? txs.filter(t => dateToMonthId(t.date) === prevMonthId && t.type === 'g' && t.cat_kind !== 'inversion').reduce((s, t) => s + t.amount, 0) : 0,
+    prevMonthId ? txs.filter(t => dateToMonthId(t.date) === prevMonthId && t.type === 'g' && t.cat_kind !== 'inversion' && t.currency !== 'USD').reduce((s, t) => s + t.amount, 0) : 0,
     [txs, prevMonthId]);
 
   const total = monthTxs.reduce((s, t) => s + t.amount, 0);

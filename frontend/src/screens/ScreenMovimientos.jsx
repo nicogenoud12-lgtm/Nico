@@ -46,12 +46,14 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
 
   const prevTxs = useMemo(() => prevMonthId ? txs.filter(t => dateToMonthId(t.date) === prevMonthId) : [], [txs, prevMonthId]);
 
-  const curIng = monthTxs.filter(t => t.type === 'i').reduce((s, t) => s + t.amount, 0);
-  const curGas = monthTxs.filter(t => t.type === 'g' && t.cat_kind !== 'inversion').reduce((s, t) => s + t.amount, 0);
+  // Los totales en pesos solo suman transacciones en ARS; las USD se muestran
+  // en la lista pero no se mezclan en el total (su lugar es el baúl de Dólares).
+  const curIng = monthTxs.filter(t => t.type === 'i' && t.currency !== 'USD').reduce((s, t) => s + t.amount, 0);
+  const curGas = monthTxs.filter(t => t.type === 'g' && t.cat_kind !== 'inversion' && t.currency !== 'USD').reduce((s, t) => s + t.amount, 0);
   const curNet = curIng - curGas;
 
-  const prevIng = prevTxs.filter(t => t.type === 'i').reduce((s, t) => s + t.amount, 0);
-  const prevGas = prevTxs.filter(t => t.type === 'g' && t.cat_kind !== 'inversion').reduce((s, t) => s + t.amount, 0);
+  const prevIng = prevTxs.filter(t => t.type === 'i' && t.currency !== 'USD').reduce((s, t) => s + t.amount, 0);
+  const prevGas = prevTxs.filter(t => t.type === 'g' && t.cat_kind !== 'inversion' && t.currency !== 'USD').reduce((s, t) => s + t.amount, 0);
   const prevNet = prevIng - prevGas;
 
   const pctIng = pctChange(curIng, prevIng);
