@@ -579,8 +579,9 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
     const totalGas = elapsedData.reduce((s, d) => s + d.gas, 0);
     const totalInv = elapsedData.reduce((s, d) => s + d.inv, 0);
     const netAcum = totalIng - totalGas;
-    const nonZeroIng = elapsedData.filter(d => d.ing > 0);
-    const pctAhorroProm = nonZeroIng.length > 0 ? nonZeroIng.reduce((s, d) => s + d.pctAhorro, 0) / nonZeroIng.length : 0;
+    // Ahorro promedio = (total ingresos − total gastos) / total ingresos,
+    // no el promedio de los % mensuales individuales.
+    const pctAhorroProm = totalIng > 0 ? (netAcum / totalIng) * 100 : 0;
 
     return { totalIng, totalGas, totalInv, netAcum, pctAhorroProm };
   }, [elapsedData]);
