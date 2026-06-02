@@ -265,6 +265,8 @@ function DollarOpForm({ cats, mediums, holdingUsd, oficialRate, onSave, onCancel
   const [kind, setKind] = useState('compra');
   const [usd, setUsd] = useState('');
   const [rate, setRate] = useState('');
+  const [total, setTotal] = useState('');
+  const [rateMode, setRateMode] = useState('rate'); // 'rate' = cotización | 'total' = monto en pesos
   const [date, setDate] = useState(todayStr());
   const [desc, setDesc] = useState('');
   const [cat, setCat] = useState('');
@@ -280,8 +282,10 @@ function DollarOpForm({ cats, mediums, holdingUsd, oficialRate, onSave, onCancel
 
   // Autocompletar la cotización oficial al elegir compra/venta (editable).
   useEffect(() => {
-    if (needsRate && !rate && oficialRate != null) setRate(String(Math.round(oficialRate)));
-  }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (needsRate && rateMode === 'rate' && !rate && oficialRate != null) {
+      setRate(String(Math.round(oficialRate)));
+    }
+  }, [kind, rateMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const submit = () => {
     setErr('');
@@ -290,14 +294,23 @@ function DollarOpForm({ cats, mediums, holdingUsd, oficialRate, onSave, onCancel
     if (reducesUsd && usdNum > holdingUsd + 1e-9) {
       setErr(`No tenés tantos dólares (tenencia: ${fmtUSD(holdingUsd)})`); return;
     }
-    const rateNum = needsRate ? parseFloat(rate) : null;
-    if (needsRate && (!rateNum || rateNum <= 0)) { setErr('Ingresá la cotización'); return; }
+    let rateNum = null;
+    if (needsRate) {
+      if (rateMode === 'total') {
+        const totalNum = parseFloat(total);
+        if (!totalNum || totalNum <= 0) { setErr('Ingresá el monto total'); return; }
+        rateNum = totalNum / usdNum; // calculamos la cotización sola
+      } else {
+        rateNum = parseFloat(rate);
+        if (!rateNum || rateNum <= 0) { setErr('Ingresá la cotización'); return; }
+      }
+    }
     if (needsLeg && !cat) { setErr('Elegí una categoría'); return; }
 
     onSave({
       kind,
       usd: usdNum,
-      rate: needsRate ? rateNum : null,
+      rate: rateNum,
       date,
       desc,
       cat: needsLeg ? cat : null,
@@ -341,15 +354,51 @@ function DollarOpForm({ cats, mediums, holdingUsd, oficialRate, onSave, onCancel
 
       {needsRate && (
         <div>
-          <div style={{ ...s.label, marginBottom: 6 }}>Cotización (ARS por USD)</div>
-          <input
-            type="number" inputMode="decimal" step="0.01" value={rate}
-            onChange={e => setRate(e.target.value)} style={s.input} placeholder="0"
-          />
-          {usd && rate && (
-            <div style={{ fontSize: 11, color: C.text3, marginTop: 4 }}>
-              {kind === 'compra' ? 'Pagás' : 'Recibís'} {fmtARS(parseFloat(usd) * parseFloat(rate))}
-            </div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+            {[['rate', 'Cotización'], ['total', 'Monto total']].map(([m, label]) => (
+              <button
+                key={m}
+                onClick={() => setRateMode(m)}
+                style={{
+                  flex: 1, padding: '7px 4px', borderRadius: 8, cursor: 'pointer',
+                  fontFamily: 'inherit', fontSize: 12, fontWeight: 600,
+                  border: `1px solid ${rateMode === m ? USD_COLOR : C.border}`,
+                  background: rateMode === m ? C.surface2 : 'transparent',
+                  color: rateMode === m ? C.text : C.text2,
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {rateMode === 'rate' ? (
+            <>
+              <div style={{ ...s.label, marginBottom: 6 }}>Cotización (ARS por USD)</div>
+              <input
+                type="number" inputMode="decimal" step="0.01" value={rate}
+                onChange={e => setRate(e.target.value)} style={s.input} placeholder="0"
+              />
+              {usd && rate && (
+                <div style={{ fontSize: 11, color: C.text3, marginTop: 4 }}>
+                  {kind === 'compra' ? 'Pagás' : 'Recibís'} {fmtARS(parseFloat(usd) * parseFloat(rate))}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div style={{ ...s.label, marginBottom: 6 }}>
+                {kind === 'compra' ? 'Monto que pagaste (ARS)' : 'Monto que recibiste (ARS)'}
+              </div>
+              <input
+                type="number" inputMode="decimal" step="0.01" value={total}
+                onChange={e => setTotal(e.target.value)} style={s.input} placeholder="0"
+              />
+              {usd && total && parseFloat(usd) > 0 && (
+                <div style={{ fontSize: 11, color: C.text3, marginTop: 4 }}>
+                  Cotización: {fmtARS(parseFloat(total) / parseFloat(usd))}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
