@@ -8,5 +8,6 @@ export const NAV_ITEMS = [
   { id: 'recurrentes', label: 'Recurrentes', icon: '↻' },
   { id: 'anual',       label: 'Anual',       icon: '▦' },
   { id: 'inversiones', label: 'Inversiones', icon: '◈' },
+  { id: 'dolares',     label: 'Dólares',     icon: '$' },
   { id: 'ajustes',     label: 'Ajustes',     icon: '⚙' },
 ];

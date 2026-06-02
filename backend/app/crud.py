@@ -510,6 +510,99 @@ def delete_transaction(db: Session, tx_id: int, user_id: int) -> bool:
     return True
 
 
+# ── Caja fuerte de dólares ───────────────────────────────────
+def serialize_dollar_op(op: models.DollarOp) -> dict:
+    tx = op.tx
+    tx_amount = None
+    if op.rate is not None:
+        tx_amount = op.usd * op.rate
+    elif op.kind == "retiro":
+        tx_amount = op.usd
+    return {
+        "id": op.id,
+        "date": op.date,
+        "kind": op.kind,
+        "usd": op.usd,
+        "rate": op.rate,
+        "desc": op.desc,
+        "tx_id": op.tx_id,
+        "tx_amount": tx_amount,
+        "tx_currency": tx.currency if tx else None,
+        "tx_cat": tx.category.name if (tx and tx.category) else None,
+        "tx_medio": tx.medium.name if (tx and tx.medium) else None,
+        "created_at": op.created_at,
+    }
+
+
+def list_dollar_ops(db: Session, user_id: int) -> list[models.DollarOp]:
+    return (
+        db.query(models.DollarOp)
+        .filter(models.DollarOp.user_id == user_id)
+        .order_by(models.DollarOp.date.desc(), models.DollarOp.id.desc())
+        .all()
+    )
+
+
+def create_dollar_op(db: Session, payload: schemas.DollarOpCreate, user_id: int) -> models.DollarOp:
+    tx_id = None
+    if payload.kind in ("compra", "venta", "retiro"):
+        if not payload.cat:
+            raise ValueError("La operación requiere una categoría")
+        if payload.kind in ("compra", "venta") and not payload.rate:
+            raise ValueError("Compra/venta requieren cotización")
+
+        if payload.kind == "compra":
+            tx_type, currency, amount = "g", "ARS", payload.usd * payload.rate
+        elif payload.kind == "venta":
+            tx_type, currency, amount = "i", "ARS", payload.usd * payload.rate
+        else:  # retiro: gasto en dólares
+            tx_type, currency, amount = "g", "USD", payload.usd
+
+        tx_payload = schemas.TransactionCreate(
+            date=payload.date,
+            desc=payload.desc or "",
+            cat=payload.cat,
+            medio=payload.medio or "",
+            amount=amount,
+            type=tx_type,
+            currency=currency,
+            tarjeta_id=payload.tarjeta_id,
+        )
+        tx = create_transaction(db, tx_payload, user_id=user_id, source="dollar")
+        tx_id = tx.id
+
+    op = models.DollarOp(
+        user_id=user_id,
+        date=payload.date,
+        kind=payload.kind,
+        usd=payload.usd,
+        rate=payload.rate if payload.kind in ("compra", "venta") else None,
+        desc=payload.desc or "",
+        tx_id=tx_id,
+    )
+    db.add(op)
+    db.commit()
+    db.refresh(op)
+    return op
+
+
+def delete_dollar_op(db: Session, op_id: int, user_id: int) -> bool:
+    op = (
+        db.query(models.DollarOp)
+        .filter(models.DollarOp.id == op_id, models.DollarOp.user_id == user_id)
+        .first()
+    )
+    if not op:
+        return False
+    tx_id = op.tx_id
+    db.delete(op)
+    db.flush()
+    if tx_id:
+        delete_transaction(db, tx_id, user_id)
+    db.commit()
+    return True
+
+
 # ── BotRules (no son user-scoped — solo del bot del owner) ───
 def list_bot_rules(db: Session) -> list[models.BotRule]:
     return db.query(models.BotRule).order_by(models.BotRule.created_at.asc()).all()
