@@ -124,6 +124,29 @@ class Transaction(Base):
     tarjeta = relationship("Tarjeta", lazy="joined")
 
 
+class DollarOp(Base):
+    """Operación de la caja fuerte de dólares (baúl de tenencias en USD).
+
+    kind: ingreso (+USD, sin pata en pesos) | compra (+USD, pata gasto ARS) |
+          venta (-USD, pata ingreso ARS) | retiro (-USD, pata gasto USD).
+    La pata linkeada (compra/venta/retiro) es una Transaction normal referenciada
+    por tx_id; al borrar la op se borra también esa Transaction (ver crud).
+    """
+    __tablename__ = "dollar_ops"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    date = Column(Date, nullable=False, index=True)
+    kind = Column(String, nullable=False)          # ingreso | compra | venta | retiro
+    usd = Column(Float, nullable=False)            # siempre positivo; el signo lo da kind
+    rate = Column(Float, nullable=True)            # cotización ARS/USD (None en ingreso/retiro)
+    desc = Column(String, nullable=False, default="")
+    tx_id = Column(Integer, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    tx = relationship("Transaction", lazy="joined", foreign_keys=[tx_id])
+
+
 class PendingTransaction(Base):
     __tablename__ = "pending_transactions"
 

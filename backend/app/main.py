@@ -10,7 +10,7 @@ from . import crud
 from .config import settings
 from .database import Base, SessionLocal, engine, get_db
 from .models import Category, Medium, Month, User
-from .routers import backup, categories, mediums, months, recurrentes, tarjetas, telegram, transactions
+from .routers import backup, categories, dollar, mediums, months, recurrentes, tarjetas, telegram, transactions
 from .routers import auth as auth_router
 from .routers import import_statements
 
@@ -150,6 +150,7 @@ app.include_router(months.router)
 app.include_router(backup.router)
 app.include_router(telegram.router)
 app.include_router(import_statements.router)
+app.include_router(dollar.router)
 
 
 @app.post("/cron/recurrentes")

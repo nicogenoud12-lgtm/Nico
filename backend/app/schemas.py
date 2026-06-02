@@ -187,6 +187,46 @@ class TransactionRead(BaseModel):
     source: str
 
 
+# ── Caja fuerte de dólares ───────────────────────────────────
+class DollarOpCreate(BaseModel):
+    kind: Literal["ingreso", "compra", "venta", "retiro"]
+    usd: float
+    rate: Optional[float] = None          # requerido en compra/venta
+    date: datetime.date
+    desc: str = ""
+    # Pata linkeada en Movimientos (compra/venta/retiro):
+    cat: Optional[str] = None
+    medio: str = ""
+    tarjeta_id: Optional[int] = None
+
+
+class DollarOpRead(BaseModel):
+    id: int
+    date: datetime.date
+    kind: Literal["ingreso", "compra", "venta", "retiro"]
+    usd: float
+    rate: Optional[float] = None
+    desc: str
+    tx_id: Optional[int] = None
+    tx_amount: Optional[float] = None     # monto de la pata linkeada (usd*rate o usd)
+    tx_currency: Optional[str] = None     # ARS | USD
+    tx_cat: Optional[str] = None
+    tx_medio: Optional[str] = None
+    created_at: datetime.datetime
+
+
+class QuoteSide(BaseModel):
+    compra: Optional[float] = None
+    venta: Optional[float] = None
+
+
+class QuotesRead(BaseModel):
+    oficial: QuoteSide
+    cripto: QuoteSide
+    fetched_at: Optional[str] = None
+    stale: bool = False                   # true si se sirve cache vencido por fallo de API
+
+
 # ── Reorder ──────────────────────────────────────────────────
 class ReorderPayload(BaseModel):
     ids: list[int]

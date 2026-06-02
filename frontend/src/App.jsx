@@ -8,6 +8,7 @@ import { listTransactions } from './api/transactions.js';
 import { listCategories, listMediums } from './api/categories.js';
 import { listTarjetas } from './api/tarjetas.js';
 import { listRecurrentes } from './api/recurrentes.js';
+import { listDollarOps } from './api/dollar.js';
 
 import SidebarDesktop from './components/SidebarDesktop.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -21,6 +22,7 @@ import ScreenTarjetas from './screens/ScreenTarjetas.jsx';
 import ScreenRecurrentes from './screens/ScreenRecurrentes.jsx';
 import ScreenAnual from './screens/ScreenAnual.jsx';
 import ScreenInversiones from './screens/ScreenInversiones.jsx';
+import ScreenDolares from './screens/ScreenDolares.jsx';
 import ScreenAjustes from './screens/ScreenAjustes.jsx';
 
 function useIsMobile() {
@@ -41,7 +43,7 @@ function AppInner() {
   const mobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const VALID_SCREENS = ['movimientos', 'gastos', 'ingresos', 'tarjetas', 'recurrentes', 'anual', 'inversiones', 'ajustes'];
+  const VALID_SCREENS = ['movimientos', 'gastos', 'ingresos', 'tarjetas', 'recurrentes', 'anual', 'inversiones', 'dolares', 'ajustes'];
   const [screen, setScreen] = useState(() => {
     const s = localStorage.getItem(`nav_screen:${userId}`);
     return VALID_SCREENS.includes(s) ? s : 'movimientos';
@@ -58,19 +60,21 @@ function AppInner() {
   const [mediums, setMediums] = useState([]);
   const [tarjetas, setTarjetas] = useState([]);
   const [recurrentes, setRecurrentes] = useState([]);
+  const [dollarOps, setDollarOps] = useState([]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [t, c, m, tj, r] = await Promise.all([
-        listTransactions(), listCategories(), listMediums(), listTarjetas(), listRecurrentes(),
+      const [t, c, m, tj, r, d] = await Promise.all([
+        listTransactions(), listCategories(), listMediums(), listTarjetas(), listRecurrentes(), listDollarOps(),
       ]);
       setTxs(t);
       setRawCats(c);
       setMediums(m);
       setTarjetas(tj);
       setRecurrentes(r);
+      setDollarOps(d);
     } catch (e) {
       setError(e?.message || 'Error de conexión');
     } finally {
@@ -99,6 +103,7 @@ function AppInner() {
   const reloadMediums = useCallback(() => listMediums().then(setMediums), []);
   const reloadTarjetas = useCallback(() => listTarjetas().then(setTarjetas), []);
   const reloadRecurrentes = useCallback(() => listRecurrentes().then(setRecurrentes), []);
+  const reloadDollarOps = useCallback(() => listDollarOps().then(setDollarOps), []);
 
   const onNav = useCallback((s) => { setScreen(s); setDrawerOpen(false); }, []);
 
@@ -145,6 +150,14 @@ function AppInner() {
       );
       case 'anual': return <ScreenAnual {...screenProps} onNavigate={setScreen} />;
       case 'inversiones': return <ScreenInversiones {...screenProps} onTxsChange={reloadTxs} />;
+      case 'dolares': return (
+        <ScreenDolares
+          cats={cats} mediums={mediums} tarjetas={tarjetas}
+          dollarOps={dollarOps}
+          onOpsChange={reloadDollarOps}
+          onTxsChange={reloadTxs}
+        />
+      );
       case 'ajustes': return (
         <ScreenAjustes
           cats={cats} mediums={mediums}
