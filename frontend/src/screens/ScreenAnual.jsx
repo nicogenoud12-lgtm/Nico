@@ -72,10 +72,13 @@ function useIsMobile() {
   return mobile;
 }
 
-function KpiCard({ label, value, color, deltaPct, deltaLabel, progress, maxProgress, isPercentage }) {
+function KpiCard({ label, value, color, deltaPct, deltaLabel, progress, maxProgress, isPercentage, invertDelta }) {
   const progressPct = maxProgress > 0 ? (progress / maxProgress) * 100 : 0;
   const { hidden } = useHideAmounts();
   const displayValue = isPercentage ? value : (hidden ? '••••' : fmtARS(value));
+  // Para Gastos, un aumento (↑) es malo → rojo; una baja (↓) es buena → verde.
+  const upColor = invertDelta ? C.red : C.green;
+  const downColor = invertDelta ? C.green : C.red;
   return (
     <div style={{
       background: C.surface,
@@ -94,7 +97,7 @@ function KpiCard({ label, value, color, deltaPct, deltaLabel, progress, maxProgr
         {displayValue}
       </div>
       {deltaLabel && (
-        <div style={{ fontSize: 11, color: deltaPct > 0 ? C.green : deltaPct < 0 ? C.red : C.text3, fontWeight: 600, marginBottom: 8 }}>
+        <div style={{ fontSize: 11, color: deltaPct > 0 ? upColor : deltaPct < 0 ? downColor : C.text3, fontWeight: 600, marginBottom: 8 }}>
           {deltaPct > 0 ? '↑' : deltaPct < 0 ? '↓' : '—'} {Math.abs(deltaPct)}% {deltaLabel}
         </div>
       )}
@@ -516,6 +519,15 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
     return earlier.length ? earlier[earlier.length - 1] : null;
   }, [data, kpiMonthId]);
 
+  // Meses ya transcurridos (pasados + actual): para YTD, resumen y % ahorro por mes.
+  // Excluye meses futuros con cuotas todavía no devengadas.
+  const currentYear = new Date().getFullYear().toString();
+  const elapsedData = useMemo(() => {
+    if (selectedYear < currentYear) return data;       // año pasado: completo
+    if (selectedYear > currentYear) return [];          // año futuro: nada
+    return data.filter(d => d.id <= todayMonthId);      // año en curso: hasta hoy
+  }, [data, selectedYear, currentYear, todayMonthId]);
+
   const kpis = useMemo(() => {
     if (!kpiMonth) {
       return {
@@ -542,7 +554,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
   const maxKpi = Math.max(kpis.ing, kpis.gas, kpis.net || 0, 1);
 
   const summary = useMemo(() => {
-    const nonZero = data.filter(d => d.ing > 0 || d.gas > 0);
+    const nonZero = elapsedData.filter(d => d.ing > 0 || d.gas > 0);
     if (nonZero.length === 0) {
       return { bestMonth: null, worstGasto: null, tendencia: 'estable', avgIng: 0 };
     }
@@ -560,18 +572,18 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
     const avgIng = nonZero.reduce((s, d) => s + d.ing, 0) / nonZero.length;
 
     return { bestMonth, worstGasto, tendencia, avgIng };
-  }, [data]);
+  }, [elapsedData]);
 
   const ytd = useMemo(() => {
-    const totalIng = data.reduce((s, d) => s + d.ing, 0);
-    const totalGas = data.reduce((s, d) => s + d.gas, 0);
-    const totalInv = data.reduce((s, d) => s + d.inv, 0);
+    const totalIng = elapsedData.reduce((s, d) => s + d.ing, 0);
+    const totalGas = elapsedData.reduce((s, d) => s + d.gas, 0);
+    const totalInv = elapsedData.reduce((s, d) => s + d.inv, 0);
     const netAcum = totalIng - totalGas;
-    const nonZeroIng = data.filter(d => d.ing > 0);
+    const nonZeroIng = elapsedData.filter(d => d.ing > 0);
     const pctAhorroProm = nonZeroIng.length > 0 ? nonZeroIng.reduce((s, d) => s + d.pctAhorro, 0) / nonZeroIng.length : 0;
 
     return { totalIng, totalGas, totalInv, netAcum, pctAhorroProm };
-  }, [data]);
+  }, [elapsedData]);
 
   const chartData = mode === 'mensual' ? data : runningSum(data);
 
@@ -660,6 +672,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
               color={C.red}
               deltaPct={kpis.varGas}
               deltaLabel="vs mes ant."
+              invertDelta
               progress={kpis.gas}
               maxProgress={maxKpi}
             />
@@ -913,7 +926,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
                 % Ahorro por mes
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {data.slice(-5).reverse().map(d => (
+                {elapsedData.slice(-5).reverse().map(d => (
                   <MiniBar key={d.id} pct={d.ing > 0 ? d.pctAhorro : 0} label={monthIdLabel(d.id)} />
                 ))}
               </div>
@@ -944,7 +957,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
                 % Ahorro por mes
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {data.slice(-5).reverse().map(d => (
+                {elapsedData.slice(-5).reverse().map(d => (
                   <MiniBar key={d.id} pct={d.ing > 0 ? d.pctAhorro : 0} label={monthIdLabel(d.id)} />
                 ))}
               </div>
