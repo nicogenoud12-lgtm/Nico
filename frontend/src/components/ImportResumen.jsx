@@ -77,9 +77,13 @@ export default function ImportResumen({ tarjetas, cats, onClose, onTxsChange }) 
   const updateRow = (i, patch) =>
     setRows(rs => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
 
+  // El teclado de iOS en español muestra coma como separador decimal; la
+  // normalizamos a punto para que parseFloat la entienda (sino se pierden los centavos).
+  const parseRate = (v) => parseFloat(String(v ?? '').replace(',', '.'));
+
   const arsOf = (r) => {
     if (r.currency !== 'USD') return r.amount;
-    const rate = parseFloat(r.rate);
+    const rate = parseRate(r.rate);
     return rate > 0 ? r.amount * rate : null;
   };
 
@@ -110,7 +114,7 @@ export default function ImportResumen({ tarjetas, cats, onClose, onTxsChange }) 
         cuota_num: r.cuota_num ?? null,
         cuota_total: r.cuota_total ?? null,
         origin_ref: r.origin_ref,
-        rate: r.currency === 'USD' ? parseFloat(r.rate) : null,
+        rate: r.currency === 'USD' ? parseRate(r.rate) : null,
       }));
       const res = await confirmStatement(tarjetaId, payload);
       setResult(res);
@@ -273,11 +277,11 @@ export default function ImportResumen({ tarjetas, cats, onClose, onTxsChange }) 
           </select>
           {isUSD && (
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
               placeholder="Cotización $"
               value={r.rate}
-              onChange={e => updateRow(i, { rate: e.target.value })}
+              onChange={e => updateRow(i, { rate: e.target.value.replace(/[^0-9.,]/g, '') })}
               style={{ ...s.input, width: 120, padding: '6px 8px', fontSize: 13 }}
             />
           )}
