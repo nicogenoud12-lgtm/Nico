@@ -10,8 +10,11 @@ from app import statement_import
 from app.statement_import import (
     IMPUESTOS_CAT,
     add_months,
+    alias_key,
     compute_origin_ref,
     expand_row,
+    impuestos_origin_ref,
+    impuestos_sig,
     mark_duplicates,
     normalize_movimientos,
 )
@@ -277,3 +280,92 @@ def test_expand_usd_convierte_a_ars_y_anota_desc():
     ), tarjeta_id=7)
     assert out[0]["amount"] == 24000.0
     assert "US$ 20" in out[0]["desc"]
+
+
+# ── Impuestos: ref estable por fecha+monto (no por periodo) ──
+def test_impuestos_origin_ref_estable_por_fecha_y_monto():
+    a = impuestos_origin_ref(7, "2026-05-31", 179.9)
+    b = impuestos_origin_ref(7, "2026-05-31", 179.9)
+    assert a == b
+    # No depende del periodo (texto libre de Gemini): mismo input → mismo ref.
+    assert "impuestos-tarjetas" in a
+
+
+def test_impuestos_origin_ref_difiere_por_monto():
+    assert impuestos_origin_ref(7, "2026-05-31", 179.9) != impuestos_origin_ref(7, "2026-05-31", 200.0)
+
+
+def test_impuestos_sig_estable():
+    assert impuestos_sig("2026-05-31", 179.9) == impuestos_sig("2026-05-31", 179.90)
+    assert impuestos_sig("2026-05-31", 179.9) == "2026-05-31|179.90"
+
+
+def test_impuestos_ref_no_depende_del_periodo():
+    # Dos extracciones del mismo resumen con periodo distinto → mismo ref de impuestos.
+    raw_a = {"periodo": "Mayo 2026", "movimientos": [
+        {"fecha": "2026-05-31", "descripcion": "IVA", "monto": 179.9, "tipo": "impuesto"},
+    ]}
+    raw_b = {"periodo": "30 Abr 2026 - 29 Mayo 2026", "movimientos": [
+        {"fecha": "2026-05-31", "descripcion": "IVA", "monto": 179.9, "tipo": "impuesto"},
+    ]}
+    ra = next(r for r in normalize_movimientos(raw_a, 7) if r["tipo"] == "impuesto")
+    rb = next(r for r in normalize_movimientos(raw_b, 7) if r["tipo"] == "impuesto")
+    assert ra["origin_ref"] == rb["origin_ref"]
+
+
+# ── Marcador de cuota volátil en la desc ─────────────────────
+def test_origin_ref_ignora_marcador_de_cuota_en_desc():
+    # "X (11/12)" y "X (12/12)" deben dar el MISMO ref para la cuota 12 → dedup cross-mes.
+    a = compute_origin_ref(7, "2026-01-15", "PERFUME (11/12)", "ARS", 100.0, 12, 12)
+    b = compute_origin_ref(7, "2026-01-15", "PERFUME (12/12)", "ARS", 100.0, 12, 12)
+    assert a == b
+
+
+def test_origin_ref_consumo_sin_marcador_no_cambia():
+    # Regresión: consumos sin marcador conservan su ref (dedup existente intacto).
+    assert compute_origin_ref(7, "2026-04-13", "Spotify", "ARS", 8413.47, None, None) == \
+        "7|2026-04-13|spotify|ARS|8413.47"
+
+
+# ── Cuotas renombradas: ref usa la desc ORIGINAL ─────────────
+def test_expand_cuota_renombrada_usa_desc_original_para_ref():
+    out = expand_row({
+        "date": date(2026, 1, 15), "desc": "Perfume",
+        "desc_orig": "MERPAGO*JULERIAQUE Rosario Nort ARG(11/12)",
+        "amount": 100.0, "currency": "ARS", "cat": "Otros",
+        "cuota_num": 11, "cuota_total": 12, "origin_ref": "ref-actual", "rate": None,
+    }, tarjeta_id=7)
+    # La desc guardada es la editada…
+    assert all(r["desc"] == "Perfume" for r in out)
+    # …pero el ref de la cuota 12 (futura) se calcula con la desc ORIGINAL y coincide
+    # con la extracción del mes siguiente ("…(12/12)").
+    cuota12 = next(r for r in out if r["cuota_num"] == 12)
+    ref_prox = compute_origin_ref(
+        7, date(2026, 1, 15), "MERPAGO*JULERIAQUE Rosario Nort ARG(12/12)", "ARS", 0, 12, 12
+    )
+    assert cuota12["origin_ref"] == ref_prox
+
+
+# ── Alias de comercio ────────────────────────────────────────
+def test_alias_key_agrupa_cuotas_y_referencias_del_mismo_comercio():
+    a = alias_key("MERPAGO*JULERIAQUE Rosario Nort ARG(11/12) 807692")
+    b = alias_key("MERPAGO*JULERIAQUE Rosario Nort ARG(12/12)")
+    assert a == b
+
+
+def test_normalize_aplica_alias_y_conserva_original():
+    raw = {"periodo": "2026-05", "movimientos": [
+        {"fecha": "2026-05-10", "descripcion": "MERPAGO*JULERIAQUE ARG(12/12)",
+         "monto": 100.0, "moneda": "ARS", "tipo": "consumo",
+         "cuota_num": 12, "cuota_total": 12},
+    ]}
+    aliases = {alias_key("MERPAGO*JULERIAQUE ARG(12/12)"): "Perfume"}
+    row = normalize_movimientos(raw, 7, aliases)[0]
+    assert row["desc"] == "Perfume"                       # se muestra el alias
+    assert row["desc_orig"] == "MERPAGO*JULERIAQUE ARG(12/12)"  # original conservado
+
+
+def test_normalize_sin_alias_usa_desc_original():
+    rows = normalize_movimientos(MP_RAW, tarjeta_id=7)
+    adidas = next(r for r in rows if r.get("desc") == "Adidas")
+    assert adidas["desc_orig"] == "Adidas"

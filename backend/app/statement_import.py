@@ -24,6 +24,31 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
 
 
+# Marcador de cuota embebido en la descripción que varía mes a mes
+# (ej. "(11/12)" o "11 de 12") y rompería el dedup si quedara en el ref.
+_CUOTA_MARKER = re.compile(r"\(?\b\d+\s*(?:/|de)\s*\d+\b\)?")
+
+
+def _canonical_desc(text: str) -> str:
+    """Desc canónica para el origin_ref: saca el marcador de cuota volátil.
+
+    Así "X (11/12)" y "X (12/12)" producen el mismo ref base, y una cuota futura
+    proyectada coincide con la que aparece en el resumen del mes siguiente. Los
+    consumos sin marcador no cambian (dedup existente intacto).
+    """
+    return re.sub(r"\s+", " ", _CUOTA_MARKER.sub("", text or "")).strip()
+
+
+def alias_key(desc: str) -> str:
+    """Clave de alias por comercio: canónica + sin números de referencia.
+
+    Agrupa "…JULERIAQUE…(11/12) 807692" y "…JULERIAQUE…(12/12)" en la misma
+    clave, para recordar el nombre que el usuario le puso al comercio.
+    """
+    base = re.sub(r"\b\d{3,}\b", "", _canonical_desc(desc))
+    return _slug(base)
+
+
 def add_months(d: date, n: int) -> date:
     """Suma n meses a una fecha, recortando el día al último válido del mes."""
     idx = d.month - 1 + n
@@ -52,25 +77,40 @@ def compute_origin_ref(
     proyectada y aparece en el resumen del mes siguiente, se detecta como
     duplicada aunque el monto haya variado por intereses.
     """
+    slug = _slug(_canonical_desc(desc))
     if cuota_num and cuota_total and cuota_total > 1:
-        return f"{tarjeta_id}|{fecha or ''}|{_slug(desc)}|cuota|{cuota_num}/{cuota_total}"
-    return f"{tarjeta_id}|{fecha or ''}|{_slug(desc)}|{moneda}|{monto:.2f}"
+        return f"{tarjeta_id}|{fecha or ''}|{slug}|cuota|{cuota_num}/{cuota_total}"
+    return f"{tarjeta_id}|{fecha or ''}|{slug}|{moneda}|{monto:.2f}"
 
 
-def impuestos_origin_ref(tarjeta_id: int, periodo: str | None) -> str:
-    """origin_ref de la fila consolidada de impuestos del período."""
-    return f"{tarjeta_id}|{periodo or ''}|impuestos-tarjetas"
+def impuestos_origin_ref(tarjeta_id: int, fecha: str | None, monto: float) -> str:
+    """origin_ref estable de la fila consolidada de impuestos.
+
+    Se basa en fecha + monto (no en el `periodo`, que es texto libre de Gemini y
+    cambia entre extracciones) para que reimportar el mismo resumen sea idempotente.
+    """
+    return f"{tarjeta_id}|{fecha or ''}|{monto:.2f}|impuestos-tarjetas"
 
 
-def normalize_movimientos(raw: dict, tarjeta_id: int) -> list[dict]:
+def impuestos_sig(fecha: str | None, monto: float) -> str:
+    """Firma de contenido (fecha + monto) para dedup de impuestos por contenido."""
+    return f"{fecha or ''}|{monto:.2f}"
+
+
+def normalize_movimientos(
+    raw: dict, tarjeta_id: int, aliases: dict[str, str] | None = None,
+) -> list[dict]:
     """Convierte la salida de Gemini en filas propuestas para la revisión.
 
     - Descarta pagos y ajustes.
     - Cada consumo → una fila (con su cuota del período si aplica).
     - Todos los impuestos → una sola fila consolidada "Impuestos Tarjetas".
+    - `aliases` (clave de comercio → nombre del usuario): si el comercio ya tiene
+      un alias guardado, la fila se muestra con ese nombre (`desc`), conservando
+      el original en `desc_orig` para el dedup.
     Nada se persiste acá.
     """
-    periodo = raw.get("periodo")
+    aliases = aliases or {}
     rows: list[dict] = []
 
     impuesto_total = 0.0
@@ -99,11 +139,14 @@ def normalize_movimientos(raw: dict, tarjeta_id: int) -> list[dict]:
         moneda = (m.get("moneda") or "ARS").upper()
         cuota_num = m.get("cuota_num")
         cuota_total = m.get("cuota_total")
-        desc = (m.get("descripcion") or "").strip()
+        desc_orig = (m.get("descripcion") or "").strip()
+        # Si el comercio ya tiene un alias guardado, mostramos ese nombre.
+        desc = aliases.get(alias_key(desc_orig), desc_orig)
         cat = (m.get("cat_sugerida") or "").strip() or "Otros"
         rows.append({
             "date": fecha,
             "desc": desc,
+            "desc_orig": desc_orig,
             "amount": monto,
             "currency": moneda,
             "cuota_num": cuota_num,
@@ -111,23 +154,27 @@ def normalize_movimientos(raw: dict, tarjeta_id: int) -> list[dict]:
             "cat": cat,
             "tipo": "consumo",
             "needs_rate": moneda == "USD",
+            # El ref se calcula SIEMPRE con la desc original (no la del alias/edición).
             "origin_ref": compute_origin_ref(
-                tarjeta_id, fecha, desc, moneda, monto, cuota_num, cuota_total
+                tarjeta_id, fecha, desc_orig, moneda, monto, cuota_num, cuota_total
             ),
         })
 
     if has_impuesto and round(impuesto_total, 2) != 0:
+        imp_fecha = max(impuesto_fechas) if impuesto_fechas else None
+        imp_monto = round(impuesto_total, 2)
         rows.append({
-            "date": max(impuesto_fechas) if impuesto_fechas else None,
+            "date": imp_fecha,
             "desc": IMPUESTOS_CAT,
-            "amount": round(impuesto_total, 2),
+            "desc_orig": IMPUESTOS_CAT,
+            "amount": imp_monto,
             "currency": "ARS",
             "cuota_num": None,
             "cuota_total": None,
             "cat": IMPUESTOS_CAT,
             "tipo": "impuesto",
             "needs_rate": False,
-            "origin_ref": impuestos_origin_ref(tarjeta_id, periodo),
+            "origin_ref": impuestos_origin_ref(tarjeta_id, imp_fecha, imp_monto),
         })
 
     return rows
@@ -154,6 +201,8 @@ def expand_row(row: dict, tarjeta_id: int) -> list[dict]:
     """
     fecha = row["date"]                       # datetime.date
     desc = row.get("desc") or ""
+    # Nombre ORIGINAL del resumen (para el ref); cae a `desc` si no vino.
+    desc_orig = row.get("desc_orig") or desc
     currency = (row.get("currency") or "ARS").upper()
     monto = float(row["amount"])
     cat = row.get("cat") or "Otros"
@@ -169,10 +218,11 @@ def expand_row(row: dict, tarjeta_id: int) -> list[dict]:
 
     if is_cuota:
         for j in range(cuota_num, cuota_total + 1):
-            # La cuota actual reusa el origin_ref del extract (consistencia);
-            # las futuras se calculan con la misma fórmula de cuota.
+            # La cuota actual reusa el origin_ref del extract (consistencia); las
+            # futuras se calculan con la desc ORIGINAL (no la editada/alias), para
+            # que coincidan con la extracción del mes siguiente.
             ref = row["origin_ref"] if j == cuota_num else compute_origin_ref(
-                tarjeta_id, fecha, desc, currency, monto, j, cuota_total
+                tarjeta_id, fecha, desc_orig, currency, monto, j, cuota_total
             )
             out.append({
                 # En MP la fecha del resumen es la de COMPRA (cuota 1); la cuota j

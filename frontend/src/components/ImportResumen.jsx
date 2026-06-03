@@ -108,6 +108,7 @@ export default function ImportResumen({ tarjetas, cats, onClose, onTxsChange }) 
       const payload = selected.map(r => ({
         date: r.date,
         desc: r.desc,
+        desc_orig: r.desc_orig ?? r.desc,
         amount: r.amount,
         currency: r.currency || 'ARS',
         cat: r.cat || 'Otros',

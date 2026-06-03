@@ -465,6 +465,50 @@ def existing_origin_refs(db: Session, user_id: int, refs: list[str]) -> set[str]
     return {r[0] for r in rows if r[0]}
 
 
+def existing_impuestos_sigs(db: Session, user_id: int, tarjeta_id: int) -> set[str]:
+    """Firmas (fecha|monto) de las txs de "Impuestos Tarjetas" ya cargadas de una
+    tarjeta. Permite dedup por contenido aunque el origin_ref viejo no coincida."""
+    rows = (
+        db.query(models.Transaction.date, models.Transaction.amt)
+        .join(models.Category, models.Transaction.cat_id == models.Category.id)
+        .filter(
+            models.Transaction.user_id == user_id,
+            models.Transaction.tarjeta_id == tarjeta_id,
+            models.Category.name == "Impuestos Tarjetas",
+        )
+        .all()
+    )
+    return {f"{d.isoformat()}|{amt:.2f}" for d, amt in rows}
+
+
+def get_import_aliases(db: Session, user_id: int) -> dict[str, str]:
+    """Mapa clave_de_comercio → nombre elegido por el usuario, para el import."""
+    rows = (
+        db.query(models.ImportAlias.pattern, models.ImportAlias.alias)
+        .filter(models.ImportAlias.user_id == user_id)
+        .all()
+    )
+    return {p: a for p, a in rows}
+
+
+def upsert_import_alias(db: Session, user_id: int, pattern: str, alias: str) -> None:
+    """Crea o actualiza el alias de un comercio para el usuario (idempotente)."""
+    if not pattern or not alias:
+        return
+    row = (
+        db.query(models.ImportAlias)
+        .filter(models.ImportAlias.user_id == user_id, models.ImportAlias.pattern == pattern)
+        .first()
+    )
+    if row:
+        if row.alias != alias:
+            row.alias = alias
+            db.commit()
+        return
+    db.add(models.ImportAlias(user_id=user_id, pattern=pattern, alias=alias))
+    db.commit()
+
+
 def update_transaction(
     db: Session, tx_id: int, payload: schemas.TransactionUpdate, user_id: int,
 ) -> Optional[models.Transaction]:

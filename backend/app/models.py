@@ -163,3 +163,16 @@ class BotRule(Base):
     cat = Column(String, nullable=False)
     tx_type = Column(String, nullable=False, default="g")  # g | i
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
+class ImportAlias(Base):
+    """Alias de nombres al importar resúmenes: nombre original del comercio →
+    nombre que el usuario le puso. Scoped por usuario (multi-usuario)."""
+    __tablename__ = "import_aliases"
+    __table_args__ = (UniqueConstraint("user_id", "pattern", name="uq_import_alias_user_pattern"),)
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    pattern = Column(String, nullable=False, index=True)  # clave normalizada (alias_key)
+    alias = Column(String, nullable=False)                # nombre elegido por el usuario
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

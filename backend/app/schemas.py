@@ -236,6 +236,7 @@ class ReorderPayload(BaseModel):
 class ImportRow(BaseModel):
     date: datetime.date
     desc: str = ""
+    desc_orig: str = ""                 # nombre original del resumen (para ref/alias)
     amount: float                       # monto ORIGINAL del resumen (ARS o USD)
     currency: str = "ARS"
     cat: str
