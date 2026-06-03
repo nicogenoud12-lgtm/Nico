@@ -277,6 +277,11 @@ function DollarOpForm({ cats, mediums, holdingUsd, oficialRate, onSave, onCancel
   const needsLeg = kind !== 'ingreso'; // compra/venta/retiro tienen pata + categoría
   const reducesUsd = kind === 'venta' || kind === 'retiro';
 
+  // El teclado de iOS en español usa coma como separador decimal; la aceptamos
+  // y la normalizamos a punto para parseFloat (sino se pierden los centavos).
+  const onlyDecimal = (v) => v.replace(/[^0-9.,]/g, '');
+  const parseDec = (v) => parseFloat(String(v ?? '').replace(',', '.'));
+
   // Categorías según el tipo: venta = ingreso en pesos; compra/retiro = gasto.
   const catOptions = kind === 'venta' ? cats.ingresos : cats.gastos;
 
@@ -289,7 +294,7 @@ function DollarOpForm({ cats, mediums, holdingUsd, oficialRate, onSave, onCancel
 
   const submit = () => {
     setErr('');
-    const usdNum = parseFloat(usd);
+    const usdNum = parseDec(usd);
     if (!usdNum || usdNum <= 0) { setErr('Ingresá una cantidad de dólares válida'); return; }
     if (reducesUsd && usdNum > holdingUsd + 1e-9) {
       setErr(`No tenés tantos dólares (tenencia: ${fmtUSD(holdingUsd)})`); return;
@@ -297,11 +302,11 @@ function DollarOpForm({ cats, mediums, holdingUsd, oficialRate, onSave, onCancel
     let rateNum = null;
     if (needsRate) {
       if (rateMode === 'total') {
-        const totalNum = parseFloat(total);
+        const totalNum = parseDec(total);
         if (!totalNum || totalNum <= 0) { setErr('Ingresá el monto total'); return; }
         rateNum = totalNum / usdNum; // calculamos la cotización sola
       } else {
-        rateNum = parseFloat(rate);
+        rateNum = parseDec(rate);
         if (!rateNum || rateNum <= 0) { setErr('Ingresá la cotización'); return; }
       }
     }
@@ -342,8 +347,8 @@ function DollarOpForm({ cats, mediums, holdingUsd, oficialRate, onSave, onCancel
       <div>
         <div style={{ ...s.label, marginBottom: 6 }}>Dólares (USD)</div>
         <input
-          type="number" inputMode="decimal" step="0.01" value={usd}
-          onChange={e => setUsd(e.target.value)} style={s.input} placeholder="0.00" autoFocus
+          type="text" inputMode="decimal" value={usd}
+          onChange={e => setUsd(onlyDecimal(e.target.value))} style={s.input} placeholder="0,00" autoFocus
         />
         {reducesUsd && (
           <div style={{ fontSize: 11, color: C.text3, marginTop: 4 }}>
@@ -375,12 +380,12 @@ function DollarOpForm({ cats, mediums, holdingUsd, oficialRate, onSave, onCancel
             <>
               <div style={{ ...s.label, marginBottom: 6 }}>Cotización (ARS por USD)</div>
               <input
-                type="number" inputMode="decimal" step="0.01" value={rate}
-                onChange={e => setRate(e.target.value)} style={s.input} placeholder="0"
+                type="text" inputMode="decimal" value={rate}
+                onChange={e => setRate(onlyDecimal(e.target.value))} style={s.input} placeholder="0"
               />
               {usd && rate && (
                 <div style={{ fontSize: 11, color: C.text3, marginTop: 4 }}>
-                  {kind === 'compra' ? 'Pagás' : 'Recibís'} {fmtARS(parseFloat(usd) * parseFloat(rate))}
+                  {kind === 'compra' ? 'Pagás' : 'Recibís'} {fmtARS(parseDec(usd) * parseDec(rate))}
                 </div>
               )}
             </>
@@ -390,12 +395,12 @@ function DollarOpForm({ cats, mediums, holdingUsd, oficialRate, onSave, onCancel
                 {kind === 'compra' ? 'Monto que pagaste (ARS)' : 'Monto que recibiste (ARS)'}
               </div>
               <input
-                type="number" inputMode="decimal" step="0.01" value={total}
-                onChange={e => setTotal(e.target.value)} style={s.input} placeholder="0"
+                type="text" inputMode="decimal" value={total}
+                onChange={e => setTotal(onlyDecimal(e.target.value))} style={s.input} placeholder="0"
               />
-              {usd && total && parseFloat(usd) > 0 && (
+              {usd && total && parseDec(usd) > 0 && (
                 <div style={{ fontSize: 11, color: C.text3, marginTop: 4 }}>
-                  Cotización: {fmtARS(parseFloat(total) / parseFloat(usd))}
+                  Cotización: {fmtARS(parseDec(total) / parseDec(usd))}
                 </div>
               )}
             </>
