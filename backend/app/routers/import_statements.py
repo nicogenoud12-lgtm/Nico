@@ -62,10 +62,20 @@ async def extract(
         logger.error("[import] extracción fallida (tarjeta=%s)", tarjeta_id)
         raise HTTPException(status_code=502, detail="No se pudo leer el resumen")
 
-    rows = statement_import.normalize_movimientos(raw, tarjeta_id)
+    aliases = crud.get_import_aliases(db, user.id)
+    rows = statement_import.normalize_movimientos(raw, tarjeta_id, aliases)
     refs = [r["origin_ref"] for r in rows]
     existing = crud.existing_origin_refs(db, user.id, refs)
     statement_import.mark_duplicates(rows, existing)
+
+    # Dedup por contenido de impuestos: si ya hay una tx de "Impuestos Tarjetas"
+    # con la misma fecha y monto, marcarla como duplicada aunque el ref no coincida
+    # (cubre las creadas antes de tener un ref estable).
+    imp_sigs = crud.existing_impuestos_sigs(db, user.id, tarjeta_id)
+    for r in rows:
+        if r.get("tipo") == "impuesto" and not r.get("duplicate"):
+            if statement_import.impuestos_sig(r["date"], r["amount"]) in imp_sigs:
+                r["duplicate"] = True
 
     return schemas.ImportExtractResponse(
         tarjeta_id=tarjeta_id,
@@ -87,6 +97,14 @@ def confirm(
         db, statement_import.IMPUESTOS_CAT, kind="gasto", user_id=user.id
     )
 
+    # Recordar el nombre que el usuario le puso a cada comercio (alias), para
+    # autocompletarlo en futuras importaciones de consumos nuevos del mismo comercio.
+    for row in payload.rows:
+        orig = (row.desc_orig or "").strip()
+        final = (row.desc or "").strip()
+        if orig and final and final != orig and row.cat != statement_import.IMPUESTOS_CAT:
+            crud.upsert_import_alias(db, user.id, statement_import.alias_key(orig), final)
+
     # Cada fila aprobada se expande en la cuota actual + las siguientes (si aplica).
     to_create: list[dict] = []
     for row in payload.rows:
@@ -95,6 +113,7 @@ def confirm(
     # Dedup defensivo: descartar lo que ya existía (cuotas futuras ya proyectadas,
     # reimportación del mismo resumen, etc.).
     existing = crud.existing_origin_refs(db, user.id, [r["origin_ref"] for r in to_create])
+    imp_sigs = crud.existing_impuestos_sigs(db, user.id, tarjeta.id)
 
     created = 0
     skipped = 0
@@ -102,6 +121,13 @@ def confirm(
         if r["origin_ref"] in existing:
             skipped += 1
             continue
+        # Dedup por contenido para impuestos (fecha + monto), por si el ref difiere.
+        if r["cat"] == statement_import.IMPUESTOS_CAT:
+            sig = statement_import.impuestos_sig(r["date"], r["amount"])
+            if sig in imp_sigs:
+                skipped += 1
+                continue
+            imp_sigs.add(sig)
         tx_in = schemas.TransactionCreate(
             date=r["date"],
             desc=r["desc"],
