@@ -20,6 +20,15 @@ input, select, textarea {
   color-scheme: dark;
 }
 
+/* iOS Safari hace zoom al enfocar inputs con font-size < 16px. En dispositivos
+   táctiles forzamos 16px (sobre los tamaños inline) para evitar ese zoom molesto,
+   sin tocar el diseño en desktop ni deshabilitar el pinch-zoom. */
+@media (pointer: coarse) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
