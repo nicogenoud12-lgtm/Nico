@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "gastos": {
-      "command": "/home/genoud/Nico/mcp/venv/bin/python3",
+      "command": "python3",
       "args": ["mcp/server.py"],
       "env": {
         "NICO_API_URL": "https://apigastos.genoud-nube.com.ar",
@@ -9,5 +9,17 @@
         "NICO_PASSWORD": "COMPLETAR"
       }
     }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ]
   }
 }
