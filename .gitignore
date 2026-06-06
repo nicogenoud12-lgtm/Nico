@@ -32,6 +32,7 @@ Thumbs.db
 
 # MCP
 mcp/.env
+mcp/__pycache__/
 
 # Misc
 .cache/
