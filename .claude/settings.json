@@ -4,9 +4,7 @@
       "command": "/home/genoud/Nico/mcp/venv/bin/python3",
       "args": ["mcp/server.py"],
       "env": {
-        "NICO_API_URL": "https://apigastos.genoud-nube.com.ar",
-        "NICO_USERNAME": "COMPLETAR",
-        "NICO_PASSWORD": "COMPLETAR"
+        "NICO_API_URL": "https://apigastos.genoud-nube.com.ar"
       }
     }
   },
