@@ -279,7 +279,48 @@ def test_expand_usd_convierte_a_ars_y_anota_desc():
         cuota_num=None, cuota_total=None, origin_ref="x",
     ), tarjeta_id=7)
     assert out[0]["amount"] == 24000.0
+    assert out[0]["currency"] == "ARS"
     assert "US$ 20" in out[0]["desc"]
+
+
+def test_expand_usd_sin_cotizacion_se_guarda_en_usd():
+    out = expand_row(_row(
+        desc="CLAUDE.AI", currency="USD", amount=20.0, rate=None,
+        cuota_num=None, cuota_total=None, origin_ref="x",
+    ), tarjeta_id=7)
+    assert out[0]["amount"] == 20.0
+    assert out[0]["currency"] == "USD"
+
+
+def test_expand_ars_queda_en_ars():
+    out = expand_row(_row(cuota_num=None, cuota_total=None, origin_ref="x"), tarjeta_id=7)
+    assert out[0]["currency"] == "ARS"
+
+
+# ── Exclusión percepciones de ganancias RG 5617 ──────────────
+def test_excluye_percepcion_ganancias_rg5617_del_total():
+    raw = {"periodo": "2026-04", "movimientos": [
+        {"fecha": "2026-04-20", "descripcion": "IVA", "monto": 1000.0,
+         "moneda": "ARS", "tipo": "impuesto"},
+        {"fecha": "2026-04-20", "descripcion": "PERCEPCION R.G. 5617 - GANANCIAS",
+         "monto": 3000.0, "moneda": "ARS", "tipo": "impuesto"},
+    ]}
+    imp = _impuestos(normalize_movimientos(raw, tarjeta_id=1))
+    assert len(imp) == 1
+    assert imp[0]["amount"] == 1000.0  # la percepción RG 5617 NO se suma
+
+
+def test_excluye_percepcion_de_ganancias_sin_numero():
+    raw = {"periodo": "2026-04", "movimientos": [
+        {"fecha": "2026-04-20", "descripcion": "Percepción de Ganancias",
+         "monto": 500.0, "moneda": "ARS", "tipo": "impuesto"},
+    ]}
+    assert _impuestos(normalize_movimientos(raw, tarjeta_id=1)) == []
+
+
+def test_percepcion_iva_rg4815_no_se_excluye():
+    # RG 4815 (percepción de IVA) sí se cuenta: 1000 + 500 + 250.5.
+    assert _impuestos(normalize_movimientos(MP_RAW, tarjeta_id=7))[0]["amount"] == 1750.5
 
 
 # ── Impuestos: ref estable por fecha+monto (no por periodo) ──

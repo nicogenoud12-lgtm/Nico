@@ -88,7 +88,6 @@ export default function ImportResumen({ tarjetas, cats, onClose, onTxsChange }) 
   };
 
   const selected = useMemo(() => (rows || []).filter(r => r.include), [rows]);
-  const missingRate = selected.some(r => r.currency === 'USD' && !(arsOf(r) > 0));
 
   // Total de transacciones a crear: las cuotas expanden a (total - num + 1).
   const totalToCreate = useMemo(() => selected.reduce((acc, r) => {
@@ -99,7 +98,7 @@ export default function ImportResumen({ tarjetas, cats, onClose, onTxsChange }) 
   }, 0), [selected]);
 
   const handleApprove = async () => {
-    if (selected.length === 0 || missingRate) return;
+    if (selected.length === 0) return;
     setError(null);
     setLoading(true);
     try {
@@ -115,7 +114,8 @@ export default function ImportResumen({ tarjetas, cats, onClose, onTxsChange }) 
         cuota_num: r.cuota_num ?? null,
         cuota_total: r.cuota_total ?? null,
         origin_ref: r.origin_ref,
-        rate: r.currency === 'USD' ? parseRate(r.rate) : null,
+        // Cotización opcional: si no se carga, el gasto USD se guarda en dólares.
+        rate: (r.currency === 'USD' && parseRate(r.rate) > 0) ? parseRate(r.rate) : null,
       }));
       const res = await confirmStatement(tarjetaId, payload);
       setResult(res);
@@ -262,7 +262,7 @@ export default function ImportResumen({ tarjetas, cats, onClose, onTxsChange }) 
             </div>
             {isUSD && (
               <div style={{ fontSize: 11, color: ars > 0 ? C.green : C.text3 }}>
-                {ars > 0 ? `= ${fmtMoney(ars)}` : 'falta cotización'}
+                {ars > 0 ? `= ${fmtMoney(ars)}` : 'se guarda en dólares'}
               </div>
             )}
           </div>
@@ -280,7 +280,7 @@ export default function ImportResumen({ tarjetas, cats, onClose, onTxsChange }) 
             <input
               type="text"
               inputMode="decimal"
-              placeholder="Cotización $"
+              placeholder="Cotización $ (opc.)"
               value={r.rate}
               onChange={e => updateRow(i, { rate: e.target.value.replace(/[^0-9.,]/g, '') })}
               style={{ ...s.input, width: 120, padding: '6px 8px', fontSize: 13 }}
@@ -357,13 +357,10 @@ export default function ImportResumen({ tarjetas, cats, onClose, onTxsChange }) 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12, paddingBottom: 24 }}>
           <button onClick={onClose} style={s.btnGhost}>Cancelar</button>
           <div style={{ flex: 1 }} />
-          {missingRate && (
-            <span style={{ fontSize: 12, color: C.red }}>Falta cotización en alguna fila USD</span>
-          )}
           <button
             onClick={handleApprove}
-            disabled={loading || selected.length === 0 || missingRate}
-            style={{ ...s.btnPrimary, opacity: (loading || selected.length === 0 || missingRate) ? 0.5 : 1 }}
+            disabled={loading || selected.length === 0}
+            style={{ ...s.btnPrimary, opacity: (loading || selected.length === 0) ? 0.5 : 1 }}
           >
             {loading ? 'Creando…' : `Aprobar y crear (${totalToCreate})`}
           </button>

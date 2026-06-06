@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import calendar
 import re
+import unicodedata
 from datetime import date
 
 # REQUIREMENT: todos los impuestos/percepciones/IIBB/IVA/sello/intereses se
@@ -17,6 +18,22 @@ IMPUESTOS_CAT = "Impuestos Tarjetas"
 
 # Movimientos que NO son gastos y se descartan al importar.
 _SKIP_TIPOS = {"pago", "ajuste"}
+
+
+def _norm(text: str) -> str:
+    """Minúsculas sin acentos, para matchear descripciones de forma robusta."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", (text or "").lower())
+        if unicodedata.category(c) != "Mn"
+    )
+
+
+def is_excluded_movimiento(desc: str) -> bool:
+    """Percepciones de ganancias RG 5617: impuesto sobre consumos en USD que el
+    usuario no contabiliza. Nunca se importan (ni siquiera dentro del total
+    consolidado de "Impuestos Tarjetas")."""
+    n = _norm(desc)
+    return "5617" in n or ("percep" in n and "ganancia" in n)
 
 
 def _slug(text: str) -> str:
@@ -122,6 +139,10 @@ def normalize_movimientos(
         if tipo in _SKIP_TIPOS:
             continue
 
+        # Percepciones de ganancias RG 5617: se descartan siempre.
+        if is_excluded_movimiento(m.get("descripcion") or ""):
+            continue
+
         fecha = m.get("fecha")
         try:
             monto = float(m.get("monto") or 0)
@@ -210,8 +231,21 @@ def expand_row(row: dict, tarjeta_id: int) -> list[dict]:
     cuota_num = row.get("cuota_num")
     cuota_total = row.get("cuota_total")
 
-    ars = monto * float(rate) if currency == "USD" and rate else monto
-    stored_desc = f"{desc} (US$ {monto:g})" if currency == "USD" else desc
+    # La cotización es OPCIONAL para consumos en USD:
+    #  - con cotización → se convierte a ARS (y se anota el monto original en USD).
+    #  - sin cotización → se guarda el gasto en USD (no se mezcla con los pesos).
+    if currency == "USD" and rate:
+        amount = monto * float(rate)
+        out_currency = "ARS"
+        stored_desc = f"{desc} (US$ {monto:g})"
+    elif currency == "USD":
+        amount = monto
+        out_currency = "USD"
+        stored_desc = desc
+    else:
+        amount = monto
+        out_currency = "ARS"
+        stored_desc = desc
 
     is_cuota = bool(cuota_num and cuota_total and cuota_total > 1 and 1 <= cuota_num <= cuota_total)
     out: list[dict] = []
@@ -230,7 +264,8 @@ def expand_row(row: dict, tarjeta_id: int) -> list[dict]:
                 "date": add_months(fecha, j - 1),
                 "desc": stored_desc,
                 "cat": cat,
-                "amount": ars,
+                "amount": amount,
+                "currency": out_currency,
                 "cuota_num": j,
                 "cuota_total": cuota_total,
                 "origin_ref": ref,
@@ -240,7 +275,8 @@ def expand_row(row: dict, tarjeta_id: int) -> list[dict]:
             "date": fecha,
             "desc": stored_desc,
             "cat": cat,
-            "amount": ars,
+            "amount": amount,
+            "currency": out_currency,
             "cuota_num": None,
             "cuota_total": None,
             "origin_ref": row["origin_ref"],

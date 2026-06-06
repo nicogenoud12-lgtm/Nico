@@ -135,7 +135,7 @@ def confirm(
             medio=tarjeta.nombre,          # el medio queda fijado a la tarjeta elegida
             amount=r["amount"],
             type="g",
-            currency="ARS",                # USD ya convertido a ARS en expand_row
+            currency=r.get("currency", "ARS"),   # USD con cotización ya se convirtió en expand_row
             cuota_num=r["cuota_num"],
             cuota_total=r["cuota_total"],
             tarjeta_id=tarjeta.id,
