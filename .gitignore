@@ -30,6 +30,9 @@ frontend/.env.local
 .DS_Store
 Thumbs.db
 
+# MCP
+mcp/.env
+
 # Misc
 .cache/
 *.log
