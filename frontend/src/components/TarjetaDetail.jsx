@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { C } from '../theme.js';
 import { MONTH_SHORT, dateToMonthId, fmtARS, sortMonthIdsDesc } from '../utils/format.js';
 import SparkBar from './SparkBar.jsx';
@@ -10,11 +10,28 @@ export default function TarjetaDetail({ tarjeta, txs, allMonthIds, onEdit, onDel
   const cardTxs = txs.filter(t => t.tarjeta_id === tarjeta.id || t.medio === tarjeta.nombre);
 
   const last12 = sortMonthIdsDesc(allMonthIds).slice(0, 12).reverse();
+  const lastMonthId = last12[last12.length - 1] || null;
+  const [selectedId, setSelectedId] = useState(lastMonthId);
+
   const sparkData = last12.map(id => {
     const val = cardTxs.filter(t => t.type === 'g' && dateToMonthId(t.date) === id)
       .reduce((s, t) => s + t.amount, 0);
-    return { value: val, label: MONTH_SHORT[parseInt(id.slice(0, 2), 10) - 1] };
+    return {
+      id,
+      value: val,
+      label: MONTH_SHORT[parseInt(id.slice(0, 2), 10) - 1],
+      active: id === selectedId,
+    };
   });
+
+  const selectedMonthSpend = selectedId
+    ? cardTxs.filter(t => t.type === 'g' && dateToMonthId(t.date) === selectedId)
+        .reduce((s, t) => s + t.amount, 0)
+    : 0;
+
+  const selectedLabel = selectedId
+    ? `${MONTH_SHORT[parseInt(selectedId.slice(0, 2), 10) - 1]} ${selectedId.slice(2)}`
+    : '';
 
   const total = cardTxs.filter(t => t.type === 'g').reduce((s, t) => s + t.amount, 0);
 
@@ -47,21 +64,32 @@ export default function TarjetaDetail({ tarjeta, txs, allMonthIds, onEdit, onDel
         </button>
       </div>
 
-      <div>
-        <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
-          Total gastado (registrado)
+      {selectedId && (
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>
+            Gasto en {selectedLabel}
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: C.text }}>
+            {hidden ? '••••' : fmtARS(selectedMonthSpend)}
+          </div>
         </div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: C.text }}>{hidden ? '••••' : fmtARS(total)}</div>
-      </div>
+      )}
 
       {sparkData.length > 0 && (
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 10 }}>
             Gastos últimos 12 meses
           </div>
-          <SparkBar data={sparkData} />
+          <SparkBar data={sparkData} onSelect={setSelectedId} />
         </div>
       )}
+
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>
+          Total gastado (registrado)
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: C.text2 }}>{hidden ? '••••' : fmtARS(total)}</div>
+      </div>
     </div>
   );
 }
