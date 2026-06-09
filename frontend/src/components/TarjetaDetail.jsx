@@ -9,9 +9,16 @@ export default function TarjetaDetail({ tarjeta, txs, allMonthIds, onEdit, onDel
   const { hidden } = useHideAmounts();
   const cardTxs = txs.filter(t => t.tarjeta_id === tarjeta.id || t.medio === tarjeta.nombre);
 
-  const last12 = sortMonthIdsDesc(allMonthIds).slice(0, 12).reverse();
-  const lastMonthId = last12[last12.length - 1] || null;
-  const [selectedId, setSelectedId] = useState(lastMonthId);
+  const now = new Date();
+  const currentMonthId = String(now.getMonth() + 1).padStart(2, '0') + String(now.getFullYear()).slice(2);
+
+  const sortedDesc = sortMonthIdsDesc(allMonthIds);
+  const withCurrent = sortedDesc.includes(currentMonthId)
+    ? sortedDesc
+    : sortMonthIdsDesc([...sortedDesc, currentMonthId]);
+  const last12 = withCurrent.slice(0, 12).reverse();
+
+  const [selectedId, setSelectedId] = useState(currentMonthId);
 
   const sparkData = last12.map(id => {
     const val = cardTxs.filter(t => t.type === 'g' && dateToMonthId(t.date) === id)
