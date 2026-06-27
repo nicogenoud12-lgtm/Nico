@@ -2,30 +2,30 @@
 Webhook conversacional de Telegram con Gemini.
 
 El bot opera siempre en nombre del owner definido en TELEGRAM_BOT_OWNER_ID.
+Adaptador de transporte fino: parsea el update, maneja el historial conversacional
+en `PendingTransaction` (por chat_id) y delega la lógica a `bot_core`.
 """
 from __future__ import annotations
 
 import json
 import logging
-from calendar import monthrange
-from datetime import datetime, timedelta, date as date_cls
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from .. import crud, messages, schemas
+from .. import crud
+from ..bot_core import MAX_HISTORY_TURNS, handle_conversation
 from ..config import settings
 from ..database import get_db
-from ..gemini import parse_telegram_message
 from ..models import PendingTransaction, User
 from ..telegram_client import send_message
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
 PENDING_TTL_MIN = 30
-MAX_HISTORY_TURNS = 10
 
 
 def _validate_secret(x_telegram_bot_api_secret_token: str | None) -> None:
@@ -81,47 +81,6 @@ def _clear_pending(db: Session, chat_id: int) -> None:
         db.delete(p); db.commit()
 
 
-def _persist(db: Session, result: dict, tarjetas: list, owner_id: int):
-    tx_type = result.get("tx_type") or "g"
-    raw_amt = abs(float(result.get("amt") or 0))
-    cuotas = max(1, min(int(result.get("cuotas") or 1), 48))
-    medio = (result.get("medio") or "Contado").strip()
-
-    medio_lower = medio.lower()
-    tarjeta_id = next(
-        (t.id for t in tarjetas if t.nombre.lower() == medio_lower), None
-    )
-
-    base_date = date_cls.fromisoformat(result.get("date") or date_cls.today().isoformat())
-    amt_per_cuota = round(raw_amt / cuotas, 2)
-    first_tx = None
-    for i in range(cuotas):
-        if i == 0:
-            d = base_date
-        else:
-            new_month = (base_date.month - 1 + i) % 12 + 1
-            new_year = base_date.year + (base_date.month - 1 + i) // 12
-            d = base_date.replace(
-                year=new_year, month=new_month,
-                day=min(base_date.day, monthrange(new_year, new_month)[1]),
-            )
-        payload = schemas.TransactionCreate(
-            date=d,
-            desc=result.get("desc") or result.get("cat") or "",
-            cat=result.get("cat") or "",
-            medio=medio,
-            amount=amt_per_cuota,
-            type=tx_type,
-            cuota_num=i + 1 if cuotas > 1 else None,
-            cuota_total=cuotas if cuotas > 1 else None,
-            tarjeta_id=tarjeta_id,
-        )
-        tx = crud.create_transaction(db, payload, user_id=owner_id, source="telegram")
-        if first_tx is None:
-            first_tx = tx
-    return first_tx
-
-
 @router.post("/webhook", status_code=200)
 async def telegram_webhook(
     request: Request,
@@ -149,7 +108,6 @@ async def telegram_webhook(
         return {"ok": True, "skipped": "user not allowed"}
 
     owner = _get_bot_owner(db)
-    owner_id = owner.id
 
     pending = _get_pending(db, chat_id)
     history: list[dict] = []
@@ -160,65 +118,22 @@ async def telegram_webhook(
         except json.JSONDecodeError:
             history = []
 
-    cats = crud.list_categories(db, owner_id)
-    cats_gasto = [c.name for c in cats if c.kind == "gasto"]
-    cats_ingreso = [c.name for c in cats if c.kind == "ingreso"]
-    mediums = [m.name for m in crud.list_mediums(db, owner_id)]
-    tarjetas = crud.list_tarjetas(db, owner_id)
-    bot_rules = [
-        {"keyword": r.keyword, "cat": r.cat, "tx_type": r.tx_type}
-        for r in crud.list_bot_rules(db)
-    ]
-    recent = [crud.serialize_tx(t) for t in crud.list_transactions(db, owner_id)[:10]]
+    res = await handle_conversation(db, owner.id, text, history, source="telegram")
 
-    result = await parse_telegram_message(
-        text, cats_gasto, cats_ingreso, mediums, recent,
-        bot_rules=bot_rules, history=history,
-    )
-    if result is None:
-        await send_message(chat_id, messages.GEMINI_ERROR)
+    intent = res["intent"]
+    reply = res["reply"]
+
+    if intent == "error":
+        await send_message(chat_id, reply)
         return {"ok": True, "skipped": "gemini_error"}
 
-    intent = result.get("intent", "unknown")
-    reply = (result.get("reply") or "").strip() or messages.NOT_UNDERSTOOD_GENERIC
-
-    if intent == "unknown":
-        _clear_pending(db, chat_id)
+    # create con campos faltantes → guardar historial y repreguntar
+    if intent == "create" and res["missing"]:
+        _save_pending(db, chat_id, res["new_history"], res["missing"])
         await send_message(chat_id, reply)
-        return {"ok": True, "intent": "unknown"}
+        return {"ok": True, "intent": "create", "asking": res["missing"][0]}
 
-    if intent == "learn":
-        _clear_pending(db, chat_id)
-        keyword = (result.get("rule_keyword") or "").strip()
-        cat = (result.get("rule_cat") or "").strip()
-        rule_tx_type = (result.get("rule_tx_type") or "g").strip()
-        if keyword and cat:
-            crud.save_bot_rule(db, keyword, cat, rule_tx_type)
-            logger.info("[bot] regla guardada: '%s' → %s (%s)", keyword, cat, rule_tx_type)
-        await send_message(chat_id, reply)
-        return {"ok": True, "intent": "learn", "keyword": keyword, "cat": cat}
-
-    if intent == "delete":
-        _clear_pending(db, chat_id)
-        tx_id = result.get("tx_id")
-        if not tx_id or not crud.delete_transaction(db, tx_id, owner_id):
-            await send_message(chat_id, messages.NOT_FOUND_DELETE)
-            return {"ok": True, "intent": "delete", "error": "not_found"}
-        await send_message(chat_id, reply)
-        return {"ok": True, "intent": "delete", "tx_id": tx_id}
-
-    missing = result.get("missing") or []
-    new_history = history + [
-        {"role": "user", "text": text},
-        {"role": "model", "text": reply},
-    ]
-
-    if missing:
-        _save_pending(db, chat_id, new_history, missing)
-        await send_message(chat_id, reply)
-        return {"ok": True, "intent": "create", "asking": missing[0]}
-
-    tx = _persist(db, result, tarjetas, owner_id)
+    # cualquier otro caso resuelve la conversación → limpiar pending
     _clear_pending(db, chat_id)
     await send_message(chat_id, reply)
-    return {"ok": True, "intent": "create", "tx_id": tx.id}
+    return {"ok": True, "intent": intent, "tx_id": res.get("tx_id")}

@@ -141,6 +141,9 @@ TELEGRAM_WEBHOOK_SECRET=...
 ALLOWED_TELEGRAM_USER_IDS=...
 TELEGRAM_BOT_OWNER_ID=1        # user.id del dueño del bot (tu usuario admin)
 
+# Alexa (opera en nombre de TELEGRAM_BOT_OWNER_ID)
+ALEXA_SKILL_ID=amzn1.ask.skill.xxxx   # applicationId de la skill, para validar requests
+
 # Gemini
 GEMINI_API_KEY=AIza...
 GEMINI_MODEL=gemini-2.5-flash
@@ -150,6 +153,31 @@ JWT_SECRET=...                  # generar con: openssl rand -hex 32
 JWT_ALGORITHM=HS256
 JWT_EXPIRE_MINUTES=10080        # 7 días
 ```
+
+## Alexa (skill de voz, con Gemini)
+
+Skill conversacional de Alexa que anota gastos/ingresos por voz, reutilizando el
+**mismo entendimiento Gemini** que el bot de Telegram. "Alexa, abrí gastos" →
+"gasté 10 mil en hamburguesa" → "Listo, anoté $10.000 en Comida".
+
+- **Lógica compartida**: `backend/app/bot_core.py` (`handle_conversation`) — carga
+  contexto del owner, llama a Gemini, hace branch por intent (create/delete/learn/
+  unknown) y persiste. La usan tanto `routers/telegram.py` como `routers/alexa.py`
+  (cada uno es un adaptador de transporte fino). `_persist` vive acá.
+- **Endpoint**: `POST /alexa/webhook` (`routers/alexa.py`). Opera en nombre de
+  `TELEGRAM_BOT_OWNER_ID` (mismo dueño). El historial conversacional (para
+  repreguntar campos faltantes) viaja en `session.attributes` de Alexa — **no** usa
+  `PendingTransaction`.
+- **Variante rápida de Gemini**: Alexa exige responder en ~8s, así que
+  `bot_core` llama `gemini.parse_message(..., thinking_budget=0, timeout=7.0)`
+  (vs `1024`/`45s` de Telegram). `parse_telegram_message` queda como alias.
+- **Seguridad** (endpoint público que escribe en DB): valida la firma de Amazon
+  (cert chain + RSA/SHA1 sobre el body crudo), el timestamp (±150s, anti-replay) y
+  `applicationId == ALEXA_SKILL_ID`.
+- **Setup de la skill** (manual, en la Alexa Developer Console): ver
+  [`docs/alexa.md`](docs/alexa.md). Modelo versionado en
+  `backend/alexa/interaction_model.json` (invocation name `gastos`, intent
+  `RegistrarGastoIntent` con slot `frase` = `AMAZON.SearchQuery`).
 
 ## Import de resúmenes de tarjeta (PDF)
 
@@ -226,6 +254,7 @@ URLs públicas (vía Cloudflare Tunnel):
 - Frontend: https://gastos.genoud-nube.com.ar
 - API: https://apigastos.genoud-nube.com.ar
 - Webhook Telegram: https://apigastos.genoud-nube.com.ar/telegram/webhook
+- Webhook Alexa: https://apigastos.genoud-nube.com.ar/alexa/webhook
 
 ### Primera vez (setup inicial post-migración)
 

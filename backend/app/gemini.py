@@ -125,7 +125,7 @@ REGLAS para intent="unknown":
 IMPORTANTE: usás el historial de la conversación. Si el usuario empezó a registrar algo, continuá desde ahí. Si claramente cambia de tema, tratalo como mensaje nuevo."""
 
 
-async def parse_telegram_message(
+async def parse_message(
     text: str,
     cats_gasto: list[str],
     cats_ingreso: list[str],
@@ -133,10 +133,15 @@ async def parse_telegram_message(
     recent_txs: list[dict],
     bot_rules: list[dict] | None = None,
     history: list[dict] | None = None,
+    thinking_budget: int = 1024,
+    timeout: float = 45.0,
 ) -> dict | None:
     """
     Llama a Gemini con el mensaje + historial + reglas personalizadas.
     Retorna el dict parseado o None si falla.
+
+    `thinking_budget` y `timeout` permiten una variante rápida (Alexa exige
+    respuesta en ~8s): con `thinking_budget=0` Gemini 2.5 Flash responde en 1-4s.
     """
     if not settings.GEMINI_API_KEY:
         logger.warning("[gemini] GEMINI_API_KEY no configurada")
@@ -170,12 +175,12 @@ async def parse_telegram_message(
             "responseMimeType": "application/json",
             "responseSchema": RESPONSE_SCHEMA,
             "temperature": 0.4,
-            "thinkingConfig": {"thinkingBudget": 1024},
+            "thinkingConfig": {"thinkingBudget": thinking_budget},
         },
     }
 
     try:
-        async with httpx.AsyncClient(timeout=45.0) as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(
                 url,
                 params={"key": settings.GEMINI_API_KEY},
@@ -210,6 +215,10 @@ async def parse_telegram_message(
             result["missing"].append("medio")
 
     return result
+
+
+# Alias retrocompatible (el nombre viejo se usaba sólo desde telegram.py).
+parse_telegram_message = parse_message
 
 
 # ── Importación de resúmenes de tarjeta en PDF ───────────────────
