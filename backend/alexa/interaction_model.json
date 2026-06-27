@@ -1,0 +1,48 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "gastos",
+      "intents": [
+        {
+          "name": "RegistrarGastoIntent",
+          "slots": [
+            {
+              "name": "frase",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "anota {frase}",
+            "anotá {frase}",
+            "anota que {frase}",
+            "registra {frase}",
+            "registrá {frase}",
+            "registra que {frase}",
+            "que {frase}",
+            "gasté {frase}",
+            "cobré {frase}",
+            "agregá {frase}",
+            "apuntá {frase}"
+          ]
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        }
+      ],
+      "types": []
+    }
+  }
+}

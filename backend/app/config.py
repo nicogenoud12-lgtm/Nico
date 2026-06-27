@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     ALLOWED_TELEGRAM_USER_IDS: str = ""
     TELEGRAM_BOT_OWNER_ID: int = 0  # user.id (tabla users) dueño del bot
 
+    # Alexa — opera en nombre de TELEGRAM_BOT_OWNER_ID (mismo dueño).
+    ALEXA_SKILL_ID: str = ""  # applicationId de la skill, para validar requests
+
     SEED_DEMO_TX: bool = False
 
     GEMINI_API_KEY: str = ""
