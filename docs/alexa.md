@@ -7,9 +7,9 @@ persistir la transacción en nombre del owner (`TELEGRAM_BOT_OWNER_ID`).
 
 **Uso:**
 
-- "Alexa, abrí gastos" → (Alexa: "Dale, decime el gasto o ingreso.") →
+- "Alexa, abrí mis gastos" → (Alexa: "Dale, decime el gasto o ingreso.") →
   "anota gasté diez mil pesos en una hamburguesa" → "Listo, anoté $10.000 en Comida".
-- En un tiro: "Alexa, dile a gastos que registra diez mil en hamburguesa".
+- En un tiro: "Alexa, dile a mis gastos que registra diez mil en hamburguesa".
 
 Si falta info (no entiende la categoría o el monto), Alexa repregunta manteniendo
 la conversación abierta; el historial viaja en `session.attributes` (no toca la DB).
@@ -31,7 +31,7 @@ Estos pasos van en https://developer.amazon.com/alexa/console/ask (no son códig
 3. **Interaction Model** → **JSON Editor**: pegá el contenido de
    [`backend/alexa/interaction_model.json`](../backend/alexa/interaction_model.json)
    (repetilo en cada locale que hayas agregado) → **Save** → **Build Model**.
-   - Invocation name: `gastos`.
+   - Invocation name: `mis gastos`.
    - Intent `RegistrarGastoIntent` con slot `frase` (`AMAZON.SearchQuery`). Ojo:
      `AMAZON.SearchQuery` no admite que el slot sea la frase entera sola, por eso
      todos los samples tienen una palabra-gancho ("anota", "registra", "que"…).
@@ -46,7 +46,7 @@ Estos pasos van en https://developer.amazon.com/alexa/console/ask (no son códig
    ```
    Reiniciá el backend (`docker compose up -d --build`) para tomar la variable.
 6. **Probar**: pestaña **Test** (poné el toggle en *Development*) → escribí o hablá
-   "abrí gastos" y después "gasté diez mil en hamburguesa". Después probalo en el
+   "abrí mis gastos" y después "gasté diez mil en hamburguesa". Después probalo en el
    Echo real (tiene que estar en la misma cuenta de Amazon).
 
 ## Seguridad
