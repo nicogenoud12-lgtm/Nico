@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import re
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -130,6 +131,30 @@ def _validate_app_id(req: dict) -> None:
         raise HTTPException(401, "applicationId no autorizado")
 
 
+# ── Adaptación de texto para voz ─────────────────────────────────
+def _adapt_for_speech(text: str) -> str:
+    """Convierte el reply de Gemini (formato texto) a algo que Alexa lea bien."""
+    # "US$ 20" / "U$S 20" / "USD 20" → "20 dólares" (antes de ARS para que no matchee el $)
+    def _usd(m):
+        num = m.group("num").replace(".", "")
+        return f"{num} dólares"
+    text = re.sub(r"(?:US\$|U\$S|USD)\s?(?P<num>\d[\d.]*)", _usd, text)
+
+    # "$10.000" / "−$10.000" / "$ 10.000" → "10000 pesos"
+    def _ars(m):
+        num = m.group("num").replace(".", "")
+        return f"{num} pesos"
+    text = re.sub(r"[−\-]?\$\s?(?P<num>\d[\d.]*)", _ars, text)
+
+    # Quitar emojis comunes que Alexa leería raro
+    text = re.sub(r"[^\w\s.,;:!?¿¡()'\"\-/áéíóúñü]", "", text, flags=re.UNICODE)
+
+    # Limpiar espacios duplicados
+    text = re.sub(r"  +", " ", text).strip()
+
+    return text
+
+
 # ── Armado de la respuesta de Alexa ──────────────────────────────
 def build_response(text: str, end_session: bool, attributes: dict | None = None) -> dict:
     return {
@@ -198,7 +223,7 @@ async def alexa_webhook(
     owner = _get_bot_owner(db)
     res = await handle_conversation(db, owner.id, text, history, source="alexa", fast=True)
 
-    reply = res["reply"]
+    reply = _adapt_for_speech(res["reply"])
 
     # create con campos faltantes → repreguntar manteniendo la sesión + historial
     if res["intent"] == "create" and res["missing"]:
