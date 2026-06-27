@@ -146,6 +146,12 @@ def _adapt_for_speech(text: str) -> str:
         return f"{num} pesos"
     text = re.sub(r"[−\-]?\$\s?(?P<num>\d[\d.]*)", _ars, text)
 
+    # Números sueltos con punto de miles (formato argentino): "10.000" → "10000"
+    # Matchea 1-3 dígitos seguidos de grupos de .XXX (separador de miles)
+    def _strip_thousands(m):
+        return m.group(0).replace(".", "")
+    text = re.sub(r"\b\d{1,3}(?:\.\d{3})+\b", _strip_thousands, text)
+
     # Quitar emojis comunes que Alexa leería raro
     text = re.sub(r"[^\w\s.,;:!?¿¡()'\"\-/áéíóúñü]", "", text, flags=re.UNICODE)
 

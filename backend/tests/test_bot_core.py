@@ -122,6 +122,9 @@ def test_build_response_envelope():
     ("$10.123 en ropa", "10123 pesos en ropa"),
     ("$500 de café", "500 pesos de café"),
     ("US$ 20 en Claude", "20 dólares en Claude"),
+    ("Anoté 10.000 en Comida", "Anoté 10000 en Comida"),
+    ("Listo, 1.500.000 pesos", "Listo, 1500000 pesos"),
+    ("Son 150 pesos", "Son 150 pesos"),
     ("Hola, ¿qué querés anotar?", "Hola, ¿qué querés anotar?"),
 ])
 def test_adapt_for_speech(text, expected):
