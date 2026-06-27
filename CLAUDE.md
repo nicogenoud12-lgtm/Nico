@@ -157,7 +157,7 @@ JWT_EXPIRE_MINUTES=10080        # 7 días
 ## Alexa (skill de voz, con Gemini)
 
 Skill conversacional de Alexa que anota gastos/ingresos por voz, reutilizando el
-**mismo entendimiento Gemini** que el bot de Telegram. "Alexa, abrí gastos" →
+**mismo entendimiento Gemini** que el bot de Telegram. "Alexa, abrí mis gastos" →
 "gasté 10 mil en hamburguesa" → "Listo, anoté $10.000 en Comida".
 
 - **Lógica compartida**: `backend/app/bot_core.py` (`handle_conversation`) — carga
@@ -176,7 +176,7 @@ Skill conversacional de Alexa que anota gastos/ingresos por voz, reutilizando el
   `applicationId == ALEXA_SKILL_ID`.
 - **Setup de la skill** (manual, en la Alexa Developer Console): ver
   [`docs/alexa.md`](docs/alexa.md). Modelo versionado en
-  `backend/alexa/interaction_model.json` (invocation name `gastos`, intent
+  `backend/alexa/interaction_model.json` (invocation name `mis gastos`, intent
   `RegistrarGastoIntent` con slot `frase` = `AMAZON.SearchQuery`).
 
 ## Import de resúmenes de tarjeta (PDF)
