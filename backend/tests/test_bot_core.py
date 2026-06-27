@@ -116,6 +116,18 @@ def test_build_response_envelope():
     assert r["response"]["shouldEndSession"] is False
 
 
+@pytest.mark.parametrize("text,expected", [
+    ("Listo, anoté $10.000 en Comida 🍔", "Listo, anoté 10000 pesos en Comida"),
+    ("−$1.500 en nafta", "1500 pesos en nafta"),
+    ("$10.123 en ropa", "10123 pesos en ropa"),
+    ("$500 de café", "500 pesos de café"),
+    ("US$ 20 en Claude", "20 dólares en Claude"),
+    ("Hola, ¿qué querés anotar?", "Hola, ¿qué querés anotar?"),
+])
+def test_adapt_for_speech(text, expected):
+    assert alexa._adapt_for_speech(text) == expected
+
+
 def test_validate_cert_url_acepta_url_valida():
     alexa._validate_cert_url("https://s3.amazonaws.com/echo.api/echo-api-cert.pem")
 
