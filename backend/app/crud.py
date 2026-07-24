@@ -1,3 +1,4 @@
+import json
 from calendar import monthrange
 from datetime import date
 from typing import Optional
@@ -640,6 +641,184 @@ def delete_dollar_op(db: Session, op_id: int, user_id: int) -> bool:
         return False
     tx_id = op.tx_id
     db.delete(op)
+    db.flush()
+    if tx_id:
+        delete_transaction(db, tx_id, user_id)
+    db.commit()
+    return True
+
+
+# ── Ventas de muebles ────────────────────────────────────────
+def _venta_items(venta: models.Venta) -> list[dict]:
+    try:
+        items = json.loads(venta.items_json or "[]")
+    except (ValueError, TypeError):
+        items = []
+    return items if isinstance(items, list) else []
+
+
+def _dump_items(items) -> str:
+    out = []
+    for it in (items or []):
+        d = it.model_dump() if hasattr(it, "model_dump") else dict(it)
+        out.append({
+            "nombre": d.get("nombre", "") or "",
+            "cantidad": d.get("cantidad", 1) or 0,
+            "precio": d.get("precio", 0) or 0,
+        })
+    return json.dumps(out)
+
+
+def serialize_venta_pago(p: models.VentaPago) -> dict:
+    return {
+        "id": p.id,
+        "fecha": p.fecha,
+        "tipo": p.tipo,
+        "monto": p.monto,
+        "desc": p.desc,
+        "medio": p.medio,
+        "tx_id": p.tx_id,
+        "created_at": p.created_at,
+    }
+
+
+def serialize_venta(venta: models.Venta) -> dict:
+    items = _venta_items(venta)
+    total_venta = sum((it.get("cantidad") or 0) * (it.get("precio") or 0) for it in items)
+    cobrado = sum(p.monto for p in venta.pagos if p.tipo == "cobro")
+    pagado = sum(p.monto for p in venta.pagos if p.tipo == "pago")
+    pagos = sorted(venta.pagos, key=lambda p: (str(p.fecha), p.id))
+    return {
+        "id": venta.id,
+        "cliente": venta.cliente,
+        "fecha": venta.fecha,
+        "items": items,
+        "costo_fabrica": venta.costo_fabrica,
+        "notas": venta.notas,
+        "pagos": [serialize_venta_pago(p) for p in pagos],
+        "total_venta": total_venta,
+        "cobrado": cobrado,
+        "pagado": pagado,
+        "saldo_cliente": total_venta - cobrado,
+        "ganancia": cobrado - pagado,
+        "created_at": venta.created_at,
+    }
+
+
+def list_ventas(db: Session, user_id: int) -> list[models.Venta]:
+    return (
+        db.query(models.Venta)
+        .filter(models.Venta.user_id == user_id)
+        .order_by(models.Venta.fecha.desc(), models.Venta.id.desc())
+        .all()
+    )
+
+
+def get_venta(db: Session, venta_id: int, user_id: int) -> Optional[models.Venta]:
+    return (
+        db.query(models.Venta)
+        .filter(models.Venta.id == venta_id, models.Venta.user_id == user_id)
+        .first()
+    )
+
+
+def create_venta(db: Session, payload: schemas.VentaCreate, user_id: int) -> models.Venta:
+    venta = models.Venta(
+        user_id=user_id,
+        cliente=payload.cliente or "",
+        fecha=payload.fecha,
+        items_json=_dump_items(payload.items),
+        costo_fabrica=payload.costo_fabrica,
+        notas=payload.notas or "",
+    )
+    db.add(venta)
+    db.commit()
+    db.refresh(venta)
+    return venta
+
+
+def update_venta(db: Session, venta_id: int, payload: schemas.VentaUpdate, user_id: int) -> Optional[models.Venta]:
+    venta = get_venta(db, venta_id, user_id)
+    if not venta:
+        return None
+    data = payload.model_dump(exclude_unset=True)
+    if "cliente" in data:
+        venta.cliente = data["cliente"] or ""
+    if "fecha" in data and data["fecha"] is not None:
+        venta.fecha = data["fecha"]
+    if "items" in data:
+        venta.items_json = _dump_items(payload.items)
+    if "costo_fabrica" in data:
+        venta.costo_fabrica = data["costo_fabrica"]
+    if "notas" in data:
+        venta.notas = data["notas"] or ""
+    db.commit()
+    db.refresh(venta)
+    return venta
+
+
+def delete_venta(db: Session, venta_id: int, user_id: int) -> bool:
+    venta = get_venta(db, venta_id, user_id)
+    if not venta:
+        return False
+    tx_ids = [p.tx_id for p in venta.pagos if p.tx_id]
+    db.delete(venta)          # cascade borra los venta_pagos
+    db.flush()
+    for tx_id in tx_ids:
+        delete_transaction(db, tx_id, user_id)
+    db.commit()
+    return True
+
+
+def create_venta_pago(db: Session, venta_id: int, payload: schemas.VentaPagoCreate, user_id: int) -> Optional[models.VentaPago]:
+    venta = get_venta(db, venta_id, user_id)
+    if not venta:
+        return None
+    if not payload.monto or payload.monto <= 0:
+        raise ValueError("El monto debe ser mayor a cero")
+
+    tx_id = None
+    # cobro → ingreso en Movimientos; pago → egreso; ajuste → sin movimiento.
+    if payload.tipo in ("cobro", "pago"):
+        tx_type, cat = ("i", "Ventas Muebles") if payload.tipo == "cobro" else ("g", "Muebles Fábrica")
+        tx_payload = schemas.TransactionCreate(
+            date=payload.fecha,
+            desc=payload.desc or venta.cliente or "",
+            cat=cat,
+            medio=payload.medio or "",
+            amount=payload.monto,
+            type=tx_type,
+            currency="ARS",
+        )
+        tx = create_transaction(db, tx_payload, user_id=user_id, source="ventas")
+        tx_id = tx.id
+
+    pago = models.VentaPago(
+        user_id=user_id,
+        venta_id=venta.id,
+        fecha=payload.fecha,
+        tipo=payload.tipo,
+        monto=payload.monto,
+        desc=payload.desc or "",
+        medio=payload.medio or "",
+        tx_id=tx_id,
+    )
+    db.add(pago)
+    db.commit()
+    db.refresh(pago)
+    return pago
+
+
+def delete_venta_pago(db: Session, pago_id: int, user_id: int) -> bool:
+    pago = (
+        db.query(models.VentaPago)
+        .filter(models.VentaPago.id == pago_id, models.VentaPago.user_id == user_id)
+        .first()
+    )
+    if not pago:
+        return False
+    tx_id = pago.tx_id
+    db.delete(pago)
     db.flush()
     if tx_id:
         delete_transaction(db, tx_id, user_id)

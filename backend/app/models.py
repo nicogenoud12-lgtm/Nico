@@ -114,7 +114,7 @@ class Transaction(Base):
     currency = Column(String, nullable=False, default="ARS")  # ARS | USD
     cuota_num = Column(Integer, nullable=True)
     cuota_total = Column(Integer, nullable=True)
-    source = Column(String, nullable=False, default="web")  # web | telegram | import
+    source = Column(String, nullable=False, default="web")  # web | telegram | import | dollar | ventas
     # REQUIREMENT: referencia de origen para dedup al importar resúmenes en PDF
     origin_ref = Column(String, nullable=True, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -141,6 +141,50 @@ class DollarOp(Base):
     usd = Column(Float, nullable=False)            # siempre positivo; el signo lo da kind
     rate = Column(Float, nullable=True)            # cotización ARS/USD (None en ingreso/retiro)
     desc = Column(String, nullable=False, default="")
+    tx_id = Column(Integer, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    tx = relationship("Transaction", lazy="joined", foreign_keys=[tx_id])
+
+
+class Venta(Base):
+    """Venta de muebles: precio al cliente + libro de pagos (cobros/pagos/ajustes).
+
+    Cada 'cobro' del cliente crea un ingreso en Movimientos; cada 'pago' a fábrica
+    crea un egreso; los 'ajuste' (descuentos de dueño, casos especiales) NO crean
+    movimiento. Los ítems se guardan como JSON: [{nombre, cantidad, precio}].
+    """
+    __tablename__ = "ventas"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    cliente = Column(String, nullable=False, default="")
+    fecha = Column(Date, nullable=False, index=True)
+    items_json = Column(Text, nullable=False, default="[]")   # [{nombre, cantidad, precio}]
+    costo_fabrica = Column(Float, nullable=True)               # costo objetivo a fábrica (opcional)
+    notas = Column(String, nullable=False, default="")
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    pagos = relationship(
+        "VentaPago", cascade="all, delete-orphan", lazy="joined",
+        order_by="VentaPago.fecha, VentaPago.id",
+    )
+
+
+class VentaPago(Base):
+    """Pago dentro de una venta. tipo: cobro (ingreso) | pago (egreso) | ajuste (neutral).
+    La pata en Movimientos (cobro/pago) se linkea por tx_id; ajuste no crea tx.
+    Al borrar el pago se borra también esa Transaction (ver crud)."""
+    __tablename__ = "venta_pagos"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    venta_id = Column(Integer, ForeignKey("ventas.id", ondelete="CASCADE"), nullable=False, index=True)
+    fecha = Column(Date, nullable=False, index=True)
+    tipo = Column(String, nullable=False)          # cobro | pago | ajuste
+    monto = Column(Float, nullable=False)          # siempre positivo
+    desc = Column(String, nullable=False, default="")
+    medio = Column(String, nullable=False, default="")
     tx_id = Column(Integer, ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 

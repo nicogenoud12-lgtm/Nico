@@ -227,6 +227,68 @@ class QuotesRead(BaseModel):
     stale: bool = False                   # true si se sirve cache vencido por fallo de API
 
 
+# ── Ventas de muebles ────────────────────────────────────────
+class VentaItem(BaseModel):
+    nombre: str = ""
+    cantidad: float = 1
+    precio: float = 0
+
+
+class VentaBase(BaseModel):
+    cliente: str = ""
+    fecha: datetime.date
+    items: list[VentaItem] = []
+    costo_fabrica: Optional[float] = None      # costo objetivo a fábrica (opcional)
+    notas: str = ""
+
+
+class VentaCreate(VentaBase):
+    pass
+
+
+class VentaUpdate(BaseModel):
+    cliente: Optional[str] = None
+    fecha: Optional[datetime.date] = None
+    items: Optional[list[VentaItem]] = None
+    costo_fabrica: Optional[float] = None
+    notas: Optional[str] = None
+
+
+class VentaPagoCreate(BaseModel):
+    fecha: datetime.date
+    tipo: Literal["cobro", "pago", "ajuste"]   # cobro=ingreso, pago=egreso, ajuste=neutral
+    monto: float
+    desc: str = ""
+    medio: str = ""
+
+
+class VentaPagoRead(BaseModel):
+    id: int
+    fecha: datetime.date
+    tipo: Literal["cobro", "pago", "ajuste"]
+    monto: float
+    desc: str
+    medio: str
+    tx_id: Optional[int] = None
+    created_at: datetime.datetime
+
+
+class VentaRead(BaseModel):
+    id: int
+    cliente: str
+    fecha: datetime.date
+    items: list[VentaItem] = []
+    costo_fabrica: Optional[float] = None
+    notas: str
+    pagos: list[VentaPagoRead] = []
+    total_venta: float                         # suma de ítems (cantidad*precio)
+    cobrado: float                             # suma de cobros
+    pagado: float                              # suma de pagos a fábrica
+    saldo_cliente: float                       # total_venta - cobrado
+    ganancia: float                            # cobrado - pagado (realizada)
+    created_at: datetime.datetime
+
+
 # ── Reorder ──────────────────────────────────────────────────
 class ReorderPayload(BaseModel):
     ids: list[int]

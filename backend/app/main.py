@@ -10,7 +10,7 @@ from . import crud
 from .config import settings
 from .database import Base, SessionLocal, engine, get_db
 from .models import Category, Medium, Month, User
-from .routers import alexa, backup, categories, dollar, mediums, months, recurrentes, tarjetas, telegram, transactions
+from .routers import alexa, backup, categories, dollar, mediums, months, recurrentes, tarjetas, telegram, transactions, ventas
 from .routers import auth as auth_router
 from .routers import import_statements
 
@@ -24,10 +24,10 @@ DEFAULT_CATEGORIES_GASTO = [
     ("Otros", "#b0aaaa"), ("Peluquería", "#d0a8d0"), ("Recurrentes", "#e88ba0"),
     ("Regalo", "#d490c0"), ("Ropa", "#f0c060"), ("Salud", "#6bbf8e"),
     ("Suscripciones", "#e8c060"), ("Tarjeta", "#50c878"), ("Veterinaria", "#70a8d8"),
-    ("Viajes", "#60b4b4"),
+    ("Viajes", "#60b4b4"), ("Muebles Fábrica", "#c8a080"),
 ]
 DEFAULT_CATEGORIES_INGRESO = [
-    ("Sueldo", "#2d7a52"),
+    ("Sueldo", "#2d7a52"), ("Ventas Muebles", "#5aa9e6"),
 ]
 DEFAULT_MEDIOS = ["Contado"]
 DEFAULT_MONTHS = [
@@ -152,6 +152,7 @@ app.include_router(telegram.router)
 app.include_router(alexa.router)
 app.include_router(import_statements.router)
 app.include_router(dollar.router)
+app.include_router(ventas.router)
 
 
 @app.post("/cron/recurrentes")

@@ -9,6 +9,7 @@ import { listCategories, listMediums } from './api/categories.js';
 import { listTarjetas } from './api/tarjetas.js';
 import { listRecurrentes } from './api/recurrentes.js';
 import { listDollarOps } from './api/dollar.js';
+import { listVentas } from './api/ventas.js';
 
 import SidebarDesktop from './components/SidebarDesktop.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -23,6 +24,7 @@ import ScreenRecurrentes from './screens/ScreenRecurrentes.jsx';
 import ScreenAnual from './screens/ScreenAnual.jsx';
 import ScreenInversiones from './screens/ScreenInversiones.jsx';
 import ScreenDolares from './screens/ScreenDolares.jsx';
+import ScreenVentas from './screens/ScreenVentas.jsx';
 import ScreenAjustes from './screens/ScreenAjustes.jsx';
 
 function useIsMobile() {
@@ -43,7 +45,7 @@ function AppInner() {
   const mobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const VALID_SCREENS = ['movimientos', 'gastos', 'ingresos', 'tarjetas', 'recurrentes', 'anual', 'inversiones', 'dolares', 'ajustes'];
+  const VALID_SCREENS = ['movimientos', 'gastos', 'ingresos', 'tarjetas', 'recurrentes', 'anual', 'inversiones', 'dolares', 'ventas', 'ajustes'];
   const [screen, setScreen] = useState(() => {
     const s = localStorage.getItem(`nav_screen:${userId}`);
     return VALID_SCREENS.includes(s) ? s : 'movimientos';
@@ -61,13 +63,14 @@ function AppInner() {
   const [tarjetas, setTarjetas] = useState([]);
   const [recurrentes, setRecurrentes] = useState([]);
   const [dollarOps, setDollarOps] = useState([]);
+  const [ventas, setVentas] = useState([]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [t, c, m, tj, r, d] = await Promise.all([
-        listTransactions(), listCategories(), listMediums(), listTarjetas(), listRecurrentes(), listDollarOps(),
+      const [t, c, m, tj, r, d, v] = await Promise.all([
+        listTransactions(), listCategories(), listMediums(), listTarjetas(), listRecurrentes(), listDollarOps(), listVentas(),
       ]);
       setTxs(t);
       setRawCats(c);
@@ -75,6 +78,7 @@ function AppInner() {
       setTarjetas(tj);
       setRecurrentes(r);
       setDollarOps(d);
+      setVentas(v);
     } catch (e) {
       setError(e?.message || 'Error de conexión');
     } finally {
@@ -104,6 +108,7 @@ function AppInner() {
   const reloadTarjetas = useCallback(() => listTarjetas().then(setTarjetas), []);
   const reloadRecurrentes = useCallback(() => listRecurrentes().then(setRecurrentes), []);
   const reloadDollarOps = useCallback(() => listDollarOps().then(setDollarOps), []);
+  const reloadVentas = useCallback(() => listVentas().then(setVentas), []);
 
   const onNav = useCallback((s) => { setScreen(s); setDrawerOpen(false); }, []);
 
@@ -155,6 +160,14 @@ function AppInner() {
           cats={cats} mediums={mediums} tarjetas={tarjetas}
           dollarOps={dollarOps}
           onOpsChange={reloadDollarOps}
+          onTxsChange={reloadTxs}
+        />
+      );
+      case 'ventas': return (
+        <ScreenVentas
+          mediums={mediums}
+          ventas={ventas}
+          onVentasChange={reloadVentas}
           onTxsChange={reloadTxs}
         />
       );
