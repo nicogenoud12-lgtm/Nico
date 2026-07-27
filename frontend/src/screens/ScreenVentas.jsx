@@ -10,6 +10,9 @@ import {
   createVentaPago, deleteVentaPago,
 } from '../api/ventas.js';
 
+// Amarillo pastel para los pendientes (por cobrar / por pagar).
+const PENDIENTE = '#fde68a';
+
 // Tipos de pago dentro de una venta.
 const TIPOS = [
   { id: 'cobro',  label: 'Cobro',  color: C.green, hint: 'Crea un ingreso en Movimientos' },
@@ -57,6 +60,10 @@ export default function ScreenVentas({ mediums, ventas, onVentasChange, onTxsCha
       pagado: list.reduce((s, v) => s + (v.pagado || 0), 0),
       ganancia: list.reduce((s, v) => s + (v.ganancia || 0), 0),
       porCobrar: list.reduce((s, v) => s + Math.max(0, v.saldo_cliente || 0), 0),
+      // Sólo cuenta las ventas con costo de fábrica cargado (sin costo no se sabe cuánto falta).
+      porPagar: list.reduce((s, v) => (
+        v.costo_fabrica != null ? s + Math.max(0, v.costo_fabrica - (v.pagado || 0)) : s
+      ), 0),
     };
   }, [ventas]);
 
@@ -105,7 +112,8 @@ export default function ScreenVentas({ mediums, ventas, onVentasChange, onTxsCha
           <Stat label="Vendido">{money(totals.vendido, hidden)}</Stat>
           <Stat label="Cobrado" color={C.green}>{money(totals.cobrado, hidden)}</Stat>
           <Stat label="Pagado" color={C.red}>{money(totals.pagado, hidden)}</Stat>
-          <Stat label="Por cobrar">{money(totals.porCobrar, hidden)}</Stat>
+          <Stat label="Por cobrar" color={PENDIENTE}>{money(totals.porCobrar, hidden)}</Stat>
+          <Stat label="Por pagar" color={PENDIENTE}>{money(totals.porPagar, hidden)}</Stat>
         </div>
       </div>
 
@@ -235,9 +243,9 @@ function VentaDetail({ venta, hidden, onAddPago, onDeletePago, onEdit, onDelete 
         <DetailRow label="Total venta" value={money(venta.total_venta, hidden)} />
         <DetailRow label="Cobrado" value={money(venta.cobrado, hidden)} color={C.green} />
         <DetailRow label="Pagado a fábrica" value={money(venta.pagado, hidden)} color={C.red} />
-        <DetailRow label="Por cobrar" value={money(Math.max(0, venta.saldo_cliente || 0), hidden)} />
+        <DetailRow label="Por cobrar" value={money(Math.max(0, venta.saldo_cliente || 0), hidden)} color={PENDIENTE} />
         {faltaPagar != null && (
-          <DetailRow label="Falta pagar a fábrica" value={money(Math.max(0, faltaPagar), hidden)} />
+          <DetailRow label="Por pagar" value={money(Math.max(0, faltaPagar), hidden)} color={PENDIENTE} />
         )}
         <Divider />
         <DetailRow
