@@ -33,10 +33,14 @@ const CAT_ICON_MAP = {
   'inversiones': 'dolar',
   'muebles': 'muebles',
   'compras': 'muebles',
+  'muebles fábrica': 'muebles',
+  'muebles fabrica': 'muebles',
   // ingresos
   'fábrica': 'fabrica',
   'fabrica': 'fabrica',
   'aerosilla': 'aerosilla',
+  'ventas muebles': 'muebles',
+  'venta muebles': 'muebles',
   'otro': 'otro',
 };
 
