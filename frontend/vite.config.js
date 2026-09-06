@@ -7,6 +7,8 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // El registro lo hacemos a mano en src/pwa.js (chequea updates periódicamente).
+      injectRegister: null,
       includeAssets: ['icons/**/*.svg', 'mastercard.svg', 'visa.svg', 'apple-touch-icon-180.png'],
       manifest: {
         name: 'Gastos',
