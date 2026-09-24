@@ -50,7 +50,7 @@ export default function CuotaDetailModal({ open, tx, allTxs, onClose, onEditSing
         </div>
 
         {/* Lista de cuotas */}
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 10, overflow: 'hidden' }}>
           {cuotas.map((c, i) => {
             const isPast = c.date < today;
             const isCurrent = c.date === tx.date;

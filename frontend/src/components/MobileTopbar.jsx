@@ -1,5 +1,5 @@
 import React from 'react';
-import { C } from '../theme.js';
+import { C, blur } from '../theme.js';
 import { NAV_ITEMS } from '../navItems.js';
 import { useHideAmounts } from '../HideAmountsContext.jsx';
 import { Eye, EyeOff, Menu } from './Icons.jsx';
@@ -17,8 +17,8 @@ export default function MobileTopbar({ screen, onMenu }) {
     <div style={{
       display: 'flex', alignItems: 'center',
       padding: 'env(safe-area-inset-top) 8px 0', minHeight: 'calc(52px + env(safe-area-inset-top))', gap: 4,
-      background: C.bg, borderBottom: `1px solid ${C.border}`,
-      flexShrink: 0,
+      background: 'rgba(9,9,11,0.55)', ...blur(20), borderBottom: `1px solid ${C.border}`,
+      flexShrink: 0, position: 'relative', zIndex: 60,
     }}>
       <button onClick={onMenu} aria-label="Menú" style={{ ...iconBtn, color: C.text2 }}>
         <Menu size={20} />

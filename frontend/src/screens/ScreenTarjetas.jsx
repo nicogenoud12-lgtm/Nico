@@ -145,7 +145,7 @@ function UnifiedMovementsList({ tarjetas, txs }) {
   }, [tarjetas, txs, currentMonth]);
 
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 12, overflow: 'hidden' }}>
       <PanelHeader title="Últimos movimientos" />
       {movements.length === 0 ? (
         <div style={{ padding: '20px 14px', textAlign: 'center', color: C.text3, fontSize: 12 }}>Sin movimientos</div>
@@ -194,7 +194,7 @@ function UnifiedCuotasList({ tarjetas, txs, onTxsChange }) {
   const totalRest = groups.reduce((s, g) => s + g.total, 0);
 
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 12, overflow: 'hidden' }}>
       <PanelHeader title={`Cuotas pendientes${groups.length ? ` · ${hidden ? '••••' : fmtMoney(totalRest)}` : ''}`} />
       {groups.length === 0 ? (
         <div style={{ padding: '20px 14px', textAlign: 'center', color: C.text3, fontSize: 12 }}>Sin cuotas pendientes</div>

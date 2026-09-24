@@ -7,7 +7,7 @@ export default function Segmented({ options, value, onChange, full = false, size
   return (
     <div style={{
       display: full ? 'flex' : 'inline-flex', gap: 2, padding: 3,
-      background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 11,
+      background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, borderRadius: 11,
     }}>
       {options.map(([v, l, color]) => {
         const active = value === v;
@@ -18,9 +18,9 @@ export default function Segmented({ options, value, onChange, full = false, size
               flex: full ? 1 : undefined, padding: pad, borderRadius: 8,
               border: 'none', cursor: 'pointer',
               fontSize: size === 'sm' ? 12.5 : 14, fontWeight: active ? 600 : 500,
-              background: active ? C.border2 : 'transparent',
+              background: active ? 'rgba(255,255,255,0.1)' : 'transparent',
               color: active ? (color || C.text) : C.text3,
-              boxShadow: active ? '0 1px 2px rgba(0,0,0,.4)' : 'none',
+              boxShadow: active ? 'inset 0 1px 0 rgba(255,255,255,.08), 0 2px 8px -2px rgba(0,0,0,.6)' : 'none',
             }}
           >
             {l}

@@ -19,7 +19,7 @@ export default function MonthNav({ monthId, sorted, setMonthId, size = 'lg', sty
       style={{
         width: 32, height: 32, borderRadius: 10, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'transparent', border: `1px solid ${C.border}`,
+        background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev,
         color: enabled ? C.text2 : C.border2,
         cursor: enabled ? 'pointer' : 'default',
       }}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { C } from '../theme.js';
+import { C, blur } from '../theme.js';
 import { X } from './Icons.jsx';
 
 function useIsMobile() {
@@ -30,7 +30,7 @@ export default function Modal({ open, onClose, title, children, maxWidth = 480 }
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+        background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
         display: 'flex', alignItems: mobile ? 'flex-end' : 'center', justifyContent: 'center',
         padding: mobile ? 0 : 24,
         animation: 'fade-in .18s ease',
@@ -41,12 +41,12 @@ export default function Modal({ open, onClose, title, children, maxWidth = 480 }
         role="dialog" aria-modal="true"
         style={{
           width: '100%', maxWidth,
-          background: C.surface,
+          background: 'rgba(22,22,27,0.8)', ...blur(28),
           borderRadius: mobile ? '20px 20px 0 0' : 18,
-          border: `1px solid ${C.border}`, borderBottom: mobile ? 'none' : `1px solid ${C.border}`,
+          border: `1px solid ${C.border2}`, borderBottom: mobile ? 'none' : `1px solid ${C.border2}`,
           padding: mobile ? '8px 20px calc(24px + env(safe-area-inset-bottom))' : '22px 24px 24px',
           maxHeight: mobile ? '92vh' : '88vh', overflowY: 'auto',
-          boxShadow: '0 24px 64px -12px rgba(0,0,0,.7)',
+          boxShadow: C.elevHi,
           animation: mobile ? 'sheet-up .28s cubic-bezier(.2,.8,.2,1)' : 'dialog-in .2s ease',
         }}
       >

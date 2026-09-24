@@ -86,7 +86,8 @@ export default function TxForm({ cats, mediums, onSave, onCancel, onDelete, init
       <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
         padding: '18px 12px 16px', borderRadius: 14,
-        background: C.bg, border: `1px solid ${C.border}`,
+        background: 'rgba(0,0,0,0.22)', border: `1px solid ${C.border}`,
+        boxShadow: 'inset 0 2px 12px rgba(0,0,0,.35)',
       }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 6, width: '100%' }}>
           <span style={{ fontSize: 28, fontWeight: 500, color: amount ? typeColor : C.text3 }}>

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { C, s } from '../theme.js';
+import { C, s, blur } from '../theme.js';
 import { dateToMonthId, sortMonthIdsDesc, pctChange, fmtARS, monthIdLabel, fmtARSInt } from '../utils/format.js';
 import { useHideAmounts } from '../HideAmountsContext.jsx';
 import DonutChart from '../components/DonutChart.jsx';
@@ -185,7 +185,8 @@ export default function ScreenInversiones({ txs, cats, mediums, monthId, allMont
 
       {bycat.length > 0 ? (
         <div style={{
-          background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16,
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02))',
+          border: `1px solid ${C.border}`, boxShadow: C.elevHi, borderRadius: 18,
           padding: 'clamp(18px, 3vw, 28px)',
           display: 'flex', alignItems: 'center', gap: 'clamp(20px, 4vw, 40px)', flexWrap: 'wrap', justifyContent: 'center',
         }}>
@@ -264,15 +265,18 @@ export default function ScreenInversiones({ txs, cats, mediums, monthId, allMont
             ) : 'Movimientos del mes'}
           </div>
           <div style={{
-            background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16,
+            background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 16,
             padding: '6px 16px 10px',
           }}>
             {grouped.map(([date, dayTxs], gi) => (
               <React.Fragment key={date}>
                 
                 <div style={{
-                  fontSize: 12.5, fontWeight: 500, color: C.text3,
-                  padding: '12px 0 4px',
+                  position: 'sticky', top: 0, zIndex: 2,
+                  fontSize: 12.5, fontWeight: 500, color: C.text2,
+                  padding: '9px 12px', margin: '6px -12px 2px', borderRadius: 10,
+                  background: 'rgba(36,36,46,0.5)', ...blur(18),
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,.05)',
                 }}>
                   {(d => d.charAt(0).toUpperCase() + d.slice(1))(new Date(date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }))}
                 </div>

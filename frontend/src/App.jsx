@@ -27,6 +27,15 @@ import ScreenDolares from './screens/ScreenDolares.jsx';
 import ScreenVentas from './screens/ScreenVentas.jsx';
 import ScreenAjustes from './screens/ScreenAjustes.jsx';
 
+// Fondo con luz ambiental: un halo del acento arriba a la izquierda y uno verde
+// tenue abajo a la derecha. Las tarjetas translúcidas lo dejan ver.
+const AMBIENT = [
+  'radial-gradient(1000px 560px at 14% -10%, rgba(113,112,255,0.22), transparent 62%)',
+  'radial-gradient(700px 480px at 105% 108%, rgba(62,207,142,0.08), transparent 60%)',
+  'radial-gradient(600px 400px at 70% 30%, rgba(113,112,255,0.04), transparent 70%)',
+  C.bg,
+].join(', ');
+
 function useIsMobile() {
   const [mobile, setMobile] = useState(() => window.innerWidth < 768);
   useEffect(() => {
@@ -184,7 +193,7 @@ function AppInner() {
   };
 
   return (
-    <div style={{ height: '100%', display: 'flex', background: C.bg, overflow: 'hidden' }}>
+    <div style={{ height: '100%', display: 'flex', background: AMBIENT, overflow: 'hidden' }}>
       {!mobile && <SidebarDesktop screen={screen} onNav={onNav} />}
       {mobile && (
         <Sidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} screen={screen} onNav={onNav} />

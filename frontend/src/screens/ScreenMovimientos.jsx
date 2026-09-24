@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { C, s } from '../theme.js';
+import { C, s, blur } from '../theme.js';
 import { dateToMonthId, monthIdLabel, sortMonthIdsDesc, pctChange, fmtARS, fmtARSInt, fmtMoney } from '../utils/format.js';
 import TxRow from '../components/TxRow.jsx';
 import { useHideAmounts } from '../HideAmountsContext.jsx';
@@ -199,7 +199,8 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
         {/* Resumen del mes */}
         <div style={{
           display: 'flex', marginBottom: mobile ? 16 : 22,
-          background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14,
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))',
+          border: `1px solid ${C.border}`, boxShadow: C.elevHi, borderRadius: 16,
         }}>
           {statCell('Ingresos', curIng, pctIng, false, true)}
           {statCell('Gastos', curGas, pctGas, true)}
@@ -215,7 +216,12 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
       </div>
 
       {/* Transaction list */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: mobile ? '0 16px' : '0 32px' }}>
+      <div style={{
+        flex: 1, overflowY: 'auto', padding: mobile ? '0 16px' : '0 32px',
+        // Los movimientos se desvanecen al subir por debajo del resumen.
+        maskImage: 'linear-gradient(to bottom, transparent 0, #000 14px)',
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, #000 14px)',
+      }}>
         <div style={{ maxWidth: 1080, margin: '0 auto' }}>
           {grouped.length === 0 && (
             <div style={{ padding: '56px 0', textAlign: 'center' }}>
@@ -226,11 +232,15 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
           {grouped.map(([date, dayTxs]) => {
             const dayNet = dayTxs.filter(t => t.currency !== 'USD').reduce((s, t) => s + (t.type === 'i' ? t.amount : -t.amount), 0);
             return (
-              <div key={date} style={{ marginTop: 14 }}>
+              <div key={date} style={{ marginTop: 10 }}>
+                {/* Encabezado del día: queda pegado arriba y la lista pasa por debajo */}
                 <div style={{
+                  position: 'sticky', top: 0, zIndex: 2,
                   display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-                  fontSize: 12.5, fontWeight: 500, color: C.text3,
-                  padding: '6px 0 4px',
+                  fontSize: 12.5, fontWeight: 500, color: C.text2,
+                  padding: '10px 12px', margin: '0 -12px 2px', borderRadius: 10,
+                  background: 'rgba(36,36,46,0.5)', ...blur(18),
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,.05)',
                 }}>
                   <span>{dayLabel(date)}</span>
                   {!hidden && <span>{dayNet >= 0 ? '+' : '−'}{fmtARSInt(dayNet)}</span>}

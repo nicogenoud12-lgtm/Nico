@@ -835,7 +835,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
         {!mobile && (
           <div style={{ width: 300, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Savings Donut */}
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px' }}>
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 12, padding: '16px' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 12 }}>
                 Ahorro del período
               </div>
@@ -849,7 +849,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
             </div>
 
             {/* Resumen del período */}
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px' }}>
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 12, padding: '16px' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 12 }}>
                 Resumen del período
               </div>
@@ -874,7 +874,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
             </div>
 
             {/* YTD Card */}
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px' }}>
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 12, padding: '16px' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 12 }}>
                 YTD {selectedYear}
               </div>
@@ -923,7 +923,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
             </div>
 
             {/* Monthly Ahorro Bars */}
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px' }}>
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 12, padding: '16px' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 12 }}>
                 % Ahorro por mes
               </div>
@@ -940,7 +940,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
         {mobile && (
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Savings Donut */}
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px' }}>
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 12, padding: '16px' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 12 }}>
                 Ahorro del período
               </div>
@@ -954,7 +954,7 @@ export default function ScreenAnual({ txs, monthId, setMonthId, onNavigate }) {
             </div>
 
             {/* Monthly Ahorro Bars */}
-            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px' }}>
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 12, padding: '16px' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 12 }}>
                 % Ahorro por mes
               </div>
