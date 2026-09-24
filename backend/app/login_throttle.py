@@ -3,11 +3,14 @@ Freno contra fuerza bruta en /auth/login: tras MAX_FALLOS intentos fallidos
 desde la misma IP dentro de VENTANA segundos, responde 429 hasta que se liberen.
 Estado en memoria (un solo worker de uvicorn); un login correcto lo limpia.
 """
+import ipaddress
 import threading
 import time
 from collections import defaultdict, deque
 
 from fastapi import HTTPException, Request, status
+
+from .config import settings
 
 MAX_FALLOS = 10
 VENTANA = 15 * 60
@@ -16,9 +19,23 @@ _fallos: dict[str, deque] = defaultdict(deque)
 _lock = threading.Lock()
 
 
+def _es_proxy_confiable(host: str) -> bool:
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return any(ip in net for net in settings.trusted_proxy_networks)
+
+
 def client_ip(request: Request) -> str:
-    # Detrás del túnel de Cloudflare la IP real viene en CF-Connecting-IP
-    return request.headers.get("cf-connecting-ip") or (request.client.host if request.client else "?")
+    # Detrás del túnel de Cloudflare la IP real viene en CF-Connecting-IP, pero
+    # solo le creemos si el pedido llega desde la red del túnel: el backend
+    # también está publicado en la LAN y ahí cualquiera podría inventar el header.
+    peer = request.client.host if request.client else "?"
+    cf_ip = request.headers.get("cf-connecting-ip")
+    if cf_ip and _es_proxy_confiable(peer):
+        return cf_ip
+    return peer
 
 
 def _purgar(q: deque, ahora: float) -> None:
