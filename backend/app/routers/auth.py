@@ -5,12 +5,12 @@ import secrets
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from .. import models
+from .. import login_throttle, models
 from ..auth import create_access_token, get_admin_user, get_current_user, hash_password, verify_password
 from ..database import get_db
 
@@ -124,13 +124,17 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(request: Request, form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    ip = login_throttle.client_ip(request)
+    login_throttle.check(ip)
     user = db.query(models.User).filter(models.User.username == form.username).first()
     if not user or not verify_password(form.password, user.password_hash):
+        login_throttle.fallo(ip)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Usuario o contraseña incorrectos")
     if not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Cuenta desactivada")
 
+    login_throttle.exito(ip)
     token = create_access_token(user)
     return TokenResponse(
         access_token=token,

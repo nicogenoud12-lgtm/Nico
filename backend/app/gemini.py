@@ -183,7 +183,7 @@ async def parse_message(
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(
                 url,
-                params={"key": settings.GEMINI_API_KEY},
+                headers={"x-goog-api-key": settings.GEMINI_API_KEY},
                 json=body,
             )
             resp.raise_for_status()
@@ -318,7 +318,7 @@ async def extract_statement(
 
     try:
         async with httpx.AsyncClient(timeout=45.0) as client:
-            resp = await client.post(url, params={"key": settings.GEMINI_API_KEY}, json=body)
+            resp = await client.post(url, headers={"x-goog-api-key": settings.GEMINI_API_KEY}, json=body)
             resp.raise_for_status()
             data = resp.json()
     except (httpx.HTTPError, httpx.TimeoutException, httpx.NetworkError) as e:
