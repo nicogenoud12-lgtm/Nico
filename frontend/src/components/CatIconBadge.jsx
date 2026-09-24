@@ -50,8 +50,9 @@ export default function CatIconBadge({ cat, color, size = 36 }) {
 
   return (
     <div style={{
-      width: size, height: size, borderRadius: Math.round(size * 0.28), flexShrink: 0,
-      background: color + '22',
+      width: size, height: size, borderRadius: Math.round(size * 0.3), flexShrink: 0,
+      background: color + '1c',
+      boxShadow: `inset 0 0 0 1px ${color}26`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       {slug ? (

@@ -39,7 +39,7 @@ function runningSum(data) {
 async function exportYearPDF(dashboardRef, year) {
   try {
     const canvas = await html2canvas(dashboardRef.current, {
-      backgroundColor: '#0a0a0a',
+      backgroundColor: '#09090b',
       scale: 2,
       logging: false,
       useCORS: true,

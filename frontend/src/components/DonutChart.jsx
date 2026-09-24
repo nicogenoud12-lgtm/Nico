@@ -25,9 +25,11 @@ export default function DonutChart({
   let offset = 0;
   const slices = data.map(d => {
     const pct = d.value / total;
-    const len = pct * circ;
-    const slice = { ...d, offset, len };
-    offset += len;
+    // Separación mínima entre porciones (solo si hay más de una).
+    const gap = data.length > 1 ? Math.min(2, pct * circ * 0.4) : 0;
+    const len = Math.max(pct * circ - gap, 0.001);
+    const slice = { ...d, offset: offset + gap / 2, len };
+    offset += pct * circ;
     return slice;
   });
 
@@ -53,7 +55,7 @@ export default function DonutChart({
               cx={cx} cy={cy} r={r}
               fill="none"
               stroke={s.color}
-              strokeWidth={isActive ? thickness + 5 : thickness}
+              strokeWidth={isActive ? thickness + 4 : thickness}
               strokeDasharray={`${s.len} ${circ - s.len}`}
               strokeDashoffset={-s.offset}
               transform={`rotate(-90 ${cx} ${cy})`}

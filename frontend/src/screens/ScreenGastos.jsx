@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { C, s } from '../theme.js';
-import { dateToMonthId, sortMonthIdsDesc, pctChange, fmtARS, monthIdLabel } from '../utils/format.js';
+import { dateToMonthId, sortMonthIdsDesc, pctChange, fmtARS, monthIdLabel, fmtARSInt } from '../utils/format.js';
 import { useHideAmounts } from '../HideAmountsContext.jsx';
 import DonutChart from '../components/DonutChart.jsx';
 import FAB from '../components/FAB.jsx';
@@ -8,17 +8,21 @@ import Modal from '../components/Modal.jsx';
 import TxForm from '../components/TxForm.jsx';
 import TxRow from '../components/TxRow.jsx';
 import Divider from '../components/Divider.jsx';
+import MonthNav from '../components/MonthNav.jsx';
 import CuotaDetailModal from '../components/CuotaDetailModal.jsx';
 import { createTransaction, updateTransaction, deleteTransaction } from '../api/transactions.js';
 
 function PctBadge({ pct }) {
-  if (pct === null || pct === undefined) return <span style={{ fontSize: 11, color: C.text3 }}>—</span>;
+  if (pct === null || pct === undefined) return <span style={{ fontSize: 12, color: C.text3 }}>Sin datos del mes anterior</span>;
   const isGood = pct < 0;
   const color = isGood ? C.green : C.red;
   const arrow = pct > 0 ? '↑' : '↓';
   return (
-    <span style={{ fontSize: 11, color, fontWeight: 600 }}>
-      {arrow} {Math.abs(pct)}% vs mes ant.
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ fontSize: 11.5, fontWeight: 600, color, background: color + '1a', padding: '2px 7px', borderRadius: 6 }}>
+        {arrow} {Math.abs(pct)}%
+      </span>
+      <span style={{ fontSize: 12, color: C.text3 }}>vs mes anterior</span>
     </span>
   );
 }
@@ -186,55 +190,40 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
     }
     return (
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 10, color: C.text3, marginBottom: 3, textTransform: 'uppercase', letterSpacing: '.06em' }}>Total</div>
+        <div style={{ fontSize: 12, color: C.text3, marginBottom: 2 }}>Total</div>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{hidden ? '••••' : fmtARS(total)}</div>
       </div>
     );
   };
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: '16px' }}>
-      {/* Month navigation */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-        <button
-          onClick={() => { const i = sorted.indexOf(monthId); if (i < sorted.length - 1) setMonthId(sorted[i + 1]); }}
-          style={{ ...s.btnIcon, fontSize: 18 }}
-        >‹</button>
-        <select
-          value={monthId}
-          onChange={e => setMonthId(e.target.value)}
-          style={{ ...s.select, width: 'auto', flex: 1, fontSize: 15, fontWeight: 600 }}
-        >
-          {sorted.map(id => <option key={id} value={id}>{monthIdLabel(id)}</option>)}
-        </select>
-        <button
-          onClick={() => { const i = sorted.indexOf(monthId); if (i > 0) setMonthId(sorted[i - 1]); }}
-          style={{ ...s.btnIcon, fontSize: 18 }}
-        >›</button>
-      </div>
+    <div style={{ height: '100%', overflowY: 'auto' }}>
+    <div style={{ padding: 'clamp(16px, 3.5vw, 32px) clamp(16px, 3.5vw, 32px) 0', maxWidth: 1080, margin: '0 auto' }}>
+      <MonthNav monthId={monthId} sorted={sorted} setMonthId={setMonthId} style={{ marginBottom: 22 }} />
 
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 24, fontWeight: 700, color: C.text, marginBottom: 4 }}>{hidden ? '••••' : fmtARS(total)}</div>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: C.text3, marginBottom: 4 }}>Total gastado</div>
+        <div style={{ fontSize: 34, fontWeight: 650, letterSpacing: '-0.03em', color: C.text, marginBottom: 8 }}>{hidden ? '••••' : fmtARS(total)}</div>
         <PctBadge pct={pct} />
       </div>
 
       {bycat.length > 0 ? (
         <div style={{
-          background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
-          padding: '20px 16px',
-          display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', justifyContent: 'center',
+          background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16,
+          padding: 'clamp(18px, 3vw, 28px)',
+          display: 'flex', alignItems: 'center', gap: 'clamp(20px, 4vw, 40px)', flexWrap: 'wrap', justifyContent: 'center',
         }}>
           <DonutChart
             data={bycat}
-            size={200}
-            thickness={32}
+            size={196}
+            thickness={22}
             hoveredIdx={hoveredIdx}
             onHover={setHoveredIdx}
             selectedIdx={selectedIdx}
             onClickSlice={handleSelectCat}
             renderCenter={renderCenter}
           />
-          <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ flex: 1, minWidth: 200, maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 2 }}>
             {bycat.map((item, i) => {
               const pctOf = total > 0 ? (item.value / total) * 100 : 0;
               const isHovered = hoveredIdx === i;
@@ -248,19 +237,21 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
                   onClick={() => handleSelectCat(i)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '7px 10px', borderRadius: 7,
+                    padding: '8px 10px', borderRadius: 9,
                     background: isSelected ? C.surface2 : isHovered ? C.surface2 : 'transparent',
                     opacity: isDimmed ? 0.3 : 1,
                     transition: 'background .15s, opacity .2s',
                     cursor: 'pointer',
-                    borderLeft: isSelected ? `3px solid ${item.color}` : '3px solid transparent',
                   }}
                 >
-                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
+                  <div style={{ width: 8, height: 8, borderRadius: 3, background: item.color, flexShrink: 0 }} />
                   <span style={{ flex: 1, fontSize: 13, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isSelected ? 600 : 400 }}>
                     {item.name}
                   </span>
-                  <span style={{ fontSize: 13, color: C.text2, fontWeight: 600, flexShrink: 0 }}>
+                  <span style={{ fontSize: 13, color: C.text, fontWeight: 550, flexShrink: 0 }}>
+                    {hidden ? '••••' : fmtARSInt(item.value)}
+                  </span>
+                  <span style={{ fontSize: 12, color: C.text3, fontWeight: 500, flexShrink: 0, width: 44, textAlign: 'right' }}>
                     {pctOf.toFixed(1)}%
                   </span>
                 </div>
@@ -270,8 +261,8 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
         </div>
       ) : (
         <div style={{
-          background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
-          padding: '32px', textAlign: 'center', color: C.text3, fontSize: 14,
+          background: C.surface, border: `1px dashed ${C.border2}`, borderRadius: 16,
+          padding: '40px', textAlign: 'center', color: C.text3, fontSize: 14,
         }}>
           Sin gastos este mes
         </div>
@@ -280,9 +271,8 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
       {grouped.length > 0 && (
         <>
           <div style={{
-            fontSize: 11, fontWeight: 600, color: C.text3,
-            textTransform: 'uppercase', letterSpacing: '.06em',
-            margin: '24px 4px 10px',
+            fontSize: 14, fontWeight: 600, color: C.text,
+            margin: '32px 2px 10px',
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
             {selectedCat ? (
@@ -298,23 +288,20 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
             ) : 'Movimientos del mes'}
           </div>
           <div style={{
-            background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
-            padding: '4px 14px',
+            background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16,
+            padding: '6px 16px 10px',
           }}>
             {grouped.map(([date, dayTxs], gi) => (
               <React.Fragment key={date}>
-                {gi > 0 && <Divider />}
+                
                 <div style={{
-                  fontSize: 10, fontWeight: 600, color: C.text3,
-                  textTransform: 'uppercase', letterSpacing: '.06em',
-                  padding: '10px 0 4px',
+                  fontSize: 12.5, fontWeight: 500, color: C.text3,
+                  padding: '12px 0 4px',
                 }}>
-                  {new Date(date + 'T12:00:00').toLocaleDateString('es-AR', {
-                    weekday: 'short', day: 'numeric', month: 'short',
-                  })}
+                  {(d => d.charAt(0).toUpperCase() + d.slice(1))(new Date(date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' }))}
                 </div>
                 {dayTxs.map(tx => (
-                  <TxRow key={tx.id} tx={tx} cats={cats} onClick={handleRowClick} />
+                  <TxRow key={tx.id} tx={tx} cats={cats} onClick={handleRowClick} showDate={false} />
                 ))}
               </React.Fragment>
             ))}
@@ -346,6 +333,7 @@ export default function ScreenGastos({ txs, cats, mediums, monthId, allMonthIds,
         onDeleteSingle={handleCuotaDeleteSingle}
         onDeleteAll={handleCuotaDeleteAll}
       />
+    </div>
     </div>
   );
 }
