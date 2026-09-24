@@ -46,8 +46,12 @@ def fallo(ip: str) -> None:
         _purgar(q, ahora)
         q.append(ahora)
         if len(_fallos) > 10_000:
-            for k in [k for k, v in _fallos.items() if not v]:
-                del _fallos[k]
+            # Purgar antes de filtrar: una IP que no volvió a intentar conserva
+            # sus fallos viejos en la cola y nunca quedaría vacía por sí sola.
+            for k in list(_fallos):
+                _purgar(_fallos[k], ahora)
+                if not _fallos[k]:
+                    del _fallos[k]
 
 
 def exito(ip: str) -> None:

@@ -70,6 +70,7 @@ Nico/
 ### Backend
 
 - **Auth**: `POST /auth/login`, `POST /auth/register`, `GET /auth/me`
+- **Freno de login** (`login_throttle.py`): 10 intentos fallidos en 15 min desde la misma IP → 429. La IP sale de `CF-Connecting-IP` (túnel de Cloudflare); estado en memoria, un login correcto lo limpia.
 - **Invitaciones (admin)**: `GET/POST /auth/invitations`, `DELETE /auth/invitations/{id}`
 - **Endpoints CRUD** (todos requieren Bearer token): `/categories`, `/mediums`, `/tarjetas`, `/recurrentes`, `/suscripciones`, `/transactions`, `/months`
 - **Dólares (baúl)**: `/dollar/*` — operaciones de tenencia en USD (ingreso/compra/venta/retiro) + cotizaciones (`/dollar/quotes`)
@@ -125,6 +126,7 @@ SQLite en volumen Docker `backend_data`, con:
 - `thinkingConfig: {thinkingBudget: 1024}` — limita el thinking a ~1-3s sin perder calidad
 - `responseMimeType: "application/json"` + `responseSchema` (structured output)
 - Si Gemini falla → bot responde `GEMINI_ERROR`, no carga nada
+- La API key va en el header `x-goog-api-key`, nunca en la URL (así no aparece en logs de errores)
 
 ### Variables de entorno (`backend/.env`)
 
