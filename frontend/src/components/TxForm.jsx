@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { C, s } from '../theme.js';
 import { todayStr } from '../utils/format.js';
+import Segmented from './Segmented.jsx';
 
 function toRawAmount(n) {
   if (n == null) return '';
@@ -69,36 +70,38 @@ export default function TxForm({ cats, mediums, onSave, onCancel, onDelete, init
     }
   };
 
-  const row = { display: 'flex', flexDirection: 'column', gap: 6 };
-  const label = { fontSize: 11, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em' };
+  const row = { display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minWidth: 0 };
+  const label = { fontSize: 12.5, fontWeight: 500, color: C.text2 };
+  const typeColor = type === 'g' ? C.red : C.green;
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* type toggle */}
-      <div style={{ display: 'flex', background: C.surface2, borderRadius: 8, padding: 3, gap: 3 }}>
-        {[['g', 'Gasto'], ['i', 'Ingreso']].map(([v, l]) => (
-          <button
-            key={v} type="button"
-            onClick={() => handleTypeChange(v)}
-            style={{
-              flex: 1, padding: '7px 0', borderRadius: 6, border: 'none',
-              background: type === v ? (v === 'g' ? C.red : C.green) : 'transparent',
-              color: type === v ? '#fff' : C.text2,
-              fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-              transition: 'background .15s',
-            }}
-          >
-            {l}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        full value={type} onChange={handleTypeChange}
+        options={[['g', 'Gasto', C.red], ['i', 'Ingreso', C.green]]}
+      />
 
-      {/* amount + currency */}
-      <div style={row}>
-        <span style={label}>Importe</span>
-        <div style={{ display: 'flex', gap: 8 }}>
+      {/* amount + currency: monto grande, protagonista del formulario */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+        padding: '18px 12px 16px', borderRadius: 14,
+        background: 'rgba(0,0,0,0.22)', border: `1px solid ${C.border}`,
+        boxShadow: 'inset 0 2px 12px rgba(0,0,0,.35)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 6, width: '100%' }}>
+          <span style={{ fontSize: 28, fontWeight: 500, color: amount ? typeColor : C.text3 }}>
+            {currency === 'USD' ? 'US$' : '$'}
+          </span>
           <input
-            style={{ ...s.input, flex: 1 }}
+            className="input-hero"
+            autoFocus={!initial}
+            style={{
+              width: `${Math.max(1, formatDisplayAmount(amount).length || 1) + 0.5}ch`, maxWidth: '80%',
+              background: 'transparent', border: 'none', outline: 'none', boxShadow: 'none', padding: 0,
+              color: amount ? C.text : C.text3, fontSize: 40, fontWeight: 650, letterSpacing: '-0.03em',
+              textAlign: 'left',
+            }}
             type="text"
             inputMode="decimal"
             placeholder="0"
@@ -106,15 +109,11 @@ export default function TxForm({ cats, mediums, onSave, onCancel, onDelete, init
             onChange={handleAmountChange}
             onBeforeInput={handleAmountBeforeInput}
           />
-          <select
-            style={{ ...s.select, width: 80 }}
-            value={currency}
-            onChange={e => setCurrency(e.target.value)}
-          >
-            <option value="ARS">ARS</option>
-            <option value="USD">USD</option>
-          </select>
         </div>
+        <Segmented
+          size="sm" value={currency} onChange={setCurrency}
+          options={[['ARS', 'ARS'], ['USD', 'USD']]}
+        />
       </div>
 
       {/* category */}
@@ -126,25 +125,25 @@ export default function TxForm({ cats, mediums, onSave, onCancel, onDelete, init
         </select>
       </div>
 
-      {/* medium */}
-      <div style={row}>
-        <span style={label}>Medio</span>
-        <select style={s.select} value={medio} onChange={e => setMedio(e.target.value)}>
-          <option value="">Sin medio</option>
-          {mediums.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
-        </select>
-      </div>
-
-      {/* date */}
-      <div style={row}>
-        <span style={label}>Fecha</span>
-        <input style={s.input} type="date" value={date} onChange={e => setDate(e.target.value)} />
+      {/* medium + date */}
+      <div style={{ display: 'flex', gap: 10 }}>
+        <div style={row}>
+          <span style={label}>Medio</span>
+          <select style={s.select} value={medio} onChange={e => setMedio(e.target.value)}>
+            <option value="">Sin medio</option>
+            {mediums.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+          </select>
+        </div>
+        <div style={row}>
+          <span style={label}>Fecha</span>
+          <input style={s.input} type="date" value={date} onChange={e => setDate(e.target.value)} />
+        </div>
       </div>
 
       {/* desc */}
       <div style={row}>
-        <span style={label}>Descripción (opcional)</span>
-        <input style={s.input} type="text" placeholder="Nota" value={desc} onChange={e => setDesc(e.target.value)} />
+        <span style={label}>Descripción <span style={{ color: C.text3, fontWeight: 400 }}>· opcional</span></span>
+        <input style={s.input} type="text" placeholder="Ej: supermercado, nafta…" value={desc} onChange={e => setDesc(e.target.value)} />
       </div>
 
       {/* cuotas (only for gastos, not editing) */}
@@ -158,7 +157,7 @@ export default function TxForm({ cats, mediums, onSave, onCancel, onDelete, init
       )}
 
       {error && (
-        <div style={{ fontSize: 12, color: C.red, background: C.red + '18', borderRadius: 8, padding: '8px 12px' }}>
+        <div style={{ fontSize: 13, color: C.red, background: C.redBg, border: `1px solid ${C.red}33`, borderRadius: 10, padding: '9px 12px' }}>
           {error}
         </div>
       )}
@@ -176,8 +175,8 @@ export default function TxForm({ cats, mediums, onSave, onCancel, onDelete, init
           type="button"
           onClick={onDelete}
           style={{
-            background: 'transparent', border: `1px solid ${C.red}40`,
-            color: C.red, padding: '9px', borderRadius: 8,
+            background: 'transparent', border: 'none',
+            color: C.red, padding: '6px', borderRadius: 10,
             fontFamily: 'inherit', fontSize: 13, fontWeight: 500, cursor: 'pointer',
           }}
         >

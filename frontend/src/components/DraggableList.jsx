@@ -53,7 +53,7 @@ export default function DraggableList({ items, onReorder, onEdit, onDelete, hasC
   };
 
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'visible' }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 10, overflow: 'visible' }}>
       {items.length > 1 && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '6px 10px', borderBottom: `1px solid ${C.border}` }}>
           <button
@@ -151,7 +151,7 @@ export default function DraggableList({ items, onReorder, onEdit, onDelete, hasC
                           }}
                           placeholder="#rrggbb"
                           maxLength={7}
-                          style={{ flex: 1, fontSize: 11, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 4, color: C.text, padding: '3px 6px', fontFamily: 'monospace', outline: 'none' }}
+                          style={{ flex: 1, fontSize: 11, background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 4, color: C.text, padding: '3px 6px', fontFamily: 'monospace', outline: 'none' }}
                         />
                         {/^#[0-9a-fA-F]{6}$/.test(editVal.color || '') && (
                           <div style={{ width: 16, height: 16, borderRadius: 3, background: editVal.color, border: `1px solid ${C.border2}`, flexShrink: 0 }} />

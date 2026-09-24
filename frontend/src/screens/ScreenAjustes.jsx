@@ -47,7 +47,7 @@ function SectionUsuarios() {
   };
 
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 12, overflow: 'hidden' }}>
       {loading ? (
         <div style={{ padding: 16, fontSize: 13, color: C.text2 }}>Cargando…</div>
       ) : users.map((u, i) => (
@@ -184,7 +184,7 @@ function SectionInvitations() {
   );
 
   return (
-    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 12, padding: 16 }}>
       {/* Crear nueva invitación */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <input
@@ -344,7 +344,7 @@ export default function ScreenAjustes({ cats, mediums, onCatsChange, onMediumsCh
 
       {/* Cuenta */}
       <Section title="Cuenta">
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 12, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{user?.username}</div>
             {user?.is_admin && (
@@ -370,7 +370,7 @@ export default function ScreenAjustes({ cats, mediums, onCatsChange, onMediumsCh
       )}
 
       <Section title="Backup">
-        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px' }}>
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, boxShadow: C.elev, borderRadius: 12, padding: '16px' }}>
           <div style={{ display: 'flex', gap: 10, marginBottom: backupStatus ? 10 : 0 }}>
             <button onClick={handleExport} style={{ ...s.btnGhost, flex: 1 }}>
               Exportar JSON

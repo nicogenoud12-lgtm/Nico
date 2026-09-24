@@ -1,25 +1,37 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { C, s } from '../theme.js';
+import { C, s, blur } from '../theme.js';
 import { dateToMonthId, monthIdLabel, sortMonthIdsDesc, pctChange, fmtARS, fmtARSInt, fmtMoney } from '../utils/format.js';
 import TxRow from '../components/TxRow.jsx';
 import { useHideAmounts } from '../HideAmountsContext.jsx';
 import FAB from '../components/FAB.jsx';
 import Modal from '../components/Modal.jsx';
 import TxForm from '../components/TxForm.jsx';
-import Divider from '../components/Divider.jsx';
+import MonthNav from '../components/MonthNav.jsx';
+import Segmented from '../components/Segmented.jsx';
 import CuotaDetailModal from '../components/CuotaDetailModal.jsx';
 import { createTransaction, updateTransaction, deleteTransaction } from '../api/transactions.js';
 
 function PctBadge({ pct, inverse = false, compact = false }) {
-  if (pct === null || pct === undefined) return <span style={{ fontSize: 11, color: C.text3 }}>—</span>;
+  if (pct === null || pct === undefined) return <span style={{ fontSize: 11.5, color: C.text3 }}>—</span>;
   const isGood = inverse ? pct < 0 : pct > 0;
   const color = isGood ? C.green : C.red;
   const arrow = pct > 0 ? '↑' : '↓';
   return (
-    <span style={{ fontSize: compact ? 10 : 11, color, fontWeight: 600, whiteSpace: 'nowrap' }}>
-      {arrow} {Math.abs(pct)}%{compact ? '' : ' vs mes ant.'}
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+      <span style={{
+        fontSize: 11, fontWeight: 600, color,
+        background: color + '1a', padding: '2px 6px', borderRadius: 6,
+      }}>
+        {arrow} {Math.abs(pct)}%
+      </span>
+      {!compact && <span style={{ fontSize: 11.5, color: C.text3 }}>vs mes anterior</span>}
     </span>
   );
+}
+
+function dayLabel(date) {
+  const s = new Date(date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMonthIds, setMonthId, onTxsChange }) {
@@ -161,15 +173,16 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
     [cats]
   );
 
-  const statCard = (label, value, pct, inverse = false) => (
+  const statCell = (label, value, pct, inverse, first) => (
     <div style={{
       flex: 1, minWidth: 0,
-      background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
-      padding: mobile ? '10px 12px' : '14px 16px',
+      padding: mobile ? '12px 12px' : '16px 20px',
+      borderLeft: first ? 'none' : `1px solid ${C.border}`,
     }}>
-      <div style={{ fontSize: mobile ? 9 : 10, fontWeight: 600, color: C.text3, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: mobile ? 4 : 6 }}>{label}</div>
+      <div style={{ fontSize: mobile ? 11.5 : 12.5, fontWeight: 500, color: C.text3, marginBottom: mobile ? 4 : 6 }}>{label}</div>
       <div style={{
-        fontSize: mobile ? 14 : 18, fontWeight: 700, color: C.text, marginBottom: 4,
+        fontSize: mobile ? 15 : 22, fontWeight: 650, color: C.text, marginBottom: mobile ? 6 : 8,
+        letterSpacing: '-0.02em',
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
         {hidden ? '••••' : (mobile ? fmtARSInt(value) : fmtARS(value))}
@@ -180,77 +193,66 @@ export default function ScreenMovimientos({ txs, cats, mediums, monthId, allMont
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Month selector */}
-      <div style={{ padding: '16px 16px 0', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <button
-            onClick={() => { const i = sorted.indexOf(monthId); if (i < sorted.length - 1) setMonthId(sorted[i + 1]); }}
-            style={{ ...s.btnIcon, fontSize: 18 }}
-          >‹</button>
-          <select
-            value={monthId}
-            onChange={e => setMonthId(e.target.value)}
-            style={{ ...s.select, width: 'auto', flex: 1, fontSize: 16, fontWeight: 600 }}
-          >
-            {sorted.map(id => <option key={id} value={id}>{monthIdLabel(id)}</option>)}
-          </select>
-          <button
-            onClick={() => { const i = sorted.indexOf(monthId); if (i > 0) setMonthId(sorted[i - 1]); }}
-            style={{ ...s.btnIcon, fontSize: 18 }}
-          >›</button>
+      <div style={{ padding: mobile ? '16px 16px 0' : '28px 32px 0', flexShrink: 0, maxWidth: 1080, width: '100%', margin: '0 auto' }}>
+        <MonthNav monthId={monthId} sorted={sorted} setMonthId={setMonthId} style={{ marginBottom: mobile ? 14 : 20 }} />
+
+        {/* Resumen del mes */}
+        <div style={{
+          display: 'flex', marginBottom: mobile ? 16 : 22,
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))',
+          border: `1px solid ${C.border}`, boxShadow: C.elevHi, borderRadius: 16,
+        }}>
+          {statCell('Ingresos', curIng, pctIng, false, true)}
+          {statCell('Gastos', curGas, pctGas, true)}
+          {statCell('Neto', curNet, pctNet, false)}
         </div>
 
-        {/* Stat cards */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-          {statCard('Ingresos', curIng, pctIng, false)}
-          {statCard('Gastos', curGas, pctGas, true)}
-          {statCard('Neto', curNet, pctNet, false)}
+        <div style={{ marginBottom: 6 }}>
+          <Segmented
+            size="sm" value={filter} onChange={setFilter}
+            options={[['all', 'Todos'], ['g', 'Gastos'], ['i', 'Ingresos']]}
+          />
         </div>
-
-        {/* Filter tabs */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-          {[['all', 'Todos'], ['g', 'Gastos'], ['i', 'Ingresos']].map(([v, l]) => (
-            <button
-              key={v} onClick={() => setFilter(v)}
-              style={{
-                padding: '5px 12px', borderRadius: 6, border: 'none', fontFamily: 'inherit', fontSize: 12, cursor: 'pointer',
-                background: filter === v ? C.accent : C.surface2,
-                color: filter === v ? '#fff' : C.text2,
-                fontWeight: filter === v ? 600 : 400,
-              }}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
-        <Divider my={0} />
       </div>
 
       {/* Transaction list */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px' }}>
-        {grouped.length === 0 && (
-          <div style={{ padding: '40px 0', textAlign: 'center', color: C.text3, fontSize: 14 }}>
-            Sin movimientos
-          </div>
-        )}
-        {grouped.map(([date, dayTxs]) => (
-          <div key={date}>
-            <div style={{
-              fontSize: 11, fontWeight: 600, color: C.text3,
-              textTransform: 'uppercase', letterSpacing: '.06em',
-              padding: '12px 0 4px',
-            }}>
-              {new Date(date + 'T12:00:00').toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}
+      <div style={{
+        flex: 1, overflowY: 'auto', padding: mobile ? '0 16px' : '0 32px',
+        // Los movimientos se desvanecen al subir por debajo del resumen.
+        maskImage: 'linear-gradient(to bottom, transparent 0, #000 14px)',
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, #000 14px)',
+      }}>
+        <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+          {grouped.length === 0 && (
+            <div style={{ padding: '56px 0', textAlign: 'center' }}>
+              <div style={{ fontSize: 14, fontWeight: 500, color: C.text2, marginBottom: 4 }}>Sin movimientos</div>
+              <div style={{ fontSize: 13, color: C.text3 }}>Tocá + para cargar el primero del mes.</div>
             </div>
-            {dayTxs.map((tx, i) => (
-              <React.Fragment key={tx.id}>
-                {i > 0 && <Divider my={0} />}
-                <TxRow tx={tx} cats={cats} onClick={handleRowClick} />
-              </React.Fragment>
-            ))}
-          </div>
-        ))}
-        <div style={{ height: 80 }} />
+          )}
+          {grouped.map(([date, dayTxs]) => {
+            const dayNet = dayTxs.filter(t => t.currency !== 'USD').reduce((s, t) => s + (t.type === 'i' ? t.amount : -t.amount), 0);
+            return (
+              <div key={date} style={{ marginTop: 10 }}>
+                {/* Encabezado del día: queda pegado arriba y la lista pasa por debajo */}
+                <div style={{
+                  position: 'sticky', top: 0, zIndex: 2,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+                  fontSize: 12.5, fontWeight: 500, color: C.text2,
+                  padding: '10px 12px', margin: '0 -12px 2px', borderRadius: 10,
+                  background: 'rgba(36,36,46,0.5)', ...blur(18),
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,.05)',
+                }}>
+                  <span>{dayLabel(date)}</span>
+                  {!hidden && <span>{dayNet >= 0 ? '+' : '−'}{fmtARSInt(dayNet)}</span>}
+                </div>
+                {dayTxs.map(tx => (
+                  <TxRow key={tx.id} tx={tx} cats={cats} onClick={handleRowClick} showDate={false} />
+                ))}
+              </div>
+            );
+          })}
+          <div style={{ height: 96 }} />
+        </div>
       </div>
 
       <FAB onClick={() => { setEditTx(null); setModalOpen(true); }} />

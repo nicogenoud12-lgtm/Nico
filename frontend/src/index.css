@@ -4,32 +4,71 @@ html, body, #app-root { height: 100%; width: 100%; }
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #0a0a0a;
-  color: #fff;
+  /* cv11: "a" de un piso · ss03: flechas redondeadas · tnum: cifras de ancho fijo
+     (los montos quedan alineados en columnas) */
+  font-feature-settings: 'cv11', 'ss03';
+  font-variant-numeric: tabular-nums;
+  background: #09090b;
+  color: #fafafa;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
+
+::selection { background: rgba(113, 112, 255, .35); }
 
 button {
   font-family: inherit;
+  transition: background-color .15s, color .15s, border-color .15s, opacity .15s, transform .1s;
 }
+button:active:not(:disabled) { transform: scale(.98); }
 
 input, select, textarea {
   font-family: inherit;
   color-scheme: dark;
+  transition: border-color .15s, box-shadow .15s;
+}
+input::placeholder, textarea::placeholder { color: #52525b; }
+
+input:focus, select:focus, textarea:focus {
+  border-color: #3f3f46 !important;
+  box-shadow: 0 0 0 3px rgba(113, 112, 255, .18);
+}
+button:focus-visible { outline: 2px solid rgba(113, 112, 255, .6); outline-offset: 2px; }
+
+/* Flecha propia para los <select>: la nativa de cada sistema rompe la estética.
+   !important porque los estilos inline usan el shorthand `background`. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  padding-right: 32px !important;
+  cursor: pointer;
 }
 
 /* iOS Safari hace zoom al enfocar inputs con font-size < 16px. En dispositivos
    táctiles forzamos 16px (sobre los tamaños inline) para evitar ese zoom molesto,
-   sin tocar el diseño en desktop ni deshabilitar el pinch-zoom. */
+   sin tocar el diseño en desktop ni deshabilitar el pinch-zoom. Los inputs
+   `.input-hero` (monto grande) ya son > 16px y quedan afuera. */
 @media (pointer: coarse) {
-  input, select, textarea {
+  input:not(.input-hero), select, textarea {
     font-size: 16px !important;
   }
 }
 
-::-webkit-scrollbar { width: 4px; height: 4px; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes drawer-in { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3f3f46; }

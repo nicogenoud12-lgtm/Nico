@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { C, s } from '../theme';
+import { LogoMark } from '../components/Icons.jsx';
+import Segmented from '../components/Segmented.jsx';
+
+const fieldLabel = { fontSize: 12.5, fontWeight: 500, color: C.text2 };
 
 export default function ScreenLogin() {
   const { login, register } = useAuth();
@@ -31,49 +35,40 @@ export default function ScreenLogin() {
 
   return (
     <div style={{
-      minHeight: '100vh', background: C.bg,
+      minHeight: '100vh', background: `radial-gradient(ellipse 80% 50% at 50% -10%, rgba(113,112,255,.14), transparent 70%), ${C.bg}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 16, fontFamily: 'Inter, sans-serif',
     }}>
       <div style={{
         width: '100%', maxWidth: 380,
         background: C.surface, border: `1px solid ${C.border}`,
-        borderRadius: 16, padding: 32,
+        borderRadius: 20, padding: 'clamp(24px, 6vw, 36px)',
+        boxShadow: '0 24px 64px -24px rgba(0,0,0,.8)',
       }}>
         {/* Logo / título */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>💸</div>
-          <h1 style={{ ...s.h1, margin: 0 }}>Gastos</h1>
-          <p style={{ ...s.small, marginTop: 4 }}>Tu app de finanzas personales</p>
+          <div style={{ display: 'inline-flex', marginBottom: 16, filter: 'drop-shadow(0 8px 24px rgba(113,112,255,.35))' }}>
+            <LogoMark size={44} />
+          </div>
+          <h1 style={{ ...s.h1, margin: 0 }}>{tab === 'login' ? 'Bienvenido' : 'Crear cuenta'}</h1>
+          <p style={{ fontSize: 14, color: C.text3, marginTop: 6 }}>
+            {tab === 'login' ? 'Entrá para ver tus finanzas' : 'Necesitás un código de invitación'}
+          </p>
         </div>
 
         {/* Tabs */}
-        <div style={{
-          display: 'flex', background: C.surface2, borderRadius: 8,
-          padding: 3, marginBottom: 24, gap: 3,
-        }}>
-          {['login', 'register'].map(t => (
-            <button
-              key={t}
-              onClick={() => { setTab(t); setError(''); }}
-              style={{
-                flex: 1, padding: '8px 0', border: 'none', borderRadius: 6,
-                fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600,
-                cursor: 'pointer', transition: 'all .15s',
-                background: tab === t ? C.accent : 'transparent',
-                color: tab === t ? '#fff' : C.text2,
-              }}
-            >
-              {t === 'login' ? 'Entrar' : 'Crear cuenta'}
-            </button>
-          ))}
+        <div style={{ marginBottom: 24 }}>
+          <Segmented
+            full value={tab} onChange={(t) => { setTab(t); setError(''); }}
+            options={[['login', 'Entrar'], ['register', 'Crear cuenta']]}
+          />
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label style={s.label}>Usuario</label>
+            <label style={fieldLabel}>Usuario</label>
             <input
-              style={{ ...s.input, marginTop: 4 }}
+              style={{ ...s.input, marginTop: 6 }}
               value={username}
               onChange={e => setUsername(e.target.value)}
               placeholder="tunombre"
@@ -83,9 +78,9 @@ export default function ScreenLogin() {
           </div>
 
           <div>
-            <label style={s.label}>Contraseña</label>
+            <label style={fieldLabel}>Contraseña</label>
             <input
-              style={{ ...s.input, marginTop: 4 }}
+              style={{ ...s.input, marginTop: 6 }}
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -97,9 +92,9 @@ export default function ScreenLogin() {
 
           {tab === 'register' && (
             <div>
-              <label style={s.label}>Código de invitación</label>
+              <label style={fieldLabel}>Código de invitación</label>
               <input
-                style={{ ...s.input, marginTop: 4 }}
+                style={{ ...s.input, marginTop: 6 }}
                 value={code}
                 onChange={e => setCode(e.target.value)}
                 placeholder="Pegá el código que te pasaron"
