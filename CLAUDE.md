@@ -70,7 +70,7 @@ Nico/
 ### Backend
 
 - **Auth**: `POST /auth/login`, `POST /auth/register`, `GET /auth/me`
-- **Freno de login** (`login_throttle.py`): 10 intentos fallidos en 15 min desde la misma IP → 429. La IP sale de `CF-Connecting-IP` (túnel de Cloudflare); estado en memoria, un login correcto lo limpia.
+- **Freno de login** (`login_throttle.py`): 10 intentos fallidos en 15 min desde la misma IP → 429. La IP sale de `CF-Connecting-IP` **solo si el pedido viene de `TRUSTED_PROXY_CIDRS`** (default `172.16.0.0/12`: el túnel cloudflared llega por el gateway de la red Docker, ej. `172.20.0.1`); desde la LAN (`10.0.0.x` directo al `8005`) se usa la IP real para que nadie invente el header. Estado en memoria, un login correcto lo limpia.
 - **Invitaciones (admin)**: `GET/POST /auth/invitations`, `DELETE /auth/invitations/{id}`
 - **Endpoints CRUD** (todos requieren Bearer token): `/categories`, `/mediums`, `/tarjetas`, `/recurrentes`, `/suscripciones`, `/transactions`, `/months`
 - **Dólares (baúl)**: `/dollar/*` — operaciones de tenencia en USD (ingreso/compra/venta/retiro) + cotizaciones (`/dollar/quotes`)
@@ -145,6 +145,9 @@ TELEGRAM_BOT_OWNER_ID=1        # user.id del dueño del bot (tu usuario admin)
 
 # Alexa (opera en nombre de TELEGRAM_BOT_OWNER_ID)
 ALEXA_SKILL_ID=amzn1.ask.skill.xxxx   # applicationId de la skill, para validar requests
+
+# Freno de login: redes desde las que se acepta CF-Connecting-IP (red Docker del túnel)
+TRUSTED_PROXY_CIDRS=172.16.0.0/12
 
 # Gemini
 GEMINI_API_KEY=AIza...

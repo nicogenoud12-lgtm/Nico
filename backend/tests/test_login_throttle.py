@@ -6,6 +6,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from starlette.requests import Request
+
 from app import login_throttle as lt
 from app import models
 from app.auth import hash_password
@@ -48,7 +50,14 @@ def client():
             db.close()
 
     app.dependency_overrides[get_db] = _db
-    return TestClient(app)
+
+    # Simula que los pedidos llegan por el túnel (gateway de la red Docker).
+    async def via_tunel(scope, receive, send):
+        if scope["type"] == "http":
+            scope = {**scope, "client": ("172.20.0.1", 40000)}
+        await app(scope, receive, send)
+
+    return TestClient(via_tunel)
 
 
 def _login(client, password, ip="1.2.3.4"):
@@ -97,3 +106,35 @@ def test_limpieza_libera_ips_viejas(reloj):
     reloj["now"] += lt.VENTANA + 1
     lt.fallo("8.8.8.8")
     assert len(lt._fallos) == 1
+
+
+def _req(peer, cf=None):
+    headers = [(b"cf-connecting-ip", cf.encode())] if cf else []
+    return Request({"type": "http", "headers": headers, "client": (peer, 1234)})
+
+
+def test_client_ip_confia_en_el_header_solo_desde_el_tunel():
+    assert lt.client_ip(_req("172.20.0.1", "200.1.2.3")) == "200.1.2.3"
+
+
+def test_client_ip_ignora_el_header_desde_la_lan():
+    # Alguien en la red de casa pegándole directo al 8005 no puede elegir su IP
+    assert lt.client_ip(_req("10.0.0.50", "200.1.2.3")) == "10.0.0.50"
+    assert lt.client_ip(_req("10.0.0.50")) == "10.0.0.50"
+
+
+def test_client_ip_sin_header_usa_el_peer():
+    assert lt.client_ip(_req("172.20.0.1")) == "172.20.0.1"
+
+
+def test_client_ip_rango_configurable(monkeypatch):
+    monkeypatch.setattr(lt.settings, "TRUSTED_PROXY_CIDRS", "10.0.0.69/32")
+    assert lt.client_ip(_req("10.0.0.69", "200.1.2.3")) == "200.1.2.3"
+    assert lt.client_ip(_req("172.20.0.1", "200.1.2.3")) == "172.20.0.1"
+
+
+def test_spoof_desde_la_lan_no_esquiva_el_freno():
+    for i in range(lt.MAX_FALLOS):
+        lt.fallo(lt.client_ip(_req("10.0.0.50", f"1.1.1.{i}")))
+    with pytest.raises(Exception):
+        lt.check(lt.client_ip(_req("10.0.0.50", "9.9.9.9")))
